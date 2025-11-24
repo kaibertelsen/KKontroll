@@ -56,7 +56,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
 
   return (
     <div 
-      className="h-[420px] cursor-pointer perspective-[1000px]"
+      className="h-[350px] cursor-pointer perspective-[1000px]"
       onClick={() => setIsFlipped(!isFlipped)}
     >
       {/* LAYER 1: HOVER LIFT */}
@@ -79,7 +79,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
               </div>
 
               {/* Main List - Strict Order */}
-              <div className="flex flex-col gap-0.5 flex-grow">
+              <div className="flex flex-col gap-0.5">
                   
                   {/* 1. Revenue */}
                   <RowItem 
@@ -94,7 +94,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
                     value={data.expenses} 
                   />
                   
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1.5"></div>
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
                   
                   {/* 3. Result */}
                   <RowItem 
@@ -116,7 +116,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
                     valueColor="text-slate-500 dark:text-slate-400"
                   />
 
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1.5"></div>
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
 
                   {/* 4. Liquidity */}
                   <RowItem 
@@ -140,7 +140,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
                     value={data.accountsPayable} 
                   />
                   
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1.5"></div>
+                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
 
                   {/* 7. Status */}
                   <RowItem 
@@ -154,9 +154,8 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
               </div>
 
               {/* Footer: Deviation Text + Slider */}
-              {/* Removed mt-1, now mt-0 for tighter spacing */}
-              <div className="mt-0 pt-1 border-t border-slate-50 dark:border-slate-700/50">
-                <div className="flex justify-end mb-1">
+              <div className="mt-1">
+                <div className="flex justify-end">
                     <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         Avvik {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(1)}%
                     </span>

@@ -19,7 +19,7 @@ const DeviationSlider: React.FC<DeviationSliderProps> = ({ value }) => {
   else colorClass = 'bg-amber-400';
 
   return (
-    <div className="w-full h-10 relative flex items-center justify-center group">
+    <div className="w-full h-6 relative flex items-center justify-center group">
       {/* Background Track - Made thicker (h-3) */}
       <div className="absolute w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-100">
         {/* Center line indicator */}

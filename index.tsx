@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
-import { Lock, LogIn, MonitorPlay } from 'lucide-react';
+import { Lock, LogIn, MonitorPlay, Loader2 } from 'lucide-react';
 
 // Define global interface for window
 declare global {
@@ -17,17 +16,63 @@ declare global {
 
 // Fallback user ID for testing "Live" mode without Memberstack
 const TEST_USER_ID = "mem_sb_cmi4ny448009m0sr4ew3hdge1";
+const MEMBERSTACK_APP_ID = "app_cmhvzr10a00bq0ss39szp9ozj";
+
+// --- DYNAMIC SCRIPT LOADER ---
+const loadMemberstackScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        // If already loaded, resolve immediately
+        if (window.$memberstackDom) {
+            return resolve();
+        }
+        
+        // Check if script tag already exists (but maybe not fully loaded yet)
+        if (document.querySelector(`script[data-memberstack-app="${MEMBERSTACK_APP_ID}"]`)) {
+             // Simple wait loop if script tag exists but object not ready
+             const checkInterval = setInterval(() => {
+                 if (window.$memberstackDom) {
+                     clearInterval(checkInterval);
+                     resolve();
+                 }
+             }, 100);
+             // Timeout fallback
+             setTimeout(() => { clearInterval(checkInterval); resolve(); }, 5000);
+             return;
+        }
+
+        console.log("Loading Memberstack dynamically...");
+        const script = document.createElement('script');
+        script.src = "https://static.memberstack.com/scripts/v2/memberstack.js";
+        script.dataset.memberstackApp = MEMBERSTACK_APP_ID;
+        script.type = "text/javascript";
+        script.async = true;
+
+        script.onload = () => {
+            console.log("Memberstack script loaded.");
+            // Small delay to ensure window.$memberstackDom is populated
+            setTimeout(resolve, 200);
+        };
+        script.onerror = (e) => {
+            console.error("Failed to load Memberstack", e);
+            reject(e);
+        };
+
+        document.head.appendChild(script);
+    });
+};
+
 
 // --- LOGIN SCREEN COMPONENT ---
 const LoginScreen = () => {
     const [pwd, setPwd] = useState('');
     const [error, setError] = useState(false);
+    const [isLoadingMs, setIsLoadingMs] = useState(false);
 
     const handleDemoSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (pwd === 'KonsernDemo2025') {
             localStorage.setItem('konsern_access', 'granted');
-            // Start Demo Mode directly without reload
+            // Start Demo Mode directly
             window.initKonsernKontroll(undefined, true);
         } else {
             setError(true);
@@ -35,15 +80,26 @@ const LoginScreen = () => {
     };
 
     const handleAttentioLogin = async () => {
-        if (window.$memberstackDom) {
-            try {
+        setIsLoadingMs(true);
+        try {
+            // 1. Load Script dynamically
+            await loadMemberstackScript();
+            
+            // 2. Open Modal
+            if (window.$memberstackDom) {
                 await window.$memberstackDom.openModal('LOGIN');
-            } catch (err) {
-                console.error("Memberstack modal error:", err);
-                alert("Kunne ikke åpne innlogging. Prøv igjen.");
+            } else {
+                // Retry once if not immediately available
+                setTimeout(async () => {
+                    if(window.$memberstackDom) await window.$memberstackDom.openModal('LOGIN');
+                    else alert("Kunne ikke starte innloggingstjenesten. Prøv igjen.");
+                }, 500);
             }
-        } else {
-            alert("Innloggingstjenesten laster fortsatt. Vent litt og prøv igjen.");
+        } catch (err) {
+            console.error("Login error:", err);
+            alert("Feil ved lasting av innlogging. Sjekk nettilgang.");
+        } finally {
+            setIsLoadingMs(false);
         }
     };
 
@@ -70,10 +126,11 @@ const LoginScreen = () => {
 
                     <button 
                         onClick={handleAttentioLogin}
-                        className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2"
+                        disabled={isLoadingMs}
+                        className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
                     >
-                        <LogIn size={18} />
-                        Logg inn med Attentio
+                        {isLoadingMs ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+                        {isLoadingMs ? 'Laster...' : 'Logg inn med Attentio'}
                     </button>
                 </div>
 
@@ -124,7 +181,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     return;
   }
 
-  // Use existing root if available to prevent unmount/remount flickering or errors
   let root = window.konsernRoot;
   if (!root) {
       root = ReactDOM.createRoot(rootElement);
@@ -145,7 +201,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   // 2. DETERMINE MODE (Demo vs Live vs Login)
   
-  // Default state: Show Login Screen
   let shouldStartApp = false;
   let isDemo = false;
 
@@ -160,8 +215,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
   
   // If neither condition is met, we fall through to LoginScreen.
-  // We do NOT check localStorage for 'previous session' to auto-start Demo anymore.
-
   if (!shouldStartApp) {
       root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
       return;
@@ -202,7 +255,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   let effectiveUserId = userId;
   
   if (!effectiveUserId && memberstackUser) {
-      // Check for custom field 'neonid'
       if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
           effectiveUserId = memberstackUser.customFields['neonid'];
           console.log("Using Memberstack Custom Field neonid:", effectiveUserId);
@@ -212,11 +264,10 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       }
   }
 
-  // Fallback for local dev if no MS login (and not in Demo mode)
+  // Fallback for local dev if no MS login
   if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
 
   try {
-    // 1. Determine Lookup Strategy
     let userWhere = {};
     if (/^\d+$/.test(String(effectiveUserId))) {
         userWhere = { id: effectiveUserId };
@@ -224,7 +275,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         userWhere = { auth_id: effectiveUserId };
     }
 
-    // 2. Fetch User
     const userRes = await getNEON({ table: 'users', where: userWhere });
     const user = userRes.rows[0];
 
@@ -233,23 +283,17 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
                 <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
                     <h3 className="text-xl font-bold text-rose-600 mb-2">Bruker ikke funnet</h3>
-                    <p className="text-slate-600 mb-4">
-                        Vi fant ingen kobling mot din bruker i systemet.
-                    </p>
+                    <p className="text-slate-600 mb-4">Vi fant ingen kobling mot din bruker i systemet.</p>
                     <p className="text-xs text-slate-400 mb-6 font-mono bg-slate-100 p-2 rounded">ID: {String(effectiveUserId)}</p>
                     <div className="flex gap-3 justify-center">
                         <button 
                             onClick={() => { if(window.$memberstackDom) window.$memberstackDom.logout(); window.initKonsernKontroll(); }}
                             className="px-4 py-2 border border-slate-300 rounded hover:bg-slate-50"
-                        >
-                            Logg ut
-                        </button>
+                        >Logg ut</button>
                         <button 
                             onClick={() => { window.initKonsernKontroll(undefined, true); }}
                             className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-500"
-                        >
-                            Gå til Demo
-                        </button>
+                        >Gå til Demo</button>
                     </div>
                 </div>
             </div>
@@ -259,14 +303,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
     localStorage.setItem('konsern_mode', 'live'); // Track current session mode
 
-    // 3. Fetch Group Name
+    // Fetch Group Name
     let groupName = "Mitt Konsern";
     if (user.group_id) {
         const groupRes = await getNEON({ table: 'groups', where: { id: user.group_id } });
         if(groupRes.rows[0]) groupName = groupRes.rows[0].name;
     }
 
-    // 4. Fetch Companies
+    // Fetch Companies
     let companyWhere: any = {};
     if (user.role === 'leader' && user.company_id) {
         companyWhere = { id: user.company_id };
@@ -278,7 +322,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const rawCompanies = compRes.rows || [];
 
     const mappedCompanies = rawCompanies.map((c: any) => {
-        // Parse JSON budget months safely
         let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
         try {
             if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
@@ -327,12 +370,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     root.render(
         <div className="p-10 text-center font-sans">
             <p className="text-rose-600 mb-4">Feil ved lasting av data.</p>
-            <button 
-                onClick={() => { window.initKonsernKontroll(); }}
-                className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300"
-            >
-                Prøv igjen
-            </button>
+            <button onClick={() => { window.initKonsernKontroll(); }} className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300">Prøv igjen</button>
         </div>
     );
   }
@@ -340,11 +378,19 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
 // --- AUTO-START LOGIC ---
 window.addEventListener('DOMContentLoaded', async () => {
-    if (window.$memberstackDom) {
-        // Memberstack loaded logic check
+    const mode = localStorage.getItem('konsern_mode');
+    
+    // Only attempt auto-load if we were in LIVE mode previously
+    // If we were in Demo, or nothing, we just run init which will show login screen
+    if (mode === 'live') {
+        try {
+            await loadMemberstackScript();
+        } catch (e) {
+            console.warn("Background MS load failed", e);
+        }
     }
-    // Small delay to allow MS to populate localstorage
+    
     setTimeout(() => {
         window.initKonsernKontroll();
-    }, 500);
+    }, 100);
 });
