@@ -48,12 +48,12 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   // --- LONG PRESS LOGIC ---
   const startPress = () => {
-    if (isSortMode) return; // Already sorting
+    if (isSortMode) return; 
     setIsPressed(true);
     timerRef.current = setTimeout(() => {
       setIsPressed(false);
       onLongPressTrigger();
-    }, 2000); // 2 seconds hold
+    }, 2000); 
   };
 
   const cancelPress = () => {
@@ -63,6 +63,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
     }
     setIsPressed(false);
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+      return () => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+      };
+  }, []);
 
   // --- CHART DATA GENERATION ---
   const chartData = useMemo(() => {
@@ -104,9 +111,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   const handleClick = (e: React.MouseEvent) => {
     if (isSortMode) {
-        e.preventDefault(); // Disable click in sort mode
+        e.preventDefault(); 
         return;
     }
+    // Don't flip if clicking buttons that stop propagation
     setIsFlipped(!isFlipped);
   };
 
@@ -143,9 +151,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
       onDragEnter={(e) => onDragEnter && onDragEnter(e, index)}
       onDragEnd={onDragEnd}
-      onDragOver={(e) => e.preventDefault()} // Allow drop
+      onDragOver={(e) => e.preventDefault()} 
     >
-      {/* Sort Mode Overlay / Handle hint */}
+      {/* Sort Mode Overlay */}
       {isSortMode && (
           <div className="absolute -top-2 -right-2 z-50 bg-white dark:bg-slate-700 rounded-full p-1 shadow-md border border-slate-200 dark:border-slate-600 animate-bounce">
               <GripHorizontal className="w-4 h-4 text-slate-500 dark:text-slate-300" />
@@ -165,14 +173,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
         <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped && !isSortMode ? '[transform:rotateY(180deg)]' : ''}`}>
           
           {/* FRONT FACE */}
-          <div className="absolute inset-0 w-full h-full [backface-visibility:hidden]">
+          <div 
+            className="absolute inset-0 w-full h-full [backface-visibility:hidden]"
+            style={{ pointerEvents: isFlipped ? 'none' : 'auto' }}
+          >
             <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
               {/* Header */}
               <div className="flex justify-between items-start mb-3">
                 <div className="overflow-hidden w-full">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate pr-1" title={data.fullName || data.name}>
-                      {data.id}. {data.fullName || data.name}
+                      {index + 1}. {data.fullName || data.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{data.manager}</p>
                 </div>
@@ -226,12 +237,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
 
           {/* BACK FACE */}
-          <div className="absolute inset-0 w-full h-full [transform:rotateY(180deg)] [backface-visibility:hidden]">
+          <div 
+            className="absolute inset-0 w-full h-full [transform:rotateY(180deg)] [backface-visibility:hidden]"
+            style={{ pointerEvents: isFlipped ? 'auto' : 'none' }}
+          >
             <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 flex flex-col h-full text-slate-50 relative overflow-hidden">
               
               <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
                 <div className="overflow-hidden">
-                    <h3 className="text-sm font-bold text-white truncate leading-tight" title={data.fullName || data.name}>{data.fullName || data.name}</h3>
+                    <h3 className="text-sm font-bold text-white truncate leading-tight" title={data.fullName || data.name}>
+                        {index + 1}. {data.fullName || data.name}
+                    </h3>
                     <p className="text-[10px] text-slate-400 uppercase tracking-wider">Resultatutvikling</p>
                 </div>
                 <div className="p-1 bg-slate-700 rounded-full shrink-0">
@@ -259,8 +275,12 @@ const MetricCard: React.FC<MetricCardProps> = ({
               </div>
 
               <button 
-                className="mt-3 w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg"
-                onClick={(e) => { e.stopPropagation(); onSelect(data); }}
+                className="mt-3 w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg cursor-pointer relative z-20"
+                onClick={(e) => { 
+                    e.stopPropagation(); 
+                    e.preventDefault(); // Prevent double firing
+                    onSelect(data); 
+                }}
               >
                 Gå til Firmaside <ArrowRight className="w-4 h-4" />
               </button>
