@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { formatCurrency } from './constants';
-import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem } from './types';
+import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
 import MetricCard from './components/MetricCard';
 import AnalyticsView from './components/AnalyticsView';
 import CompanyDetailView from './components/CompanyDetailView';
@@ -22,8 +22,7 @@ import {
   Settings,
   Database,
   MonitorPlay,
-  Users,
-  Briefcase
+  Users
 } from 'lucide-react';
 
 interface UserProfile {
@@ -47,18 +46,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Demo Role State (Only used if isDemo is true)
   const [demoRole, setDemoRole] = useState<'controller' | 'leader'>(userProfile.role);
-
-  // Effective Role (Use demoRole if in demo mode, otherwise use real profile role)
   const effectiveRole = isDemo ? demoRole : userProfile.role;
 
-  // DATA STATE
   const [companies, setCompanies] = useState<CompanyData[]>(initialCompanies || []);
   const [users, setUsers] = useState<UserData[]>([]);
   const [reports, setReports] = useState<ReportLogItem[]>([]);
+  const [forecasts, setForecasts] = useState<ForecastItem[]>([]);
 
-  // --- FETCH USERS (Only for Admin) ---
+  // --- FETCH USERS (Admin) ---
   useEffect(() => {
       if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
           getNEON({ table: 'users', where: { group_id: userProfile.groupId } })
@@ -80,15 +76,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   }, [isDemo, userProfile, viewMode, effectiveRole]);
 
-  // --- FETCH REPORTS (When Company Selected) ---
+  // --- FETCH REPORTS & FORECASTS ---
   useEffect(() => {
       if (!selectedCompany) return;
 
       if (!isDemo) {
-          // Clear reports initially or keep them? Better clear to avoid mixing.
-          // But for optimistic updates, we want to avoid reset.
-          // Since we changed dependency to selectedCompany.id, this only runs on company switch.
-          setReports([]); 
+          // Fetch Reports
           getNEON({ table: 'reports', where: { company_id: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
@@ -98,30 +91,59 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         author: r.author_name || 'Ukjent',
                         comment: r.comment,
                         status: r.status,
-                        result: r.result_ytd,
-                        liquidity: r.liquidity,
+                        
+                        // Map nullable fields
+                        result: r.result_ytd != null ? r.result_ytd : undefined,
+                        liquidity: r.liquidity != null ? r.liquidity : undefined,
+                        revenue: r.revenue != null ? r.revenue : undefined,
+                        expenses: r.expenses != null ? r.expenses : undefined,
+                        receivables: r.receivables != null ? r.receivables : undefined,
+                        accountsPayable: r.accounts_payable != null ? r.accounts_payable : undefined,
+                        
+                        liquidityDate: r.liquidity_date || '',
+                        receivablesDate: r.receivables_date || '',
+                        accountsPayableDate: r.accounts_payable_date || '',
                         source: r.source || 'Manuell',
-                        approvedBy: r.approved_by_user_id ? 'Kontroller' : undefined, // Simplify for now, ideally fetch user name
+                        approvedBy: r.approved_by_user_id ? 'Kontroller' : undefined,
                         approvedAt: r.approved_at ? new Date(r.approved_at).toLocaleDateString('no-NO') : undefined
                     }));
-                    // Sort by date desc
                     mappedReports.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     setReports(mappedReports);
                 }
             })
             .catch(err => console.error("Error fetching reports", err));
+
+          // Fetch Forecasts
+          getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } })
+            .then(res => {
+                if(res.rows) {
+                    const mappedForecasts = res.rows.map((f: any) => ({
+                        id: f.id,
+                        companyId: f.company_id,
+                        month: f.month,
+                        estimatedReceivables: f.estimated_receivables || 0,
+                        estimatedPayables: f.estimated_payables || 0
+                    }));
+                    setForecasts(mappedForecasts);
+                }
+            })
+            .catch(err => console.error("Error fetching forecasts", err));
+
       } else {
-          // Mock reports for demo
-          // Only set if switching companies (based on dep array)
           setReports([
               { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller' },
               { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex' }
           ]);
+          // Demo forecasts
+          setForecasts([
+              { companyId: 1, month: '2023-12', estimatedReceivables: 150000, estimatedPayables: 100000 },
+              { companyId: 1, month: '2024-01', estimatedReceivables: 200000, estimatedPayables: 120000 }
+          ]);
       }
-  }, [selectedCompany?.id, isDemo]); // Changed dependency from selectedCompany to selectedCompany.id
+  }, [selectedCompany?.id, isDemo]);
 
 
-  // --- COMPANY CRUD HANDLERS ---
+  // --- COMPANY CRUD ---
 
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
     const payload = { ...newCompany, groupId: userProfile.groupId };
@@ -135,10 +157,21 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             const dbPayload = {
                 name: payload.name,
                 manager: payload.manager,
+                revenue: payload.revenue,
+                expenses: payload.expenses,
                 result_ytd: payload.resultYTD,
+                
+                // Budget Fields
                 budget_total: payload.budgetTotal,
+                budget_mode: payload.budgetMode,
+                budget_months: JSON.stringify(payload.budgetMonths),
+
                 liquidity: payload.liquidity,
+                receivables: payload.receivables,
+                accounts_payable: payload.accountsPayable,
                 liquidity_date: payload.liquidityDate,
+                receivables_date: payload.receivablesDate,
+                accounts_payable_date: payload.accountsPayableDate,
                 trend_history: payload.trendHistory,
                 last_report_date: payload.lastReportDate,
                 last_report_by: payload.lastReportBy,
@@ -163,10 +196,21 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             const dbFields = {
                 name: fields.name,
                 manager: fields.manager,
+                revenue: fields.revenue,
+                expenses: fields.expenses,
                 result_ytd: fields.resultYTD,
+                
+                // Budget Fields
                 budget_total: fields.budgetTotal,
+                budget_mode: fields.budgetMode,
+                budget_months: JSON.stringify(fields.budgetMonths),
+
                 liquidity: fields.liquidity,
+                receivables: fields.receivables,
+                accounts_payable: fields.accountsPayable,
                 liquidity_date: fields.liquidityDate,
+                receivables_date: fields.receivablesDate,
+                accounts_payable_date: fields.accountsPayableDate,
                 trend_history: fields.trendHistory,
                 last_report_date: fields.lastReportDate,
                 last_report_by: fields.lastReportBy,
@@ -197,19 +241,37 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const reloadCompanies = async () => {
       const res = await getNEON({ table: 'companies', where: { group_id: userProfile.groupId } });
       if(res.rows) {
-          setCompanies(res.rows.map((c: any) => ({
-            ...c,
-            resultYTD: Number(c.result_ytd || 0),
-            budgetTotal: Number(c.budget_total || 0),
-            liquidity: Number(c.liquidity || 0),
-            trendHistory: Number(c.trend_history || 0),
-            name: c.name || '',
-            manager: c.manager || '',
-            liquidityDate: c.liquidity_date || '',
-            lastReportDate: c.last_report_date || '',
-            lastReportBy: c.last_report_by || '',
-            comment: c.current_comment || '',
-        })));
+          setCompanies(res.rows.map((c: any) => {
+            let budgetMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+            try {
+                if(Array.isArray(c.budget_months)) budgetMonths = c.budget_months;
+                else if(typeof c.budget_months === 'string') budgetMonths = JSON.parse(c.budget_months);
+            } catch(e) {}
+
+            return {
+                ...c,
+                revenue: Number(c.revenue || 0),
+                expenses: Number(c.expenses || 0),
+                resultYTD: Number(c.result_ytd || 0),
+                
+                budgetTotal: Number(c.budget_total || 0),
+                budgetMode: c.budget_mode || 'annual',
+                budgetMonths: budgetMonths,
+
+                liquidity: Number(c.liquidity || 0),
+                receivables: Number(c.receivables || 0),
+                accountsPayable: Number(c.accounts_payable || 0),
+                trendHistory: Number(c.trend_history || 0),
+                name: c.name || '',
+                manager: c.manager || '',
+                liquidityDate: c.liquidity_date || '',
+                receivablesDate: c.receivables_date || '',
+                accountsPayableDate: c.accounts_payable_date || '',
+                lastReportDate: c.last_report_date || '',
+                lastReportBy: c.last_report_by || '',
+                comment: c.current_comment || '',
+            };
+        }));
       }
   };
 
@@ -218,13 +280,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const handleSubmitReport = async (reportData: any) => {
       if (!selectedCompany) return;
 
-      // IF REPORT ID EXISTS, IT IS AN UPDATE
+      // --- Update Logic: Update existing report ---
       if (reportData.id) {
-          // Update state
           setReports(prev => prev.map(r => r.id === reportData.id ? { 
               ...r, 
+              revenue: reportData.revenue,
+              expenses: reportData.expenses,
               result: reportData.resultYTD,
               liquidity: reportData.liquidity,
+              receivables: reportData.receivables,
+              accountsPayable: reportData.accountsPayable,
+              liquidityDate: reportData.liquidityDate,
+              receivablesDate: reportData.receivablesDate,
+              accountsPayableDate: reportData.accountsPayableDate,
               comment: reportData.comment,
               source: reportData.source
           } : r));
@@ -234,8 +302,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   await patchNEON({ table: 'reports', data: {
                       id: reportData.id,
                       fields: {
+                          revenue: reportData.revenue,
+                          expenses: reportData.expenses,
                           result_ytd: reportData.resultYTD,
                           liquidity: reportData.liquidity,
+                          receivables: reportData.receivables,
+                          accounts_payable: reportData.accountsPayable,
+                          liquidity_date: reportData.liquidityDate,
+                          receivables_date: reportData.receivablesDate,
+                          accounts_payable_date: reportData.accountsPayableDate,
                           comment: reportData.comment,
                           source: reportData.source
                       }
@@ -248,50 +323,69 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           return;
       }
 
-      // --- CREATE NEW REPORT ---
-
+      // --- Create Logic: New Report ---
       const newReportLog: ReportLogItem = {
           id: Date.now(),
           date: new Date().toLocaleDateString('no-NO'),
           author: userProfile.fullName,
           comment: reportData.comment,
           status: 'submitted',
+          // Only set values if they exist
+          revenue: reportData.revenue,
+          expenses: reportData.expenses,
           result: reportData.resultYTD,
           liquidity: reportData.liquidity,
+          receivables: reportData.receivables,
+          accountsPayable: reportData.accountsPayable,
+          liquidityDate: reportData.liquidityDate,
+          receivablesDate: reportData.receivablesDate,
+          accountsPayableDate: reportData.accountsPayableDate,
           source: reportData.source
       };
 
-      // Optimistic UI
       setReports(prev => [newReportLog, ...prev]);
       
-      // Update Company Snapshot Optimistically
       const updatedCompany = { 
           ...selectedCompany, 
-          resultYTD: reportData.resultYTD, 
-          liquidity: reportData.liquidity,
+          revenue: reportData.revenue ?? selectedCompany.revenue,
+          expenses: reportData.expenses ?? selectedCompany.expenses,
+          resultYTD: reportData.resultYTD ?? selectedCompany.resultYTD, 
+          liquidity: reportData.liquidity ?? selectedCompany.liquidity,
+          receivables: reportData.receivables ?? selectedCompany.receivables,
+          accountsPayable: reportData.accountsPayable ?? selectedCompany.accountsPayable,
+          
+          liquidityDate: reportData.liquidityDate || selectedCompany.liquidityDate,
+          receivablesDate: reportData.receivablesDate || selectedCompany.receivablesDate,
+          accountsPayableDate: reportData.accountsPayableDate || selectedCompany.accountsPayableDate,
+          
           comment: reportData.comment,
           lastReportDate: newReportLog.date,
           lastReportBy: newReportLog.author
       };
+      
       setSelectedCompany(updatedCompany);
       setCompanies(prev => prev.map(c => c.id === selectedCompany.id ? updatedCompany : c));
 
       if (!isDemo) {
           try {
-              // 1. Save Report
               await postNEON({ table: 'reports', data: {
                   company_id: selectedCompany.id,
                   author_name: userProfile.fullName,
+                  revenue: reportData.revenue,
+                  expenses: reportData.expenses,
                   result_ytd: reportData.resultYTD,
                   liquidity: reportData.liquidity,
+                  receivables: reportData.receivables,
+                  accounts_payable: reportData.accountsPayable,
+                  liquidity_date: reportData.liquidityDate,
+                  receivables_date: reportData.receivablesDate,
+                  accounts_payable_date: reportData.accountsPayableDate,
                   comment: reportData.comment,
                   source: reportData.source,
                   status: 'submitted'
               }});
-
-              // 2. Update Company Snapshot
+              
               await handleUpdateCompany(updatedCompany);
-
           } catch (e) {
               console.error("Failed to submit report", e);
               alert("Kunne ikke lagre rapporten.");
@@ -301,7 +395,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleApproveReport = async (reportId: number) => {
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: userProfile.fullName } : r));
-
       if (!isDemo) {
           try {
               await patchNEON({ table: 'reports', data: { 
@@ -309,7 +402,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   fields: { 
                       status: 'approved',
                       approved_at: new Date().toISOString(),
-                      // In real app, save approved_by_user_id
+                      approved_by_user_id: users.find(u => u.fullName === userProfile.fullName)?.id 
                   } 
               }});
           } catch (e) {
@@ -319,9 +412,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   };
 
   const handleUnlockReport = async (reportId: number) => {
-      // Reset to submitted
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
-
       if (!isDemo) {
           try {
               await patchNEON({ table: 'reports', data: { 
@@ -338,10 +429,135 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   };
 
-  // --- USER HANDLERS (Simplified) ---
-  const handleAddUser = async (u: any) => { /* ... */ };
-  const handleUpdateUser = async (u: any) => { /* ... */ };
-  const handleDeleteUser = async (id: number) => { /* ... */ };
+  // --- FORECAST HANDLER ---
+  const handleForecastSubmit = async (submittedForecasts: ForecastItem[]) => {
+      // Update local state
+      const updatedForecasts = [...forecasts];
+      
+      submittedForecasts.forEach(newItem => {
+          const index = updatedForecasts.findIndex(f => f.month === newItem.month && f.companyId === newItem.companyId);
+          if (index >= 0) {
+              updatedForecasts[index] = newItem;
+          } else {
+              updatedForecasts.push(newItem);
+          }
+      });
+      setForecasts(updatedForecasts);
+
+      if (!isDemo) {
+          try {
+              // We need to handle each forecast item individually (upsert logic manual)
+              for (const item of submittedForecasts) {
+                  if (item.id) {
+                      // Update existing
+                      await patchNEON({ table: 'forecasts', data: {
+                          id: item.id,
+                          fields: {
+                              estimated_receivables: item.estimatedReceivables,
+                              estimated_payables: item.estimatedPayables
+                          }
+                      }});
+                  } else {
+                      // Create new
+                      await postNEON({ table: 'forecasts', data: {
+                          company_id: item.companyId,
+                          month: item.month,
+                          estimated_receivables: item.estimatedReceivables,
+                          estimated_payables: item.estimatedPayables
+                      }});
+                  }
+              }
+              // Reload to get IDs
+              if(selectedCompany) {
+                  const fresh = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
+                  if(fresh.rows) {
+                      setForecasts(fresh.rows.map((f:any) => ({
+                        id: f.id,
+                        companyId: f.company_id,
+                        month: f.month,
+                        estimatedReceivables: f.estimated_receivables || 0,
+                        estimatedPayables: f.estimated_payables || 0
+                    })));
+                  }
+              }
+          } catch (e) {
+              console.error("Failed to save forecasts", e);
+              alert("Feil ved lagring av prognose");
+          }
+      }
+  };
+
+  // --- USER HANDLERS ---
+  const handleAddUser = async (user: Omit<UserData, 'id'>) => {
+      const tempId = Date.now();
+      setUsers(prev => [...prev, { ...user, id: tempId, groupId: userProfile.groupId }]);
+      
+      if (!isDemo) {
+          try {
+              const dbUser = {
+                  auth_id: user.authId,
+                  email: user.email,
+                  full_name: user.fullName,
+                  role: user.role,
+                  company_id: user.companyId,
+                  group_id: userProfile.groupId
+              };
+              const res = await postNEON({ table: 'users', data: dbUser });
+              if (res) {
+                  const fresh = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+                  if (fresh.rows) {
+                      setUsers(fresh.rows.map((u: any) => ({
+                        id: u.id,
+                        authId: u.auth_id,
+                        email: u.email,
+                        fullName: u.full_name,
+                        role: u.role,
+                        groupId: u.group_id,
+                        companyId: u.company_id
+                    })));
+                  }
+              }
+          } catch (e) {
+              console.error("Failed to add user", e);
+              setUsers(prev => prev.filter(u => u.id !== tempId));
+              alert("Feil ved lagring av bruker.");
+          }
+      }
+  };
+
+  const handleUpdateUser = async (user: UserData) => {
+      setUsers(prev => prev.map(u => u.id === user.id ? user : u));
+      if (!isDemo) {
+          try {
+              const { id, ...fields } = user;
+              const dbFields = {
+                  auth_id: fields.authId,
+                  email: fields.email,
+                  full_name: fields.fullName,
+                  role: fields.role,
+                  company_id: fields.companyId
+              };
+              await patchNEON({ table: 'users', data: { id, fields: dbFields } });
+          } catch (e) {
+              console.error("Failed to update user", e);
+              alert("Feil ved oppdatering av bruker.");
+          }
+      }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+      const prevUsers = [...users];
+      setUsers(prev => prev.filter(u => u.id !== id));
+      if (!isDemo) {
+          try {
+              await deleteNEON({ table: 'users', data: id });
+          } catch (e) {
+              console.error("Failed to delete user", e);
+              setUsers(prevUsers);
+              alert("Kunne ikke slette bruker.");
+          }
+      }
+  };
 
 
   // --- APP LOGIC ---
@@ -373,17 +589,30 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     const oneDay = 1000 * 60 * 60 * 24;
     const dayOfYear = Math.floor(diff / oneDay);
     const currentMonthIndex = now.getMonth(); 
+    const dayOfMonth = now.getDate();
+    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
     
     return visibleCompanies.map(company => {
         let targetBudget = 0;
+        
+        const bMonths = company.budgetMonths && company.budgetMonths.length === 12 
+            ? company.budgetMonths 
+            : Array(12).fill(company.budgetTotal / 12);
+
         if (isTodayMode) {
-            targetBudget = (company.budgetTotal / 365) * dayOfYear;
+            for (let i = 0; i < currentMonthIndex; i++) {
+                targetBudget += bMonths[i];
+            }
+            targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * dayOfMonth;
         } else {
-            const monthsToCount = Math.max(0, currentMonthIndex);
-            targetBudget = (company.budgetTotal / 12) * monthsToCount;
+            for (let i = 0; i < currentMonthIndex; i++) {
+                targetBudget += bMonths[i];
+            }
         }
+
         const deviation = company.resultYTD - targetBudget;
         const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
+        
         return {
             ...company,
             calculatedBudgetYTD: targetBudget,
@@ -432,11 +661,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       <CompanyDetailView 
         company={selectedCompany} 
         reports={reports}
+        forecasts={forecasts}
         userRole={effectiveRole}
         onBack={() => setSelectedCompany(null)} 
         onReportSubmit={handleSubmitReport}
         onApproveReport={handleApproveReport}
         onUnlockReport={handleUnlockReport}
+        onForecastSubmit={handleForecastSubmit}
       />
     );
   }
@@ -544,25 +775,17 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             <>
                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                     
-                    <div className="flex items-center space-x-1 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-full md:w-auto overflow-x-auto transition-colors duration-300">
-                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500 px-3 uppercase tracking-wider whitespace-nowrap flex items-center gap-1">Sortering</span>
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                        <button onClick={() => setSortField(SortField.RESULT)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${sortField === SortField.RESULT ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Resultat</button>
-                        <button onClick={() => setSortField(SortField.DEVIATION)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${sortField === SortField.DEVIATION ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Avvik %</button>
-                        <button onClick={() => setSortField(SortField.LIQUIDITY)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${sortField === SortField.LIQUIDITY ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Likviditet</button>
-                        {sortField !== SortField.DEFAULT && (<button onClick={() => setSortField(SortField.DEFAULT)} className="px-2 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400"><ArrowUpDown size={14} /></button>)}
-                        
-                        <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
+                    <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
                         <button 
                             onClick={() => setIsTodayMode(false)} 
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                         >
                             Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span>
                         </button>
+                        <div className="w-2"></div>
                         <button 
                             onClick={() => setIsTodayMode(true)} 
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
                         >
                             I dag <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({currentDateDisplay})</span>
                         </button>

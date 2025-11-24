@@ -4,13 +4,21 @@ export interface CompanyData {
   name: string; // Acronym e.g., VPS
   manager: string; // e.g., Kai
   resultYTD: number;
-  budgetTotal: number; // Annual budget
+  budgetTotal: number; // Annual budget (Calculated sum of months)
+  budgetMode: 'annual' | 'quarterly' | 'monthly';
+  budgetMonths: number[]; // Array of 12 numbers [Jan, Feb, ... Dec]
+  revenue: number; // Omsetning
+  expenses: number; // Kostnader
   liquidity: number;
+  receivables: number; // Fordringer
+  accountsPayable: number; // Leverandørgjeld
   liquidityDate: string; // Date for liquidity snapshot
+  receivablesDate?: string; // Date for receivables snapshot
+  accountsPayableDate?: string; // Date for payables snapshot
   lastReportDate: string;
   lastReportBy: string;
   comment: string;
-  trendHistory: number; // Percentage change vs same period last year (e.g. 12 for +12%)
+  trendHistory: number; // Percentage change vs same period last year
 }
 
 export interface ComputedCompanyData extends CompanyData {
@@ -34,11 +42,29 @@ export interface ReportLogItem {
   author: string;
   comment: string;
   status: 'submitted' | 'approved' | 'draft';
-  result: number;
-  liquidity: number;
+  // All financials are now optional to support partial reporting
+  result?: number | null;
+  liquidity?: number | null;
+  revenue?: number | null;
+  expenses?: number | null;
+  receivables?: number | null;
+  accountsPayable?: number | null;
+  
+  liquidityDate?: string;
+  receivablesDate?: string;
+  accountsPayableDate?: string;
+  
   source: string;
   approvedBy?: string;
   approvedAt?: string;
+}
+
+export interface ForecastItem {
+  id?: number;
+  companyId: number;
+  month: string; // YYYY-MM
+  estimatedReceivables: number;
+  estimatedPayables: number;
 }
 
 export enum SortField {

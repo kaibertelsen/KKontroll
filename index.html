@@ -5,13 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>KonsernKontroll</title>
     
-    <!-- 1. Last inn Tailwind CSS -->
+    <!-- Memberstack webflow package -->
+    <script data-memberstack-app="app_cmhvzr10a00bq0ss39szp9ozj" src="https://static.memberstack.com/scripts/v2/memberstack.js" type="text/javascript"></script>
+
+    <!-- Tailwind CSS (CDN for simplicity in this setup) -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- 2. Last inn Fonter -->
+    <!-- Fonter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- 3. Konfigurer Tailwind (Mørk modus + Farger) -->
+    <!-- Tailwind Config -->
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -30,9 +33,11 @@
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
-    "drizzle-orm/": "https://aistudiocdn.com/drizzle-orm@^0.44.7/",
-    "drizzle-orm": "https://aistudiocdn.com/drizzle-orm@^0.44.7"
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "drizzle-orm": "https://aistudiocdn.com/drizzle-orm@^0.44.7",
+    "drizzle-orm/": "https://aistudiocdn.com/drizzle-orm@^0.44.7/"
   }
 }
 </script>
@@ -40,7 +45,7 @@
   <body class="bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 antialiased">
     <div id="root"></div>
 
-    <!-- 5. Last inn lokal applikasjon for preview -->
-    <script type="module" src="./index.tsx"></script>
+    <!-- App Entry Point -->
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>

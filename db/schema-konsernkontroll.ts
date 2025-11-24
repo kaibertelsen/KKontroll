@@ -1,3 +1,4 @@
+
 import {
   pgTable,
   varchar,
@@ -8,7 +9,8 @@ import {
   numeric,
   date,
   pgEnum,
-  boolean
+  boolean,
+  json
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -17,6 +19,7 @@ import { relations } from "drizzle-orm";
 ---------------------------------------------------*/
 export const userRoleEnum = pgEnum("user_role", ["controller", "leader"]);
 export const reportStatusEnum = pgEnum("report_status", ["draft", "submitted", "approved"]);
+export const budgetModeEnum = pgEnum("budget_mode", ["annual", "quarterly", "monthly"]);
 
 /* -------------------------------------------------
    1. GROUPS (Konsern/Klient/Tenant)
@@ -51,10 +54,22 @@ export const companies = pgTable("companies", {
   manager: varchar("manager", { length: 255 }).notNull(), 
   
   // Økonomiske nøkkeltall (Snapshot)
+  revenue: integer("revenue").default(0).notNull(),
+  expenses: integer("expenses").default(0).notNull(),
   resultYtd: integer("result_ytd").default(0).notNull(),
+  
+  // Budsjettlogikk
   budgetTotal: integer("budget_total").default(0).notNull(), 
+  budgetMode: budgetModeEnum("budget_mode").default("annual"),
+  budgetMonths: json("budget_months").$type<number[]>().default([0,0,0,0,0,0,0,0,0,0,0,0]),
+
   liquidity: integer("liquidity").default(0).notNull(),
+  receivables: integer("receivables").default(0).notNull(), // Fordringer
+  accountsPayable: integer("accounts_payable").default(0).notNull(), // Leverandørgjeld
+  
   liquidityDate: varchar("liquidity_date", { length: 20 }), 
+  receivablesDate: varchar("receivables_date", { length: 20 }),
+  accountsPayableDate: varchar("accounts_payable_date", { length: 20 }),
   
   // Analyse
   trendHistory: numeric("trend_history", { precision: 5, scale: 2 }).default("0"), 
@@ -77,12 +92,21 @@ export const reports = pgTable("reports", {
   submittedByUserId: integer("submitted_by_user_id").references(() => users.id),
   authorName: varchar("author_name", { length: 255 }), 
   
-  resultYtd: integer("result_ytd").notNull(),
-  liquidity: integer("liquidity").notNull(),
+  // Made these nullable to allow partial reporting
+  revenue: integer("revenue"),
+  expenses: integer("expenses"),
+  resultYtd: integer("result_ytd"),
+  
+  liquidity: integer("liquidity"),
+  receivables: integer("receivables"),
+  accountsPayable: integer("accounts_payable"),
+  
   liquidityDate: varchar("liquidity_date", { length: 20 }),
+  receivablesDate: varchar("receivables_date", { length: 20 }),
+  accountsPayableDate: varchar("accounts_payable_date", { length: 20 }),
   
   comment: text("comment"),
-  source: varchar("source", { length: 50 }).default("Manuell"), // "Manuell", "Tripletex", etc.
+  source: varchar("source", { length: 50 }).default("Manuell"), 
   
   status: reportStatusEnum("status").default("submitted"),
   
@@ -91,6 +115,18 @@ export const reports = pgTable("reports", {
   approvedAt: timestamp("approved_at"),
   
   reportDate: timestamp("report_date").defaultNow().notNull(),
+});
+
+/* -------------------------------------------------
+   5. FORECASTS (Likviditetsprognose)
+---------------------------------------------------*/
+export const forecasts = pgTable("forecasts", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  month: varchar("month", { length: 10 }).notNull(), // "YYYY-MM"
+  estimatedReceivables: integer("estimated_receivables").default(0), // Forventet inn
+  estimatedPayables: integer("estimated_payables").default(0), // Forventet ut
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 /* -------------------------------------------------
@@ -121,6 +157,7 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
   }),
   users: many(users),
   reports: many(reports),
+  forecasts: many(forecasts),
 }));
 
 export const reportsRelations = relations(reports, ({ one }) => ({
@@ -135,5 +172,12 @@ export const reportsRelations = relations(reports, ({ one }) => ({
   approver: one(users, {
     fields: [reports.approvedByUserId],
     references: [users.id],
+  }),
+}));
+
+export const forecastsRelations = relations(forecasts, ({ one }) => ({
+  company: one(companies, {
+    fields: [forecasts.companyId],
+    references: [companies.id],
   }),
 }));
