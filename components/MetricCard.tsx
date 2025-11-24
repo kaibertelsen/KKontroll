@@ -109,7 +109,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div 
-      className={`h-[400px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      className={`h-[420px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
       
       // Drag Events
@@ -142,7 +142,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
             className="absolute inset-0 w-full h-full [backface-visibility:hidden]"
             style={{ pointerEvents: isFlipped ? 'none' : 'auto' }}
           >
-            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
+            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
               {/* Header */}
               <div className="flex justify-between items-start mb-3 shrink-0">
