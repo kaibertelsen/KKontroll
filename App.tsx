@@ -64,7 +64,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const dragOverItem = useRef<number | null>(null);
 
   // --- SORT MODE HANDLERS ---
-  const handleLongPress = () => {
+  const handleSortToggle = () => {
       if (viewMode === ViewMode.GRID && !isSortMode) {
           setOriginalOrder([...companies]); // Backup for cancel
           setIsSortMode(true);
@@ -773,6 +773,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         <button onClick={() => setViewMode(ViewMode.GRID)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.GRID ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" />Kort</button>
                         <button onClick={() => setViewMode(ViewMode.ANALYTICS)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.ANALYTICS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Analyse</button>
                         <button onClick={() => setViewMode(ViewMode.CONTROL)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.CONTROL ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" />Kontroll</button>
+                        <button onClick={handleSortToggle} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`}><ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />Sort</button>
                     </div>
                 </div>
                 <div className={`flex items-center justify-center mb-6 text-xs text-slate-400 dark:text-slate-500 gap-2 transition-opacity duration-300 ${isSortMode ? 'opacity-0' : 'opacity-100'}`}><CalendarClock className="w-3.5 h-3.5" /><span>Viser tall beregnet mot: <strong className="text-slate-600 dark:text-slate-300">{isTodayMode ? 'Daglig akkumulert budsjett' : 'Budsjett pr. forrige månedsslutt'}</strong></span></div>
@@ -794,7 +795,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                                     
                                     // Sorting Props
                                     isSortMode={isSortMode}
-                                    onLongPressTrigger={handleLongPress}
                                     onDragStart={onDragStart}
                                     onDragEnter={onDragEnter}
                                     onDragEnd={onDragEnd}

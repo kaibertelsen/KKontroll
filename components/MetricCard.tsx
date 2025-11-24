@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
 import DeviationSlider from './DeviationSlider';
@@ -11,7 +11,6 @@ import {
   ArrowDownRight, 
   Activity, 
   Target, 
-  FileText, 
   ArrowRight,
   BarChart3,
   GripHorizontal
@@ -26,7 +25,6 @@ interface MetricCardProps {
   
   // Sorting Props
   isSortMode: boolean;
-  onLongPressTrigger: () => void;
   onDragStart?: (e: React.DragEvent, index: number) => void;
   onDragEnter?: (e: React.DragEvent, index: number) => void;
   onDragEnd?: () => void;
@@ -37,40 +35,12 @@ const MetricCard: React.FC<MetricCardProps> = ({
   data, 
   onSelect, 
   isSortMode, 
-  onLongPressTrigger,
   onDragStart,
   onDragEnter,
   onDragEnd,
   index
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // --- LONG PRESS LOGIC ---
-  const startPress = () => {
-    if (isSortMode) return; 
-    setIsPressed(true);
-    timerRef.current = setTimeout(() => {
-      setIsPressed(false);
-      onLongPressTrigger();
-    }, 2000); 
-  };
-
-  const cancelPress = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    setIsPressed(false);
-  };
-
-  // Cleanup timer on unmount
-  useEffect(() => {
-      return () => {
-          if (timerRef.current) clearTimeout(timerRef.current);
-      };
-  }, []);
 
   // --- CHART DATA GENERATION ---
   const chartData = useMemo(() => {
@@ -141,11 +111,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
     <div 
       className={`h-[350px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
-      onMouseDown={startPress}
-      onMouseUp={cancelPress}
-      onMouseLeave={cancelPress}
-      onTouchStart={startPress}
-      onTouchEnd={cancelPress}
       
       // Drag Events
       draggable={isSortMode}
@@ -161,11 +126,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
       )}
 
-      {/* LAYER 1: HOVER LIFT & PRESS EFFECT */}
+      {/* LAYER 1: HOVER LIFT */}
       <div 
         className={`relative w-full h-full transition-all duration-300 ease-out rounded-xl
             ${!isSortMode && 'hover:-translate-y-2 hover:shadow-2xl'}
-            ${isPressed ? 'scale-95 ring-2 ring-sky-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900' : ''}
             ${isSortMode ? 'shadow-lg ring-2 ring-amber-400 ring-opacity-50' : ''}
         `}
       >
