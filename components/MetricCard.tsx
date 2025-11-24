@@ -109,7 +109,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   return (
     <div 
-      className={`h-[350px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      className={`h-[400px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
       
       // Drag Events
@@ -145,7 +145,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
             <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
               {/* Header */}
-              <div className="flex justify-between items-start mb-3">
+              <div className="flex justify-between items-start mb-3 shrink-0">
                 <div className="overflow-hidden w-full">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate pr-1" title={data.fullName || data.name}>
                       {index + 1}. {data.fullName || data.name}
@@ -155,7 +155,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
               </div>
 
               {/* Main List - Strict Order */}
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-0.5 flex-grow">
                   
                   <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />
                   <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />
@@ -189,8 +189,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
               </div>
 
               {/* Footer */}
-              <div className="mt-0">
-                <div className="flex justify-end">
+              <div className="mt-2 shrink-0">
+                <div className="flex justify-end mb-1">
                     <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         Avvik {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(1)}%
                     </span>
