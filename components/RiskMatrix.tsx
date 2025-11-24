@@ -38,7 +38,7 @@ const RiskMatrix: React.FC<RiskMatrixProps> = ({ data }) => {
     else if (!isNegativeDeviation && !isLowLiquidity) fill = '#10b981'; // Good (Green)
 
     // Get initials (max 3 chars)
-    const initials = payload.name.substring(0, 3).toUpperCase();
+    const initials = payload.name ? payload.name.substring(0, 3).toUpperCase() : '';
 
     return (
       <g className="isolate">
@@ -56,14 +56,11 @@ const RiskMatrix: React.FC<RiskMatrixProps> = ({ data }) => {
 
       const { xAxisMap, yAxisMap } = props;
       
-      // GUARD CLAUSE: Prevent accessing [0] of undefined
-      if (!xAxisMap || !yAxisMap) return null;
+      // ROBUST GUARD CLAUSE: Check existence and length to avoid crash
+      if (!xAxisMap || !yAxisMap || !xAxisMap[0] || !yAxisMap[0]) return null;
 
       const xAxis = xAxisMap[0];
       const yAxis = yAxisMap[0];
-
-      // Double check axes exist
-      if (!xAxis || !yAxis) return null;
 
       return (
           <g className="history-layer" style={{ pointerEvents: 'none' }}>
