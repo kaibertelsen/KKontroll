@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -44,7 +45,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- LONG PRESS LOGIC ---
   const startPress = () => {
