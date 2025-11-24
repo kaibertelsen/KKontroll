@@ -145,7 +145,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
                   {/* 7. Status */}
                   <RowItem 
                     icon={Activity} 
-                    label="Status" 
+                    label="Netto Arbeidskapital" 
                     value={statusValue} 
                     valueColor="text-sky-600 dark:text-sky-400"
                     highlight

@@ -1,20 +1,120 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
+import { Lock, LogIn, MonitorPlay } from 'lucide-react';
 
 // Define global interface for window
 declare global {
   interface Window {
     initKonsernKontroll: (userId?: string | number, demoMode?: boolean) => Promise<void>;
     $memberstackDom?: any;
+    konsernRoot?: ReactDOM.Root; // Store root globally to reuse
   }
 }
 
 // Fallback user ID for testing "Live" mode without Memberstack
 const TEST_USER_ID = "mem_sb_cmi4ny448009m0sr4ew3hdge1";
+
+// --- LOGIN SCREEN COMPONENT ---
+const LoginScreen = () => {
+    const [pwd, setPwd] = useState('');
+    const [error, setError] = useState(false);
+
+    const handleDemoSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (pwd === 'KonsernDemo2025') {
+            localStorage.setItem('konsern_access', 'granted');
+            // Start Demo Mode directly without reload
+            window.initKonsernKontroll(undefined, true);
+        } else {
+            setError(true);
+        }
+    };
+
+    const handleAttentioLogin = async () => {
+        if (window.$memberstackDom) {
+            try {
+                await window.$memberstackDom.openModal('LOGIN');
+            } catch (err) {
+                console.error("Memberstack modal error:", err);
+                alert("Kunne ikke åpne innlogging. Prøv igjen.");
+            }
+        } else {
+            alert("Innloggingstjenesten laster fortsatt. Vent litt og prøv igjen.");
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 font-sans">
+            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-300">
+                
+                {/* CARD 1: ATTENTIO BRUKER (LIVE) */}
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center h-full justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
+                    
+                    <div className="mb-8">
+                        <img 
+                            src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
+                            alt="Attentio Logo" 
+                            className="h-12 object-contain mx-auto"
+                        />
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Attentio Bruker</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">
+                        Logg inn med din Attentio-konto for å få tilgang til live data og rapportering.
+                    </p>
+
+                    <button 
+                        onClick={handleAttentioLogin}
+                        className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2"
+                    >
+                        <LogIn size={18} />
+                        Logg inn med Attentio
+                    </button>
+                </div>
+
+                {/* CARD 2: DEMO BRUKER */}
+                <div className="bg-slate-100 dark:bg-slate-800/50 p-8 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 mb-4">
+                            <MonitorPlay size={24} />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">Demo Bruker</h2>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mt-1">Kun for demonstrasjon</p>
+                    </div>
+
+                    <form onSubmit={handleDemoSubmit} className="space-y-4 w-full max-w-xs mx-auto">
+                        <div>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input 
+                                    type="password" 
+                                    value={pwd}
+                                    onChange={e => {setPwd(e.target.value); setError(false);}}
+                                    className="w-full pl-10 p-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                                    placeholder="Skriv inn demo-passord..."
+                                />
+                            </div>
+                        </div>
+                        {error && <p className="text-rose-600 text-xs font-medium text-center animate-pulse">Feil passord</p>}
+                        <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors shadow flex justify-center items-center gap-2 text-sm">
+                            Start Demo
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+            
+            <div className="fixed bottom-4 text-center w-full text-slate-400 text-[10px]">
+                KonsernKontroll 2025 &copy; Powered by Attentio
+            </div>
+        </div>
+    );
+};
 
 // The initialization function to be called from Webflow/External Auth
 window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean) => {
@@ -24,33 +124,60 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     return;
   }
 
-  const root = ReactDOM.createRoot(rootElement);
-  
-  // 1. Check LocalStorage Preference first
-  const storedMode = localStorage.getItem('konsern_mode');
-  
-  // Logic: If arg provided, use it. Else if stored exists, use it. Else default to Demo (true).
-  // 'live' stored means isDemo = false.
-  let isDemo = true;
-  
-  if (demoMode !== undefined) {
-      isDemo = demoMode;
-  } else if (storedMode === 'live') {
-      isDemo = false;
-  } else {
-      isDemo = true; // Default
+  // Use existing root if available to prevent unmount/remount flickering or errors
+  let root = window.konsernRoot;
+  if (!root) {
+      root = ReactDOM.createRoot(rootElement);
+      window.konsernRoot = root;
   }
 
-  // Render a loading state initially
+  // 1. AUTH CHECK
+  // Check if user is logged in via Memberstack (Live Access)
+  let memberstackUser = null;
+  try {
+      if (window.$memberstackDom) {
+          const member = await window.$memberstackDom.getCurrentMember();
+          if (member?.data) {
+              memberstackUser = member.data;
+          }
+      }
+  } catch (e) { console.warn("Memberstack check failed", e); }
+
+  // 2. DETERMINE MODE (Demo vs Live vs Login)
+  
+  // Default state: Show Login Screen
+  let shouldStartApp = false;
+  let isDemo = false;
+
+  if (demoMode === true) {
+      // User Explicitly requested Demo (e.g. clicked button in LoginScreen)
+      shouldStartApp = true;
+      isDemo = true;
+  } else if (memberstackUser) {
+      // User is logged in -> Start Live
+      shouldStartApp = true;
+      isDemo = false;
+  }
+  
+  // If neither condition is met, we fall through to LoginScreen.
+  // We do NOT check localStorage for 'previous session' to auto-start Demo anymore.
+
+  if (!shouldStartApp) {
+      root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
+      return;
+  }
+
+  // Render a loading state
   root.render(
-    <div className="flex h-screen items-center justify-center text-slate-500 font-sans bg-slate-50 dark:bg-slate-900 dark:text-slate-400">
-      {isDemo ? 'Starter Demo-modus...' : 'Kobler til database...'}
+    <div className="flex h-screen items-center justify-center text-slate-500 font-sans bg-slate-50 dark:bg-slate-900 dark:text-slate-400 animate-pulse">
+      {isDemo ? 'Starter Demo...' : 'Henter data...'}
     </div>
   );
 
-  // --- DEMO MODE ---
+  // --- DEMO MODE START ---
   if (isDemo) {
-    console.log("Running in DEMO MODE with mock data.");
+    console.log("Running in DEMO MODE");
+    localStorage.setItem('konsern_mode', 'demo'); // Track current session mode
     
     const mockUserProfile = {
         fullName: "Demo Controller",
@@ -65,29 +192,35 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
                 <App userProfile={mockUserProfile} initialCompanies={INITIAL_DATA} isDemo={true} />
             </React.StrictMode>
         );
-    }, 500);
+    }, 600);
     return;
   }
 
-  // --- REAL MODE (NEON API) ---
+  // --- REAL MODE START (NEON API) ---
   
-  // Use provided ID or fallback to test ID if we are forcing "Live" mode in dev
-  const effectiveUserId = userId || TEST_USER_ID;
-
-  if (!effectiveUserId) {
-      root.render(<div className="p-10 text-center text-rose-600 font-sans">Ingen bruker-ID funnet. Logg inn på nytt.</div>);
-      return;
+  // Determine ID: Memberstack NeonID > Memberstack AuthID > TestID (Dev)
+  let effectiveUserId = userId;
+  
+  if (!effectiveUserId && memberstackUser) {
+      // Check for custom field 'neonid'
+      if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
+          effectiveUserId = memberstackUser.customFields['neonid'];
+          console.log("Using Memberstack Custom Field neonid:", effectiveUserId);
+      } else {
+          effectiveUserId = memberstackUser.id;
+          console.log("Using Memberstack Auth ID:", effectiveUserId);
+      }
   }
 
+  // Fallback for local dev if no MS login (and not in Demo mode)
+  if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
+
   try {
-    // 1. Determine Lookup Strategy (Neon ID vs Auth ID)
-    // If effectiveUserId is numeric (or numeric string), treat as Neon DB ID. Otherwise treat as Auth ID.
+    // 1. Determine Lookup Strategy
     let userWhere = {};
     if (/^\d+$/.test(String(effectiveUserId))) {
-        console.log("Looking up user by Neon ID:", effectiveUserId);
         userWhere = { id: effectiveUserId };
     } else {
-        console.log("Looking up user by Auth ID:", effectiveUserId);
         userWhere = { auth_id: effectiveUserId };
     }
 
@@ -96,22 +229,35 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const user = userRes.rows[0];
 
     if (!user) {
-        // If user not found, maybe DB is empty or ID is wrong?
         root.render(
-            <div className="p-10 text-center font-sans dark:text-white">
-                <h3 className="text-xl font-bold text-rose-600 mb-2">Bruker ikke funnet</h3>
-                <p>Fant ingen bruker med ID: <code className="bg-slate-100 dark:bg-slate-800 px-1 rounded">{String(effectiveUserId)}</code></p>
-                <p className="mt-4 text-sm text-slate-500">Sjekk at brukeren er registrert i 'users'-tabellen og at ID-koblingen mot Memberstack (neonid) er korrekt.</p>
-                <button 
-                    onClick={() => { localStorage.setItem('konsern_mode', 'demo'); window.location.reload(); }}
-                    className="mt-6 px-4 py-2 bg-sky-600 text-white rounded-lg"
-                >
-                    Gå tilbake til Demo
-                </button>
+            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+                <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
+                    <h3 className="text-xl font-bold text-rose-600 mb-2">Bruker ikke funnet</h3>
+                    <p className="text-slate-600 mb-4">
+                        Vi fant ingen kobling mot din bruker i systemet.
+                    </p>
+                    <p className="text-xs text-slate-400 mb-6 font-mono bg-slate-100 p-2 rounded">ID: {String(effectiveUserId)}</p>
+                    <div className="flex gap-3 justify-center">
+                        <button 
+                            onClick={() => { if(window.$memberstackDom) window.$memberstackDom.logout(); window.initKonsernKontroll(); }}
+                            className="px-4 py-2 border border-slate-300 rounded hover:bg-slate-50"
+                        >
+                            Logg ut
+                        </button>
+                        <button 
+                            onClick={() => { window.initKonsernKontroll(undefined, true); }}
+                            className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-500"
+                        >
+                            Gå til Demo
+                        </button>
+                    </div>
+                </div>
             </div>
         );
         return;
     }
+
+    localStorage.setItem('konsern_mode', 'live'); // Track current session mode
 
     // 3. Fetch Group Name
     let groupName = "Mitt Konsern";
@@ -131,25 +277,36 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const compRes = await getNEON({ table: 'companies', where: companyWhere });
     const rawCompanies = compRes.rows || [];
 
-    const mappedCompanies = rawCompanies.map((c: any) => ({
-        ...c,
-        resultYTD: Number(c.result_ytd || c.resultYTD || 0),
-        budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
-        liquidity: Number(c.liquidity || 0),
-        receivables: Number(c.receivables || 0),
-        accountsPayable: Number(c.accounts_payable || 0),
-        trendHistory: Number(c.trend_history || c.trendHistory || 0),
-        name: c.name || '',
-        manager: c.manager || '',
-        revenue: Number(c.revenue || 0),
-        expenses: Number(c.expenses || 0),
-        liquidityDate: c.liquidity_date || c.liquidityDate || '',
-        receivablesDate: c.receivables_date || c.receivablesDate || '',
-        accountsPayableDate: c.accounts_payable_date || c.accountsPayableDate || '',
-        lastReportDate: c.last_report_date || c.lastReportDate || '',
-        lastReportBy: c.last_report_by || c.lastReportBy || '',
-        comment: c.current_comment || c.comment || '',
-    }));
+    const mappedCompanies = rawCompanies.map((c: any) => {
+        // Parse JSON budget months safely
+        let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+        try {
+            if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
+            else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+        } catch(e) { console.warn("Budget parsing error", e); }
+
+        return {
+            ...c,
+            resultYTD: Number(c.result_ytd || c.resultYTD || 0),
+            budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
+            budgetMode: c.budget_mode || 'annual',
+            budgetMonths: bMonths,
+            liquidity: Number(c.liquidity || 0),
+            receivables: Number(c.receivables || 0),
+            accountsPayable: Number(c.accounts_payable || 0),
+            trendHistory: Number(c.trend_history || c.trendHistory || 0),
+            name: c.name || '',
+            manager: c.manager || '',
+            revenue: Number(c.revenue || 0),
+            expenses: Number(c.expenses || 0),
+            liquidityDate: c.liquidity_date || c.liquidityDate || '',
+            receivablesDate: c.receivables_date || c.receivablesDate || '',
+            accountsPayableDate: c.accounts_payable_date || c.accountsPayableDate || '',
+            lastReportDate: c.last_report_date || c.lastReportDate || '',
+            lastReportBy: c.last_report_by || c.lastReportBy || '',
+            comment: c.current_comment || c.comment || '',
+        };
+    });
 
     const userProfile = {
         fullName: user.full_name || 'Bruker',
@@ -169,12 +326,12 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     console.error("Init Error:", e);
     root.render(
         <div className="p-10 text-center font-sans">
-            <p className="text-rose-600 mb-4">Feil ved lasting av data (API).</p>
+            <p className="text-rose-600 mb-4">Feil ved lasting av data.</p>
             <button 
-                onClick={() => { localStorage.setItem('konsern_mode', 'demo'); window.location.reload(); }}
+                onClick={() => { window.initKonsernKontroll(); }}
                 className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300"
             >
-                Start i Demo-modus
+                Prøv igjen
             </button>
         </div>
     );
@@ -183,31 +340,11 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
 // --- AUTO-START LOGIC ---
 window.addEventListener('DOMContentLoaded', async () => {
-    // Try to get ID from Memberstack if present
-    let startId: string | number | undefined = undefined;
-
-    try {
-        if (window.$memberstackDom) {
-            const member = await window.$memberstackDom.getCurrentMember();
-            if (member && member.data) {
-                // Check if 'neonid' exists in custom fields (Prioritized)
-                const neonId = member.data.customFields && member.data.customFields['neonid'];
-                
-                if (neonId) {
-                    startId = neonId;
-                    console.log("Found Neon ID in Memberstack:", startId);
-                } else {
-                    // Fallback to Auth ID
-                    startId = member.data.id;
-                    console.log("Found Memberstack Auth ID:", startId);
-                }
-            }
-        }
-    } catch (e) {
-        // Memberstack not loaded or error, ignore and fall back
-        console.log("Memberstack check skipped or failed", e);
+    if (window.$memberstackDom) {
+        // Memberstack loaded logic check
     }
-
-    // Start app (will use startId if found, or fallback logic in initKonsernKontroll)
-    window.initKonsernKontroll(startId);
+    // Small delay to allow MS to populate localstorage
+    setTimeout(() => {
+        window.initKonsernKontroll();
+    }, 500);
 });

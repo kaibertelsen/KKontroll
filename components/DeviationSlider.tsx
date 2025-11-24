@@ -35,22 +35,11 @@ const DeviationSlider: React.FC<DeviationSliderProps> = ({ value }) => {
         ></div>
       </div>
 
-      {/* Thumb / Marker - Slightly larger to match new thickness */}
+      {/* Thumb / Marker */}
       <div 
         className={`absolute w-4 h-4 rounded-full border-2 border-white transition-all duration-500 ease-out z-10 ${colorClass}`}
         style={{ left: `${percentage}%`, transform: 'translateX(-50%)' }}
       >
-      </div>
-      
-      {/* Floating Value Label */}
-      <div 
-         className={`absolute -top-1 text-[10px] font-bold transition-all duration-500 ${value < 0 ? 'text-rose-600' : value > 0 ? 'text-emerald-600' : 'text-slate-500'}`}
-         style={{ 
-             left: `${percentage}%`, 
-             transform: `translateX(-50%) translateY(-100%)`,
-         }}
-      >
-        {value > 0 ? '+' : ''}{Math.round(value)}%
       </div>
       
       {/* Labels at edges */}

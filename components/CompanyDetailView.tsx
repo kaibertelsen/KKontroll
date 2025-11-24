@@ -335,7 +335,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
-                <StatCard icon={Activity} label="Status" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Likviditet + (Fordringer - Gjeld)" />
+                <StatCard icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Likviditet + (Fordringer - Gjeld)" />
             </div>
         </div>
 

@@ -22,7 +22,8 @@ import {
   Settings,
   Database,
   MonitorPlay,
-  Users
+  Users,
+  LogOut
 } from 'lucide-react';
 
 interface UserProfile {
@@ -559,6 +560,33 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   };
 
+  const handleLogout = () => {
+      // Clear Demo flags
+      localStorage.removeItem('konsern_access');
+      localStorage.removeItem('konsern_mode');
+      
+      // Clear Memberstack Auth
+      if(window.$memberstackDom) {
+          window.$memberstackDom.logout();
+      }
+      
+      // Restart app (which defaults to Login Screen)
+      window.initKonsernKontroll();
+  };
+
+  const toggleMode = () => {
+      const newMode = isDemo ? 'live' : 'demo';
+      // If trying to go Live but not logged in, initKonsernKontroll will handle it (show login/error)
+      // If going Demo, we need to make sure we have access
+      if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
+          alert("Du må logge inn med demo-passord først.");
+          window.initKonsernKontroll(); // Go to login
+          return;
+      }
+      
+      window.initKonsernKontroll(undefined, newMode === 'demo');
+  };
+
 
   // --- APP LOGIC ---
 
@@ -642,19 +670,20 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     }
   }, [displayedData, sortField]);
 
+  const totalRevenue = computedData.reduce((acc, curr) => acc + curr.revenue, 0);
+  const totalExpenses = computedData.reduce((acc, curr) => acc + curr.expenses, 0);
   const totalResult = computedData.reduce((acc, curr) => acc + curr.resultYTD, 0);
   const totalBudgetYTD = computedData.reduce((acc, curr) => acc + curr.calculatedBudgetYTD, 0);
+  // Annual Budget logic might need adjustment if budgetTotal is different from sum of months, but usually it matches
   const totalAnnualBudget = computedData.reduce((acc, curr) => acc + curr.budgetTotal, 0);
   const totalLiquidity = computedData.reduce((acc, curr) => acc + curr.liquidity, 0);
+  const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
+  const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
+  
+  const totalWorkingCapital = (totalReceivables - totalPayables) + totalLiquidity;
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
-
-  const toggleMode = () => {
-      const newMode = isDemo ? 'live' : 'demo';
-      localStorage.setItem('konsern_mode', newMode);
-      window.location.reload();
-  };
 
   if (selectedCompany) {
     return (
@@ -741,6 +770,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               </div>
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
               
+              {/* Logout Button for ALL users */}
+              <button 
+                onClick={handleLogout}
+                className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                title="Logg ut / Tilbake"
+              >
+                  <LogOut className="w-5 h-5" />
+              </button>
+
               {effectiveRole === 'controller' && (
                 <button 
                     onClick={() => setViewMode(isAdminMode ? ViewMode.GRID : ViewMode.ADMIN)} 
@@ -822,12 +860,45 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       {viewMode !== ViewMode.ADMIN && viewMode !== ViewMode.USER_ADMIN && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center md:text-left">
-                <div className="flex flex-col md:border-r border-slate-100 dark:border-slate-700 px-2 relative group cursor-default"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Resultat YTD</span><span className="text-xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalResult)}</span></div>
-                <div className="flex flex-col md:border-r border-slate-100 dark:border-slate-700 px-2 relative group cursor-default"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Budsjett YTD</span><div className="flex items-baseline gap-2 md:block"><span className="text-xl font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div></div>
-                <div className="flex flex-col md:border-r border-slate-100 dark:border-slate-700 px-2 relative group cursor-default"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Årsbudsjett Total</span><span className="text-xl font-bold text-slate-900 dark:text-white">{formatCurrency(totalAnnualBudget)}</span></div>
-                <div className="flex flex-col px-2 relative group cursor-default"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Total Likviditet</span><span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalLiquidity)}</span></div>
-            </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 text-center md:text-left overflow-x-auto whitespace-nowrap pb-2">
+                    
+                    {/* Group 1: P&L */}
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Omsetning</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span>
+                    </div>
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Kostnader</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span>
+                    </div>
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Resultat YTD</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalResult)}</span>
+                    </div>
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Budsjett YTD</span>
+                        <span className="text-sm font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span>
+                    </div>
+
+                    {/* Group 2: Balance/Liquidity */}
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Likviditet</span>
+                        <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalLiquidity)}</span>
+                    </div>
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Fordringer</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span>
+                    </div>
+                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Gjeld</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span>
+                    </div>
+                    <div className="flex flex-col px-2">
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Arbeidskapital</span>
+                        <span className="text-sm font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span>
+                    </div>
+
+                </div>
             </div>
         </div>
       )}
