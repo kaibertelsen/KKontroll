@@ -42,9 +42,9 @@ const DeviationSlider: React.FC<DeviationSliderProps> = ({ value }) => {
       >
       </div>
       
-      {/* Labels at edges */}
-      <div className="absolute left-0 -bottom-0.5 text-[9px] text-slate-300 font-medium">-50%</div>
-      <div className="absolute right-0 -bottom-0.5 text-[9px] text-slate-300 font-medium">+50%</div>
+      {/* Labels at edges - Lowered to avoid conflict (-bottom-3 approx 12px) */}
+      <div className="absolute left-0 -bottom-3 text-[9px] text-slate-300 font-medium">-50%</div>
+      <div className="absolute right-0 -bottom-3 text-[9px] text-slate-300 font-medium">+50%</div>
     </div>
   );
 };
