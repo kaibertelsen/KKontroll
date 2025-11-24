@@ -1,8 +1,6 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
-import StatusBadge from './StatusBadge';
 import DeviationSlider from './DeviationSlider';
 import { 
   TrendingUp, 
@@ -13,19 +11,87 @@ import {
   Activity, 
   Target, 
   FileText, 
-  Calendar, 
-  User, 
   ArrowRight,
-  BarChart3
+  BarChart3,
+  GripHorizontal
 } from 'lucide-react';
+import { 
+  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+} from 'recharts';
 
 interface MetricCardProps {
   data: ComputedCompanyData;
   onSelect: (company: ComputedCompanyData) => void;
+  
+  // Sorting Props
+  isSortMode: boolean;
+  onLongPressTrigger: () => void;
+  onDragStart?: (e: React.DragEvent, index: number) => void;
+  onDragEnter?: (e: React.DragEvent, index: number) => void;
+  onDragEnd?: () => void;
+  index: number;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
+const MetricCard: React.FC<MetricCardProps> = ({ 
+  data, 
+  onSelect, 
+  isSortMode, 
+  onLongPressTrigger,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  index
+}) => {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // --- LONG PRESS LOGIC ---
+  const startPress = () => {
+    if (isSortMode) return; // Already sorting
+    setIsPressed(true);
+    timerRef.current = setTimeout(() => {
+      setIsPressed(false);
+      onLongPressTrigger();
+    }, 2000); // 2 seconds hold
+  };
+
+  const cancelPress = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setIsPressed(false);
+  };
+
+  // --- CHART DATA GENERATION ---
+  const chartData = useMemo(() => {
+      const chartData = [];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov'];
+      
+      const monthlyBudget = data.budgetTotal / 12;
+      const currentMonthIndex = 10; // Nov
+      const avgResultPerMonth = data.resultYTD / currentMonthIndex;
+      
+      for (let i = 0; i <= currentMonthIndex; i++) {
+        const variance = 0.8 + Math.random() * 0.4; 
+        const result = Math.round(avgResultPerMonth * variance);
+        const budget = Math.round(monthlyBudget);
+        
+        const prevResult = i > 0 ? chartData[i-1].cumResult : 0;
+        const prevBudget = i > 0 ? chartData[i-1].cumBudget : 0;
+
+        chartData.push({
+          month: months[i],
+          cumResult: prevResult + result,
+          cumBudget: prevBudget + budget,
+        });
+      }
+      if(chartData.length > 0) {
+          chartData[chartData.length - 1].cumResult = data.resultYTD;
+      }
+      return chartData;
+  }, [data]);
 
   // Trend Logic
   const isPositiveTrend = data.trendHistory >= 0;
@@ -33,8 +99,16 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
   const trendBg = isPositiveTrend ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20';
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
-  // Status Calculation: (Receivables - Payables) + Liquidity
+  // Status Calculation
   const statusValue = (data.receivables - data.accountsPayable) + data.liquidity;
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (isSortMode) {
+        e.preventDefault(); // Disable click in sort mode
+        return;
+    }
+    setIsFlipped(!isFlipped);
+  };
 
   const RowItem = ({ icon: Icon, label, subLabel, value, highlight, extra, valueColor }: any) => (
     <div className="flex justify-between items-center h-7">
@@ -56,49 +130,62 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
 
   return (
     <div 
-      className="h-[350px] cursor-pointer perspective-[1000px]"
-      onClick={() => setIsFlipped(!isFlipped)}
+      className={`h-[350px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      onClick={handleClick}
+      onMouseDown={startPress}
+      onMouseUp={cancelPress}
+      onMouseLeave={cancelPress}
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
+      
+      // Drag Events
+      draggable={isSortMode}
+      onDragStart={(e) => onDragStart && onDragStart(e, index)}
+      onDragEnter={(e) => onDragEnter && onDragEnter(e, index)}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => e.preventDefault()} // Allow drop
     >
-      {/* LAYER 1: HOVER LIFT */}
-      <div className="relative w-full h-full transition-all duration-500 ease-out hover:-translate-y-2 hover:shadow-2xl rounded-xl">
+      {/* Sort Mode Overlay / Handle hint */}
+      {isSortMode && (
+          <div className="absolute -top-2 -right-2 z-50 bg-white dark:bg-slate-700 rounded-full p-1 shadow-md border border-slate-200 dark:border-slate-600 animate-bounce">
+              <GripHorizontal className="w-4 h-4 text-slate-500 dark:text-slate-300" />
+          </div>
+      )}
+
+      {/* LAYER 1: HOVER LIFT & PRESS EFFECT */}
+      <div 
+        className={`relative w-full h-full transition-all duration-300 ease-out rounded-xl
+            ${!isSortMode && 'hover:-translate-y-2 hover:shadow-2xl'}
+            ${isPressed ? 'scale-95 ring-2 ring-sky-500 ring-offset-2 ring-offset-slate-50 dark:ring-offset-slate-900' : ''}
+            ${isSortMode ? 'shadow-lg ring-2 ring-amber-400 ring-opacity-50' : ''}
+        `}
+      >
         
         {/* LAYER 2: FLIP ROTATION */}
-        <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
+        <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped && !isSortMode ? '[transform:rotateY(180deg)]' : ''}`}>
           
           {/* FRONT FACE */}
           <div className="absolute inset-0 w-full h-full [backface-visibility:hidden]">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-5 flex flex-col h-full transition-colors duration-300">
+            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
               {/* Header */}
               <div className="flex justify-between items-start mb-3">
-                <div className="overflow-hidden">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate" title={data.fullName || data.name}>
+                <div className="overflow-hidden w-full">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate pr-1" title={data.fullName || data.name}>
                       {data.id}. {data.fullName || data.name}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{data.manager}</p>
                 </div>
-                <StatusBadge deviation={data.calculatedDeviationPercent} />
               </div>
 
               {/* Main List - Strict Order */}
               <div className="flex flex-col gap-0.5">
                   
-                  {/* 1. Revenue */}
-                  <RowItem 
-                    icon={TrendingUp} 
-                    label="Omsetning YTD" 
-                    value={data.revenue} 
-                  />
-                  {/* 2. Expenses */}
-                  <RowItem 
-                    icon={TrendingDown} 
-                    label="Kostnader YTD" 
-                    value={data.expenses} 
-                  />
+                  <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />
+                  <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />
                   
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
                   
-                  {/* 3. Result */}
                   <RowItem 
                     icon={BarChart3} 
                     label="Resultat YTD" 
@@ -111,51 +198,21 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
                         </div>
                     }
                   />
-                  <RowItem 
-                    icon={Target} 
-                    label="Budsjett YTD" 
-                    value={data.calculatedBudgetYTD} 
-                    valueColor="text-slate-500 dark:text-slate-400"
-                  />
+                  <RowItem icon={Target} label="Budsjett YTD" value={data.calculatedBudgetYTD} valueColor="text-slate-500 dark:text-slate-400" />
 
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
 
-                  {/* 4. Liquidity */}
-                  <RowItem 
-                    icon={Wallet} 
-                    label="Likviditet" 
-                    subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''}
-                    value={data.liquidity} 
-                  />
-                  {/* 5. Receivables */}
-                  <RowItem 
-                    icon={ArrowUpRight} 
-                    label="Fordringer" 
-                    subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''}
-                    value={data.receivables} 
-                  />
-                  {/* 6. Payables */}
-                  <RowItem 
-                    icon={ArrowDownRight} 
-                    label="Leverandørgjeld" 
-                    subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''}
-                    value={data.accountsPayable} 
-                  />
+                  <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
+                  <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
+                  <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
                   
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
 
-                  {/* 7. Status */}
-                  <RowItem 
-                    icon={Activity} 
-                    label="Netto Arbeidskapital" 
-                    value={statusValue} 
-                    valueColor="text-sky-600 dark:text-sky-400"
-                    highlight
-                  />
+                  <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />
 
               </div>
 
-              {/* Footer: Deviation Text + Slider */}
+              {/* Footer */}
               <div className="mt-0">
                 <div className="flex justify-end">
                     <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -170,49 +227,42 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
 
           {/* BACK FACE */}
           <div className="absolute inset-0 w-full h-full [transform:rotateY(180deg)] [backface-visibility:hidden]">
-            <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-3 md:p-5 flex flex-col h-full text-slate-50 relative overflow-hidden">
+            <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 flex flex-col h-full text-slate-50 relative overflow-hidden">
               
-              <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                <h3 className="text-lg font-bold text-white truncate" title={data.fullName || data.name}>{data.fullName || data.name} - Status</h3>
-                <div className="p-1.5 bg-slate-700 rounded-full">
-                  <FileText className="w-4 h-4 text-sky-400" />
+              <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
+                <div className="overflow-hidden">
+                    <h3 className="text-sm font-bold text-white truncate leading-tight" title={data.fullName || data.name}>{data.fullName || data.name}</h3>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider">Resultatutvikling</p>
+                </div>
+                <div className="p-1 bg-slate-700 rounded-full shrink-0">
+                  <BarChart3 className="w-4 h-4 text-sky-400" />
                 </div>
               </div>
 
-              <div className="space-y-2 flex-grow">
-                <div className="flex items-start gap-3">
-                  <Calendar className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Sist rapportert</p>
-                    <p className="text-sm font-medium text-slate-100">{data.lastReportDate}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <User className="w-4 h-4 text-slate-400 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Rapportert av</p>
-                    <p className="text-sm font-medium text-slate-100">{data.lastReportBy}</p>
-                  </div>
-                </div>
-
-                <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600 mt-1">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold mb-1">Kommentar</p>
-                  <p className="text-xs text-slate-300 italic leading-relaxed line-clamp-4">
-                    "{data.comment}"
-                  </p>
-                </div>
+              <div className="flex-grow w-full min-h-0">
+                <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                        <defs>
+                            <linearGradient id={`colorResult-${data.id}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                            </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" />
+                        <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                        <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
+                        <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} dot={false} />
+                    </AreaChart>
+                </ResponsiveContainer>
               </div>
 
               <button 
-                className="mt-auto w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(data);
-                }}
+                className="mt-3 w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg"
+                onClick={(e) => { e.stopPropagation(); onSelect(data); }}
               >
-                Gå til Firmaside
-                <ArrowRight className="w-4 h-4" />
+                Gå til Firmaside <ArrowRight className="w-4 h-4" />
               </button>
 
             </div>

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="no">
   <head>
@@ -19,11 +18,29 @@
         theme: {
           extend: {
             fontFamily: { sans: ['Inter', 'sans-serif'] },
-            colors: { slate: { 850: '#1e293b' } }
+            colors: { slate: { 850: '#1e293b' } },
+            animation: {
+              'wiggle': 'wiggle 0.3s linear infinite',
+            },
+            keyframes: {
+              wiggle: {
+                '0%, 100%': { transform: 'rotate(-1deg)' },
+                '50%': { transform: 'rotate(1deg)' },
+              }
+            }
           },
         },
       }
     </script>
+    <style>
+      /* Custom styles for drag preview cleanup */
+      .sort-mode-active .metric-card {
+        cursor: grab;
+      }
+      .sort-mode-active .metric-card:active {
+        cursor: grabbing;
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
