@@ -67,12 +67,14 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
           
           {/* FRONT FACE */}
           <div className="absolute inset-0 w-full h-full [backface-visibility:hidden]">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 flex flex-col h-full transition-colors duration-300">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-3 md:p-5 flex flex-col h-full transition-colors duration-300">
               
               {/* Header */}
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight">{data.id}. {data.name}</h3>
+                <div className="overflow-hidden">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate" title={data.fullName || data.name}>
+                      {data.id}. {data.fullName || data.name}
+                  </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{data.manager}</p>
                 </div>
                 <StatusBadge deviation={data.calculatedDeviationPercent} />
@@ -154,7 +156,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
               </div>
 
               {/* Footer: Deviation Text + Slider */}
-              <div className="mt-1">
+              <div className="mt-0">
                 <div className="flex justify-end">
                     <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         Avvik {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(1)}%
@@ -168,10 +170,10 @@ const MetricCard: React.FC<MetricCardProps> = ({ data, onSelect }) => {
 
           {/* BACK FACE */}
           <div className="absolute inset-0 w-full h-full [transform:rotateY(180deg)] [backface-visibility:hidden]">
-            <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-5 flex flex-col h-full text-slate-50 relative overflow-hidden">
+            <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-3 md:p-5 flex flex-col h-full text-slate-50 relative overflow-hidden">
               
               <div className="flex justify-between items-center mb-3 border-b border-slate-700 pb-2">
-                <h3 className="text-lg font-bold text-white">{data.name} - Status</h3>
+                <h3 className="text-lg font-bold text-white truncate" title={data.fullName || data.name}>{data.fullName || data.name} - Status</h3>
                 <div className="p-1.5 bg-slate-700 rounded-full">
                   <FileText className="w-4 h-4 text-sky-400" />
                 </div>

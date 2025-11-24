@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -10,7 +11,7 @@ declare global {
   interface Window {
     initKonsernKontroll: (userId?: string | number, demoMode?: boolean) => Promise<void>;
     $memberstackDom?: any;
-    konsernRoot?: ReactDOM.Root; // Store root globally to reuse
+    konsernRoot?: ReactDOM.Root; 
   }
 }
 
@@ -21,21 +22,17 @@ const MEMBERSTACK_APP_ID = "app_cmhvzr10a00bq0ss39szp9ozj";
 // --- DYNAMIC SCRIPT LOADER ---
 const loadMemberstackScript = (): Promise<void> => {
     return new Promise((resolve, reject) => {
-        // If already loaded, resolve immediately
         if (window.$memberstackDom) {
             return resolve();
         }
         
-        // Check if script tag already exists (but maybe not fully loaded yet)
         if (document.querySelector(`script[data-memberstack-app="${MEMBERSTACK_APP_ID}"]`)) {
-             // Simple wait loop if script tag exists but object not ready
              const checkInterval = setInterval(() => {
                  if (window.$memberstackDom) {
                      clearInterval(checkInterval);
                      resolve();
                  }
              }, 100);
-             // Timeout fallback
              setTimeout(() => { clearInterval(checkInterval); resolve(); }, 5000);
              return;
         }
@@ -49,7 +46,6 @@ const loadMemberstackScript = (): Promise<void> => {
 
         script.onload = () => {
             console.log("Memberstack script loaded.");
-            // Small delay to ensure window.$memberstackDom is populated
             setTimeout(resolve, 200);
         };
         script.onerror = (e) => {
@@ -72,7 +68,6 @@ const LoginScreen = () => {
         e.preventDefault();
         if (pwd === 'KonsernDemo2025') {
             localStorage.setItem('konsern_access', 'granted');
-            // Start Demo Mode directly
             window.initKonsernKontroll(undefined, true);
         } else {
             setError(true);
@@ -82,14 +77,10 @@ const LoginScreen = () => {
     const handleAttentioLogin = async () => {
         setIsLoadingMs(true);
         try {
-            // 1. Load Script dynamically
             await loadMemberstackScript();
-            
-            // 2. Open Modal
             if (window.$memberstackDom) {
                 await window.$memberstackDom.openModal('LOGIN');
             } else {
-                // Retry once if not immediately available
                 setTimeout(async () => {
                     if(window.$memberstackDom) await window.$memberstackDom.openModal('LOGIN');
                     else alert("Kunne ikke starte innloggingstjenesten. Prøv igjen.");
@@ -188,7 +179,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
 
   // 1. AUTH CHECK
-  // Check if user is logged in via Memberstack (Live Access)
   let memberstackUser = null;
   try {
       if (window.$memberstackDom) {
@@ -199,28 +189,23 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       }
   } catch (e) { console.warn("Memberstack check failed", e); }
 
-  // 2. DETERMINE MODE (Demo vs Live vs Login)
-  
+  // 2. DETERMINE MODE
   let shouldStartApp = false;
   let isDemo = false;
 
   if (demoMode === true) {
-      // User Explicitly requested Demo (e.g. clicked button in LoginScreen)
       shouldStartApp = true;
       isDemo = true;
   } else if (memberstackUser) {
-      // User is logged in -> Start Live
       shouldStartApp = true;
       isDemo = false;
   }
   
-  // If neither condition is met, we fall through to LoginScreen.
   if (!shouldStartApp) {
       root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
       return;
   }
 
-  // Render a loading state
   root.render(
     <div className="flex h-screen items-center justify-center text-slate-500 font-sans bg-slate-50 dark:bg-slate-900 dark:text-slate-400 animate-pulse">
       {isDemo ? 'Starter Demo...' : 'Henter data...'}
@@ -230,7 +215,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   // --- DEMO MODE START ---
   if (isDemo) {
     console.log("Running in DEMO MODE");
-    localStorage.setItem('konsern_mode', 'demo'); // Track current session mode
+    localStorage.setItem('konsern_mode', 'demo'); 
     
     const mockUserProfile = {
         fullName: "Demo Controller",
@@ -249,9 +234,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     return;
   }
 
-  // --- REAL MODE START (NEON API) ---
-  
-  // Determine ID: Memberstack NeonID > Memberstack AuthID > TestID (Dev)
+  // --- REAL MODE START ---
   let effectiveUserId = userId;
   
   if (!effectiveUserId && memberstackUser) {
@@ -264,7 +247,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       }
   }
 
-  // Fallback for local dev if no MS login
   if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
 
   try {
@@ -301,7 +283,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         return;
     }
 
-    localStorage.setItem('konsern_mode', 'live'); // Track current session mode
+    localStorage.setItem('konsern_mode', 'live'); 
 
     // Fetch Group Name
     let groupName = "Mitt Konsern";
@@ -338,7 +320,12 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             receivables: Number(c.receivables || 0),
             accountsPayable: Number(c.accounts_payable || 0),
             trendHistory: Number(c.trend_history || c.trendHistory || 0),
+            
+            prevLiquidity: Number(c.prev_liquidity || 0),
+            prevDeviation: Number(c.prev_trend || 0),
+
             name: c.name || '',
+            fullName: c.full_name || '', // Mapped here
             manager: c.manager || '',
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
@@ -376,12 +363,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
 };
 
-// --- AUTO-START LOGIC ---
 window.addEventListener('DOMContentLoaded', async () => {
     const mode = localStorage.getItem('konsern_mode');
-    
-    // Only attempt auto-load if we were in LIVE mode previously
-    // If we were in Demo, or nothing, we just run init which will show login screen
     if (mode === 'live') {
         try {
             await loadMemberstackScript();

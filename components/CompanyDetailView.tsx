@@ -199,7 +199,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                   estimatedPayables: existing ? existing.estimatedPayables : 0,
               });
           }
-          // @ts-ignore
           setForecastForm(next6Months);
       }
   }, [isForecastModalOpen, company.id, forecasts]);
@@ -630,11 +629,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 <div className="text-xs font-bold uppercase text-rose-600">Forventet Ut (-)</div>
                             </div>
 
-                            {/* @ts-ignore */}
                             {forecastForm.map((item, index) => (
                                 <div key={index} className="grid grid-cols-3 gap-4 items-center">
                                     <div className="font-medium text-slate-900 dark:text-white text-sm">
-                                        {/* @ts-ignore */}
                                         {item.monthName}
                                     </div>
                                     <input 

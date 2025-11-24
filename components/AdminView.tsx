@@ -16,7 +16,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   const [activeTab, setActiveTab] = useState<'general' | 'budget'>('general');
   
-  // Form State
   const [formData, setFormData] = useState<Partial<CompanyData>>({});
 
   // Budget Editing State
@@ -30,20 +29,18 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
       setFormData(editingCompany);
       setBudgetInputMode(editingCompany.budgetMode || 'annual');
       
-      // Sync budget state from existing data
       const existingMonths = editingCompany.budgetMonths || Array(12).fill(0);
       setMonthlyBudget([...existingMonths]);
       setAnnualBudget(editingCompany.budgetTotal || 0);
       
-      // Estimate quarterly from monthly
       const q = [0,0,0,0];
       for(let i=0; i<12; i++) q[Math.floor(i/3)] += existingMonths[i];
       setQuarterlyBudget(q);
 
     } else {
-      // Defaults for new company
       setFormData({
         name: '',
+        fullName: '',
         manager: 'Kai',
         revenue: 0,
         expenses: 0,
@@ -72,10 +69,8 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.name) return;
 
-    // Calculate final budget numbers based on mode
     let finalMonths = Array(12).fill(0);
     let finalTotal = 0;
 
@@ -83,7 +78,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
         finalTotal = annualBudget;
         const perMonth = Math.round(annualBudget / 12);
         finalMonths = Array(12).fill(perMonth);
-        // Adjust rounding error on last month
         const sum = perMonth * 12;
         const diff = annualBudget - sum;
         finalMonths[11] += diff;
@@ -94,7 +88,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
             const perMonth = Math.round(qTotal / 3);
             finalMonths[q*3] = perMonth;
             finalMonths[q*3+1] = perMonth;
-            finalMonths[q*3+2] = qTotal - (perMonth * 2); // Handle rounding
+            finalMonths[q*3+2] = qTotal - (perMonth * 2);
         }
     } else {
         finalMonths = [...monthlyBudget];
@@ -141,17 +135,12 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
     }));
   };
 
-  // --- Budget Helpers ---
-  const handleAnnualChange = (val: number) => {
-      setAnnualBudget(val);
-  };
-  
+  const handleAnnualChange = (val: number) => setAnnualBudget(val);
   const handleQuarterlyChange = (index: number, val: number) => {
       const newQ = [...quarterlyBudget];
       newQ[index] = val;
       setQuarterlyBudget(newQ);
   };
-
   const handleMonthlyChange = (index: number, val: number) => {
       const newM = [...monthlyBudget];
       newM[index] = val;
@@ -159,6 +148,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
   };
 
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
+  const budgetModes: Array<'annual' | 'quarterly' | 'monthly'> = ['annual', 'quarterly', 'monthly'];
 
   return (
     <div className="animate-in fade-in duration-500">
@@ -177,7 +167,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
         </button>
       </div>
 
-      {/* TABLE VIEW */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -195,7 +184,10 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
               {companies.map((company) => (
                 <tr key={company.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                  <td className="p-4 font-bold text-slate-900 dark:text-white">{company.name}</td>
+                  <td className="p-4">
+                      <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
+                      <div className="text-xs text-slate-500">{company.fullName}</div>
+                  </td>
                   <td className="p-4 text-slate-600 dark:text-slate-300">{company.manager}</td>
                   <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.budgetTotal)}</td>
                   <td className="p-4">
@@ -210,82 +202,53 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
                   <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.resultYTD)}</td>
                   <td className="p-4 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(company.liquidity)}</td>
                   <td className="p-4 flex justify-center gap-2">
-                    <button 
-                      onClick={() => openEditModal(company)}
-                      className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Rediger"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(company.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                      title="Slett"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Rediger"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleDelete(company.id)} className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Slett"><Trash2 className="w-4 h-4" /></button>
                   </td>
                 </tr>
               ))}
-              {companies.length === 0 && (
-                  <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen selskaper registrert.</td>
-                  </tr>
-              )}
+              {companies.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen selskaper registrert.</td></tr>)}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 flex flex-col">
             
-            {/* Header */}
             <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
                     {editingCompany ? `Rediger ${editingCompany.name}` : 'Legg til nytt selskap'}
                 </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                    <X className="w-6 h-6" />
-                </button>
+                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-6 h-6" /></button>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
-                <button 
-                    onClick={() => setActiveTab('general')}
-                    className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'general' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                >
-                    <Edit size={14} /> Generelt
-                </button>
-                <button 
-                    onClick={() => setActiveTab('budget')}
-                    className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'budget' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}
-                >
-                    <BarChart2 size={14} /> Budsjett
-                </button>
+                <button onClick={() => setActiveTab('general')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'general' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}><Edit size={14} /> Generelt</button>
+                <button onClick={() => setActiveTab('budget')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'budget' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}><BarChart2 size={14} /> Budsjett</button>
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
                 <div className="p-6 space-y-6 flex-grow">
                     
-                    {/* GENERAL TAB */}
                     {activeTab === 'general' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Navn (Akronym)</label>
+                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Navn (Initialer)</label>
                                     <input name="name" type="text" required className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" placeholder="F.eks. VPS" value={formData.name} onChange={handleInputChange} />
                                 </div>
                                 <div className="space-y-2">
+                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Fullt Navn</label>
+                                    <input name="fullName" type="text" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" placeholder="F.eks. Vestlands Prosjektservice" value={formData.fullName || ''} onChange={handleInputChange} />
+                                </div>
+                                <div className="space-y-2 md:col-span-2">
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Leder</label>
                                     <input name="manager" type="text" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" value={formData.manager} onChange={handleInputChange} />
                                 </div>
                             </div>
 
-                            {/* Financials Snapshot */}
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Omsetning YTD</label>
@@ -337,76 +300,49 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
                         </div>
                     )}
 
-                    {/* BUDGET TAB */}
                     {activeTab === 'budget' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
-                            
                             <div className="flex gap-4 mb-6">
-                                {['annual', 'quarterly', 'monthly'].map((mode) => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        onClick={() => setBudgetInputMode(mode as any)}
-                                        className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all capitalize ${budgetInputMode === mode ? 'bg-sky-100 border-sky-600 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400'}`}
-                                    >
-                                        {mode === 'annual' ? 'År' : mode === 'quarterly' ? 'Kvartal' : 'Måned'}
-                                    </button>
+                                {budgetModes.map((mode) => (
+                                    <button key={mode} type="button" onClick={() => setBudgetInputMode(mode)} className={`flex-1 py-2 text-sm font-bold rounded-lg border transition-all capitalize ${budgetInputMode === mode ? 'bg-sky-100 border-sky-600 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400'}`}>{mode === 'annual' ? 'År' : mode === 'quarterly' ? 'Kvartal' : 'Måned'}</button>
                                 ))}
                             </div>
-
                             {budgetInputMode === 'annual' && (
                                 <div className="bg-slate-50 dark:bg-slate-700/30 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 block">Resultatbudsjett (Totalt for året)</label>
-                                    <input type="number" className="w-full text-2xl font-bold bg-transparent border-b-2 border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-2 text-slate-900 dark:text-white font-mono" 
-                                        value={annualBudget} onChange={(e) => handleAnnualChange(Number(e.target.value))} 
-                                    />
+                                    <input type="number" className="w-full text-2xl font-bold bg-transparent border-b-2 border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-2 text-slate-900 dark:text-white font-mono" value={annualBudget} onChange={(e) => handleAnnualChange(Number(e.target.value))} />
                                     <p className="text-xs text-slate-500 mt-2">Fordeles jevnt utover 12 måneder.</p>
                                 </div>
                             )}
-
                             {budgetInputMode === 'quarterly' && (
                                 <div className="grid grid-cols-2 gap-4">
                                     {[0, 1, 2, 3].map((q) => (
                                         <div key={q} className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
                                             <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Q{q+1}</label>
-                                            <input type="number" className="w-full font-bold bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-1 text-slate-900 dark:text-white font-mono" 
-                                                value={quarterlyBudget[q]} onChange={(e) => handleQuarterlyChange(q, Number(e.target.value))} 
-                                            />
+                                            <input type="number" className="w-full font-bold bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-1 text-slate-900 dark:text-white font-mono" value={quarterlyBudget[q]} onChange={(e) => handleQuarterlyChange(q, Number(e.target.value))} />
                                         </div>
                                     ))}
-                                    <div className="col-span-2 text-right text-sm font-bold text-slate-500 mt-2">
-                                        Total: {formatCurrency(quarterlyBudget.reduce((a,b)=>a+b,0))}
-                                    </div>
+                                    <div className="col-span-2 text-right text-sm font-bold text-slate-500 mt-2">Total: {formatCurrency(quarterlyBudget.reduce((a,b)=>a+b,0))}</div>
                                 </div>
                             )}
-
                             {budgetInputMode === 'monthly' && (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                                     {monthNames.map((name, i) => (
                                         <div key={i} className="bg-slate-50 dark:bg-slate-700/30 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                                             <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">{name}</label>
-                                            <input type="number" className="w-full text-sm font-bold bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-0.5 text-slate-900 dark:text-white font-mono" 
-                                                value={monthlyBudget[i]} onChange={(e) => handleMonthlyChange(i, Number(e.target.value))} 
-                                            />
+                                            <input type="number" className="w-full text-sm font-bold bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none py-0.5 text-slate-900 dark:text-white font-mono" value={monthlyBudget[i]} onChange={(e) => handleMonthlyChange(i, Number(e.target.value))} />
                                         </div>
                                     ))}
-                                    <div className="col-span-full text-right text-sm font-bold text-slate-500 mt-2">
-                                        Total: {formatCurrency(monthlyBudget.reduce((a,b)=>a+b,0))}
-                                    </div>
+                                    <div className="col-span-full text-right text-sm font-bold text-slate-500 mt-2">Total: {formatCurrency(monthlyBudget.reduce((a,b)=>a+b,0))}</div>
                                 </div>
                             )}
                         </div>
                     )}
-
                 </div>
-
                 <div className="p-6 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3 bg-white dark:bg-slate-800 sticky bottom-0">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors">Avbryt</button>
-                    <button type="submit" className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2">
-                        <Save className="w-4 h-4" /> Lagre endringer
-                    </button>
+                    <button type="submit" className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2"><Save className="w-4 h-4" /> Lagre endringer</button>
                 </div>
-
             </form>
           </div>
         </div>

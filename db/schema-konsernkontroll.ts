@@ -50,7 +50,8 @@ export const users = pgTable("users", {
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").references(() => groups.id).notNull(),
-  name: varchar("name", { length: 255 }).notNull(), 
+  name: varchar("name", { length: 50 }).notNull(), // Initials/Short Name
+  fullName: varchar("full_name", { length: 255 }), // Full Legal Name
   manager: varchar("manager", { length: 255 }).notNull(), 
   
   // Økonomiske nøkkeltall (Snapshot)
@@ -74,6 +75,10 @@ export const companies = pgTable("companies", {
   // Analyse
   trendHistory: numeric("trend_history", { precision: 5, scale: 2 }).default("0"), 
   
+  // Risk Matrix History
+  prevLiquidity: integer("prev_liquidity"),
+  prevTrend: numeric("prev_trend", { precision: 5, scale: 2 }),
+
   // Cache fra siste rapport
   lastReportDate: varchar("last_report_date", { length: 20 }),
   lastReportBy: varchar("last_report_by", { length: 255 }),

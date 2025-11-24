@@ -2,6 +2,7 @@
 export interface CompanyData {
   id: number;
   name: string; // Acronym e.g., VPS
+  fullName?: string; // Full legal name e.g. Vestlands Prosjektservice
   manager: string; // e.g., Kai
   resultYTD: number;
   budgetTotal: number; // Annual budget (Calculated sum of months)
@@ -19,6 +20,10 @@ export interface CompanyData {
   lastReportBy: string;
   comment: string;
   trendHistory: number; // Percentage change vs same period last year
+  
+  // For Risk Matrix History
+  prevLiquidity?: number;
+  prevDeviation?: number;
 }
 
 export interface ComputedCompanyData extends CompanyData {
@@ -63,6 +68,7 @@ export interface ForecastItem {
   id?: number;
   companyId: number;
   month: string; // YYYY-MM
+  monthName?: string; // Optional UI field for display (e.g. "Januar 2024")
   estimatedReceivables: number;
   estimatedPayables: number;
 }

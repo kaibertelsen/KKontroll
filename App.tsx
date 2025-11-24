@@ -157,6 +157,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         try {
             const dbPayload = {
                 name: payload.name,
+                full_name: payload.fullName, // Include fullName
                 manager: payload.manager,
                 revenue: payload.revenue,
                 expenses: payload.expenses,
@@ -196,6 +197,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             const { id, ...fields } = updatedCompany;
             const dbFields = {
                 name: fields.name,
+                full_name: fields.fullName, // Include fullName
                 manager: fields.manager,
                 revenue: fields.revenue,
                 expenses: fields.expenses,
@@ -263,7 +265,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 receivables: Number(c.receivables || 0),
                 accountsPayable: Number(c.accounts_payable || 0),
                 trendHistory: Number(c.trend_history || 0),
+                
+                prevLiquidity: Number(c.prev_liquidity || 0),
+                prevDeviation: Number(c.prev_trend || 0),
+
                 name: c.name || '',
+                fullName: c.full_name || '', // Map from DB
                 manager: c.manager || '',
                 liquidityDate: c.liquidity_date || '',
                 receivablesDate: c.receivables_date || '',
@@ -601,7 +608,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const visibleCompanies = useMemo(() => {
       if (effectiveRole === 'leader') {
           if (isDemo) {
-              return companies.filter(c => c.name === 'VPS'); 
+              return companies.filter(c => c.name === 'BCC'); // Updated demo leader company
           }
           if (userProfile.companyId) {
               return companies.filter(c => c.id === userProfile.companyId);
@@ -849,7 +856,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                                 <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Alle selskaper ligger likt med eller over budsjett.</p>
                             </div>
                         )}
-                        <AnimatedGrid className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
+                        <AnimatedGrid className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3 md:gap-6">
                             {sortedData.map((company) => (<MetricCard key={company.id} data={company} onSelect={setSelectedCompany} />))}
                         </AnimatedGrid>
                     </>
