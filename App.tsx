@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -200,35 +201,401 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   }, [selectedCompany?.id, isDemo]);
 
 
-  // --- COMPANY CRUD ---
-  // ... (Add, Update, Delete handlers omitted for brevity as they are unchanged) ...
-  // Re-implementing minimal handlers to keep file valid
-  const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => { /* ... */ };
-  const handleUpdateCompany = async (updatedCompany: CompanyData) => { /* ... */ };
-  const handleDeleteCompany = async (id: number) => { /* ... */ };
-  // NOTE: In a real update, ensure these functions from previous versions are preserved. 
-  // Since I'm replacing the file content, I should include them properly if I can, 
-  // but for this specific task (sorting), they aren't critical to show in full.
-  // I will assume the user keeps existing logic or I should put it back.
-  // To be safe, I will include placeholders that would technically be replaced by the user's existing code if merging manually,
-  // but here I will paste the full logic from previous context to ensure it works.
-  // (Actually, for this XML output, I'll include the full previous logic to be safe).
-
+  // --- HELPER to Refresh Companies ---
   const reloadCompanies = async () => {
-      const res = await getNEON({ table: 'companies', where: { group_id: userProfile.groupId } });
-      if(res.rows) {
-          setCompanies(res.rows.map((c: any) => ({...c}))); // Simplified map
+    try {
+        let companyWhere: any = {};
+        if (effectiveRole === 'leader' && userProfile.companyId) {
+            companyWhere = { id: userProfile.companyId };
+        } else {
+            companyWhere = { group_id: userProfile.groupId };
+        }
+
+        const compRes = await getNEON({ table: 'companies', where: companyWhere });
+        if(compRes.rows) {
+            const mapped = compRes.rows.map((c: any) => {
+                let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+                try {
+                    if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
+                    else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+                } catch(e) { console.warn("Budget parsing error", e); }
+
+                return {
+                    ...c,
+                    resultYTD: Number(c.result_ytd || 0),
+                    budgetTotal: Number(c.budget_total || 0),
+                    budgetMode: c.budget_mode || 'annual',
+                    budgetMonths: bMonths,
+                    liquidity: Number(c.liquidity || 0),
+                    receivables: Number(c.receivables || 0),
+                    accountsPayable: Number(c.accounts_payable || 0),
+                    trendHistory: Number(c.trend_history || 0),
+                    prevLiquidity: Number(c.prev_liquidity || 0),
+                    prevDeviation: Number(c.prev_trend || 0),
+                    name: c.name || '',
+                    fullName: c.full_name || '', 
+                    manager: c.manager || '',
+                    revenue: Number(c.revenue || 0),
+                    expenses: Number(c.expenses || 0),
+                    liquidityDate: c.liquidity_date || '',
+                    receivablesDate: c.receivables_date || '',
+                    accountsPayableDate: c.accounts_payable_date || '',
+                    lastReportDate: c.last_report_date || '',
+                    lastReportBy: c.last_report_by || '',
+                    comment: c.current_comment || '',
+                };
+            });
+            setCompanies(mapped);
+        }
+    } catch(e) { console.error("Reload companies error", e); }
+  };
+
+
+  // --- COMPANY CRUD ---
+  const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
+      try {
+          const dbPayload = {
+              group_id: userProfile.groupId,
+              name: newCompany.name,
+              full_name: newCompany.fullName,
+              manager: newCompany.manager,
+              revenue: newCompany.revenue,
+              expenses: newCompany.expenses,
+              result_ytd: newCompany.resultYTD,
+              budget_total: newCompany.budgetTotal,
+              budget_mode: newCompany.budgetMode,
+              budget_months: JSON.stringify(newCompany.budgetMonths),
+              liquidity: newCompany.liquidity,
+              receivables: newCompany.receivables,
+              accounts_payable: newCompany.accountsPayable,
+              liquidity_date: newCompany.liquidityDate,
+              receivables_date: newCompany.receivablesDate,
+              accounts_payable_date: newCompany.accountsPayableDate,
+              trend_history: newCompany.trendHistory
+          };
+          
+          if (!isDemo) {
+              await postNEON({ table: 'companies', data: dbPayload });
+              await reloadCompanies();
+          } else {
+              const id = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
+              setCompanies([...companies, { ...newCompany, id } as CompanyData]);
+          }
+      } catch (e) {
+          console.error("Failed to add company", e);
+          alert("Kunne ikke lagre selskap.");
       }
   };
 
+  const handleUpdateCompany = async (updatedCompany: CompanyData) => {
+      try {
+           const dbPayload = {
+              id: updatedCompany.id,
+              name: updatedCompany.name,
+              full_name: updatedCompany.fullName,
+              manager: updatedCompany.manager,
+              revenue: updatedCompany.revenue,
+              expenses: updatedCompany.expenses,
+              result_ytd: updatedCompany.resultYTD,
+              budget_total: updatedCompany.budgetTotal,
+              budget_mode: updatedCompany.budgetMode,
+              budget_months: JSON.stringify(updatedCompany.budgetMonths),
+              liquidity: updatedCompany.liquidity,
+              receivables: updatedCompany.receivables,
+              accounts_payable: updatedCompany.accountsPayable,
+              liquidity_date: updatedCompany.liquidityDate,
+              receivables_date: updatedCompany.receivablesDate,
+              accounts_payable_date: updatedCompany.accountsPayableDate,
+              trend_history: updatedCompany.trendHistory
+          };
+
+          if (!isDemo) {
+              await patchNEON({ table: 'companies', data: dbPayload });
+              await reloadCompanies();
+          } else {
+              setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
+          }
+      } catch (e) {
+          console.error("Failed to update company", e);
+          alert("Kunne ikke oppdatere selskap.");
+      }
+  };
+
+  const handleDeleteCompany = async (id: number) => {
+      if (!window.confirm("Er du sikker? Dette kan ikke angres.")) return;
+      try {
+          if (!isDemo) {
+              await deleteNEON({ table: 'companies', data: id });
+              await reloadCompanies();
+              if (selectedCompany?.id === id) setSelectedCompany(null);
+          } else {
+              setCompanies(companies.filter(c => c.id !== id));
+              if (selectedCompany?.id === id) setSelectedCompany(null);
+          }
+      } catch (e) {
+          console.error("Failed to delete company", e);
+          alert("Kunne ikke slette selskap. Det kan ha tilknyttede rapporter.");
+      }
+  };
+
+
   // --- REPORT HANDLERS ---
-  const handleSubmitReport = async (reportData: any) => { /* ... */ };
-  const handleApproveReport = async (reportId: number) => { /* ... */ };
-  const handleUnlockReport = async (reportId: number) => { /* ... */ };
-  const handleForecastSubmit = async (submittedForecasts: ForecastItem[]) => { /* ... */ };
-  const handleAddUser = async (user: Omit<UserData, 'id'>) => { /* ... */ };
-  const handleUpdateUser = async (user: UserData) => { /* ... */ };
-  const handleDeleteUser = async (id: number) => { /* ... */ };
+  const handleSubmitReport = async (reportData: any) => {
+      try {
+          if (isDemo) {
+               const newReport: ReportLogItem = {
+                   id: Math.random(),
+                   date: new Date().toLocaleDateString('no-NO'),
+                   author: userProfile.fullName,
+                   comment: reportData.comment,
+                   status: 'submitted',
+                   result: reportData.resultYTD,
+                   liquidity: reportData.liquidity,
+                   revenue: reportData.revenue,
+                   receivables: reportData.receivables,
+                   accountsPayable: reportData.accountsPayable,
+                   source: reportData.source || 'Manuell'
+               };
+               setReports([newReport, ...reports]);
+               return;
+          }
+
+          const payload: any = {
+              company_id: selectedCompany?.id,
+              author_name: userProfile.fullName,
+              comment: reportData.comment,
+              source: reportData.source,
+              status: 'submitted',
+              report_date: new Date().toISOString()
+          };
+          
+          if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
+          if(reportData.expenses !== undefined && reportData.expenses !== '') payload.expenses = reportData.expenses;
+          if(reportData.resultYTD !== undefined && reportData.resultYTD !== '') payload.result_ytd = reportData.resultYTD;
+          if(reportData.liquidity !== undefined && reportData.liquidity !== '') payload.liquidity = reportData.liquidity;
+          if(reportData.receivables !== undefined && reportData.receivables !== '') payload.receivables = reportData.receivables;
+          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') payload.accounts_payable = reportData.accountsPayable;
+          
+          if(reportData.liquidityDate) payload.liquidity_date = reportData.liquidityDate;
+          if(reportData.receivablesDate) payload.receivables_date = reportData.receivablesDate;
+          if(reportData.accountsPayableDate) payload.accounts_payable_date = reportData.accountsPayableDate;
+
+          if (reportData.id) {
+              await patchNEON({ table: 'reports', data: { id: reportData.id, ...payload } });
+          } else {
+              await postNEON({ table: 'reports', data: payload });
+          }
+
+          // Refresh reports for selected company
+          if (selectedCompany) {
+              const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
+              if(res.rows) {
+                 const mapped = res.rows.map((r:any) => ({
+                     id: r.id,
+                     date: r.report_date ? new Date(r.report_date).toLocaleDateString('no-NO') : '',
+                     author: r.author_name || 'Ukjent',
+                     comment: r.comment,
+                     status: r.status,
+                     result: r.result_ytd,
+                     liquidity: r.liquidity,
+                     revenue: r.revenue,
+                     expenses: r.expenses,
+                     receivables: r.receivables,
+                     accountsPayable: r.accounts_payable,
+                     liquidityDate: r.liquidity_date,
+                     receivablesDate: r.receivables_date,
+                     accountsPayableDate: r.accounts_payable_date,
+                     source: r.source || 'Manuell',
+                     approvedBy: r.approved_by_user_id ? 'Kontroller' : undefined,
+                     approvedAt: r.approved_at ? new Date(r.approved_at).toLocaleDateString('no-NO') : undefined
+                 }));
+                 mapped.sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                 setReports(mapped);
+              }
+          }
+
+      } catch (e) {
+          console.error("Report submit error", e);
+          alert("Feil ved innsending av rapport.");
+      }
+  };
+
+  const handleApproveReport = async (reportId: number) => {
+      if (isDemo) {
+          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Demo Controller' } : r));
+          return;
+      }
+      try {
+          const report = reports.find(r => r.id === reportId);
+          if (!report) return;
+
+          // 1. Update Report Status
+          await patchNEON({ 
+              table: 'reports', 
+              data: { 
+                  id: reportId, 
+                  status: 'approved', 
+                  approved_at: new Date().toISOString() 
+              } 
+          });
+
+          // 2. Update Company Data
+          const companyUpdate: any = { id: selectedCompany?.id };
+          if(report.revenue != null) companyUpdate.revenue = report.revenue;
+          if(report.expenses != null) companyUpdate.expenses = report.expenses;
+          if(report.result != null) companyUpdate.result_ytd = report.result;
+          if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
+          if(report.receivables != null) companyUpdate.receivables = report.receivables;
+          if(report.accountsPayable != null) companyUpdate.accounts_payable = report.accountsPayable;
+          
+          if(report.liquidityDate) companyUpdate.liquidity_date = report.liquidityDate;
+          if(report.receivablesDate) companyUpdate.receivables_date = report.receivablesDate;
+          if(report.accountsPayableDate) companyUpdate.accounts_payable_date = report.accountsPayableDate;
+          
+          companyUpdate.last_report_date = report.date;
+          companyUpdate.last_report_by = report.author;
+          companyUpdate.current_comment = report.comment;
+
+          await patchNEON({ table: 'companies', data: companyUpdate });
+
+          // Refresh everything
+          await reloadCompanies();
+          
+          // Update local reports list state
+          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
+          
+          // Force update selected company to show new values immediately (re-find from updated companies list)
+          // Ideally rely on `companies` update, but since we are in `selectedCompany` view, we might need to manually update `selectedCompany` state or let the view re-render.
+          // Since `selectedCompany` is state, we should update it.
+          // But `reloadCompanies` sets `companies`. `visibleCompanies` derives from `companies`. `computedData` derives from `visibleCompanies`.
+          // If `selectedCompany` is just a reference, it won't auto-update if it's a copy. 
+          // `MetricCard` onSelect sets the copy. 
+          // We need to re-set selectedCompany from the new companies list.
+          // Simplified:
+          // const updatedC = companies.find(c => c.id === selectedCompany.id); 
+          // But `companies` state update is async.
+          // For now, let's rely on user going back or we manually patch selectedCompany state.
+          // Actually, we can just patch `selectedCompany` state with the values we just sent to DB.
+          if (selectedCompany) {
+               setSelectedCompany(prev => prev ? ({ ...prev, ...companyUpdate }) : null);
+          }
+
+      } catch (e) {
+          console.error("Approval error", e);
+          alert("Feil ved godkjenning.");
+      }
+  };
+
+  const handleUnlockReport = async (reportId: number) => {
+      if(isDemo) {
+           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
+           return;
+      }
+      try {
+          await patchNEON({ 
+              table: 'reports', 
+              data: { 
+                  id: reportId, 
+                  status: 'submitted', 
+                  approved_at: null,
+                  approved_by_user_id: null
+              } 
+          });
+          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
+      } catch (e) {
+          console.error("Unlock error", e);
+      }
+  };
+
+  const handleForecastSubmit = async (submittedForecasts: ForecastItem[]) => {
+      if(isDemo) {
+          setForecasts(submittedForecasts);
+          return;
+      }
+      try {
+          for (const f of submittedForecasts) {
+              const payload = {
+                  company_id: f.companyId,
+                  month: f.month,
+                  estimated_receivables: f.estimatedReceivables,
+                  estimated_payables: f.estimatedPayables
+              };
+              
+              if (f.id) {
+                   await patchNEON({ table: 'forecasts', data: { id: f.id, ...payload } });
+              } else {
+                   await postNEON({ table: 'forecasts', data: payload });
+              }
+          }
+          // Reload forecasts
+          if(selectedCompany) {
+               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
+                if(res.rows) {
+                    const mapped = res.rows.map((f: any) => ({
+                        id: f.id,
+                        companyId: f.company_id,
+                        month: f.month,
+                        estimatedReceivables: f.estimated_receivables || 0,
+                        estimatedPayables: f.estimated_payables || 0
+                    }));
+                    setForecasts(mapped);
+                }
+          }
+      } catch (e) {
+          console.error("Forecast submit error", e);
+      }
+  };
+
+  // --- USER HANDLERS ---
+  const handleAddUser = async (user: Omit<UserData, 'id'>) => {
+      try {
+          const payload = {
+              auth_id: user.authId,
+              email: user.email,
+              full_name: user.fullName,
+              role: user.role,
+              group_id: userProfile.groupId,
+              company_id: user.companyId
+          };
+          await postNEON({ table: 'users', data: payload });
+          
+          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+          if(res.rows) setUsers(res.rows.map((u:any) => ({id: u.id, authId: u.auth_id, email: u.email, role: u.role, fullName: u.full_name, groupId: u.group_id, companyId: u.company_id})));
+      } catch (e) {
+          console.error("Add user error", e);
+          alert("Kunne ikke legge til bruker");
+      }
+  };
+
+  const handleUpdateUser = async (user: UserData) => {
+      try {
+          const payload = {
+              id: user.id,
+              auth_id: user.authId,
+              email: user.email,
+              full_name: user.fullName,
+              role: user.role,
+              company_id: user.companyId
+          };
+           await patchNEON({ table: 'users', data: payload });
+           
+           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+           if(res.rows) setUsers(res.rows.map((u:any) => ({id: u.id, authId: u.auth_id, email: u.email, role: u.role, fullName: u.full_name, groupId: u.group_id, companyId: u.company_id})));
+      } catch (e) {
+          console.error("Update user error", e);
+          alert("Kunne ikke oppdatere bruker");
+      }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+       try {
+          await deleteNEON({ table: 'users', data: id });
+          setUsers(users.filter(u => u.id !== id));
+      } catch (e) {
+          console.error("Delete user error", e);
+          alert("Kunne ikke slette bruker");
+      }
+  };
 
   const handleLogout = () => {
       localStorage.removeItem('konsern_access');
