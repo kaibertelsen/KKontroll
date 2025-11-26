@@ -67,9 +67,9 @@ export async function getNEON({
   // fields
   if (fields?.length) params.set("fields", fields.join(","));
 
-  // where logic
+  // where logic - Matches reference exactly
   if (where) {
-    Object.entries(where).forEach(([k, v]) => params.set(k, String(v)));
+    Object.entries(where).forEach(([k, v]) => params.set(k, v as string));
   }
 
   // cache
@@ -84,15 +84,13 @@ export async function getNEON({
   // build URL
   if (params.toString() !== "") url += `?${params.toString()}`;
 
-  // EXACT REFERENCE IMPLEMENTATION FOR OPTIONS
   const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
-  console.log(`[NEON] GET Request: ${url}`, options);
+  console.log(`[NEON] GET: ${url}`);
 
   const res = await fetch(url, options);
 
   if (!res.ok) {
-     // If 401/403, it might be strictly due to headers or token.
      throw new Error(`GET failed: ${res.status} ${res.statusText}`);
   }
 
@@ -125,8 +123,6 @@ export async function postNEON({
   public?: boolean 
 }) {
   const url = `${API_BASE}/api/${table}`;
-  
-  // Reference implementation wraps single object in array if not already array
   const bodyToSend = Array.isArray(data) ? data : [data];
 
   const options: RequestInit = {
