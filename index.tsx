@@ -124,7 +124,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.1.7</div>
+                    <div className="text-[10px] text-slate-400">v1.1.8</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -564,12 +564,20 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     console.error("Init Error:", e);
     let msg = e.message || String(e);
     
+    // Special handling for "Failed to fetch" (Network/CORS)
     if (msg.includes("Failed to fetch")) {
-        msg = "Kan ikke koble til serveren. Starter Demo-modus automatisk...";
-        addLog(`KRITISK FEIL: ${msg}`, 'error');
-        setTimeout(() => {
-            window.initKonsernKontroll(undefined, true);
-        }, 1500);
+        addLog(`KRITISK NETTVERKSFEIL: ${msg}`, 'error');
+        addLog("Dette skyldes ofte at serveren er utilgjengelig, CORS-blokkering eller manglende tilgang.", 'error');
+        
+        // Automatically start demo mode if fetch fails, so user isn't stuck
+        renderLog([
+            {
+                label: "Start Demo Modus",
+                icon: MonitorPlay,
+                variant: 'secondary',
+                onClick: () => window.initKonsernKontroll(undefined, true)
+            }
+        ]);
         return;
     }
     

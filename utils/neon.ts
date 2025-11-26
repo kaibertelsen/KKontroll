@@ -28,8 +28,7 @@ function getPlans() {
 
 function buildHeaders() {
   const token = getToken();
-  // Allow missing token for public routes or demo mode fallback, but warn
-  if (!token) console.warn("Missing Memberstack token (_ms-mid), request may fail if not public.");
+  if (!token) throw new Error("Missing Memberstack token (_ms-mid)");
 
   return {
     "Content-Type": "application/json",
@@ -68,10 +67,9 @@ export async function getNEON({
   // fields
   if (fields?.length) params.set("fields", fields.join(","));
 
-  // where logic - ROBUST HANDLING
+  // where logic
   if (where) {
     Object.entries(where).forEach(([k, v]) => {
-        // Only add if value is not null or undefined
         if (v !== null && v !== undefined) {
             params.set(k, String(v));
         }
@@ -90,40 +88,46 @@ export async function getNEON({
   // build URL
   if (params.toString() !== "") url += `?${params.toString()}`;
 
-  const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
+  const options: RequestInit = isPublic 
+    ? { mode: 'cors' } 
+    : { headers: buildHeaders(), mode: 'cors' };
 
   console.log(`[NEON] GET Request: ${url}`);
 
-  const res = await fetch(url, options);
-
-  if (!res.ok) {
-     throw new Error(`GET failed: ${res.status} ${res.statusText}`);
-  }
-
-  // LOGGING RAW RESPONSE FOR DEBUGGING
-  const text = await res.text();
-  console.log(`[NEON] Response Body for ${table}:`, text);
-
-  let json;
   try {
-      json = JSON.parse(text);
-  } catch (e) {
-      console.error("JSON Parse Error:", e);
-      throw new Error(`Invalid JSON response from ${url}`);
+      const res = await fetch(url, options);
+
+      if (!res.ok) {
+         throw new Error(`GET failed: ${res.status} ${res.statusText}`);
+      }
+
+      const text = await res.text();
+      console.log(`[NEON] Response Body for ${table}:`, text);
+
+      let json;
+      try {
+          json = JSON.parse(text);
+      } catch (e) {
+          console.error("JSON Parse Error:", e);
+          throw new Error(`Invalid JSON response from ${url}`);
+      }
+      
+      return apiresponse(
+        {
+          rows: json.rows || [],
+          cached: json.cached,
+          limit: json.limit,
+          offset: json.offset,
+          count: json.count,
+          total: json.total,
+          hasMore: json.hasMore
+        },
+        responsId
+      );
+  } catch (error: any) {
+      console.error(`[NEON] Network/Fetch Error:`, error);
+      throw error; // Re-throw for index.tsx to handle
   }
-  
-  return apiresponse(
-    {
-      rows: json.rows || [],
-      cached: json.cached,
-      limit: json.limit,
-      offset: json.offset,
-      count: json.count,
-      total: json.total,
-      hasMore: json.hasMore
-    },
-    responsId
-  );
 }
 
 /* ------------------ POST ------------------ */
@@ -140,30 +144,30 @@ export async function postNEON({
 }) {
   const url = `${API_BASE}/api/${table}`;
   const bodyToSend = Array.isArray(data) ? data : [data];
-
+  
   const options: RequestInit = {
       method: "POST",
-      headers: isPublic ? {} : buildHeaders(),
-      body: JSON.stringify(bodyToSend)
+      headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
+      body: JSON.stringify(bodyToSend),
+      mode: 'cors'
   };
 
-  const res = await fetch(url, options);
+  console.log(`[NEON] POST Request: ${url}`);
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`POST failed: ${res.status} - ${errorText}`);
+  try {
+      const res = await fetch(url, options);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`POST failed: ${res.status} - ${errorText}`);
+      }
+
+      const json = await res.json();
+      return apiresponse(json, responsId);
+  } catch (error: any) {
+      console.error(`[NEON] POST Network Error:`, error);
+      throw error;
   }
-
-  const json = await res.json();
-  
-  return apiresponse(
-    {
-      inserted: json.inserted,
-      insertedCount: json.insertedCount,
-      user: json.user
-    }, 
-    responsId
-  );
 }
 
 
@@ -202,23 +206,21 @@ export async function patchNEON({
 
   const options: RequestInit = {
     method: "PATCH",
-    headers: isPublic ? {} : buildHeaders(),
-    body: JSON.stringify(payload)
+    headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
+    body: JSON.stringify(payload),
+    mode: 'cors'
   };
 
-  const res = await fetch(url, options);
-  if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+  try {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
 
-  const json = await res.json();
-  
-  return apiresponse(
-    {
-      rows: json.rows,
-      updatedCount: json.updatedCount,
-      mode: json.mode,
-    },
-    responsId
-  );
+      const json = await res.json();
+      return apiresponse(json, responsId);
+  } catch (error: any) {
+      console.error(`[NEON] PATCH Network Error:`, error);
+      throw error;
+  }
 }
 
 /* ------------------ DELETE ------------------ */
@@ -240,20 +242,26 @@ export async function deleteNEON({
 
   const url = `${API_BASE}/api/${table}?field=id&value=${value}`;
 
-  const res = await fetch(url, {
-    method: "DELETE",
-    headers: buildHeaders()
-  });
+  try {
+      const res = await fetch(url, {
+        method: "DELETE",
+        headers: buildHeaders(),
+        mode: 'cors'
+      });
 
-  if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
+      if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
 
-  const json = await res.json();
+      const json = await res.json();
 
-  return apiresponse(
-    {
-      deleted: json.deleted,
-      ids
-    },
-    responsId
-  );
+      return apiresponse(
+        {
+          deleted: json.deleted,
+          ids
+        },
+        responsId
+      );
+  } catch (error: any) {
+      console.error(`[NEON] DELETE Network Error:`, error);
+      throw error;
+  }
 }
