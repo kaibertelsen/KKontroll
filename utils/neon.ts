@@ -151,7 +151,7 @@ export async function postNEON({
       body: JSON.stringify(bodyToSend)
   };
 
-  console.log(`[NEON] POST Request: ${url}`);
+  console.log(`[NEON] POST options: ${options}`);
 
   try {
       const res = await fetch(url, options);
