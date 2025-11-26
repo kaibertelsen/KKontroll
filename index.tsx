@@ -88,7 +88,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.1.1</div>
+                    <div className="text-[10px] text-slate-400">v1.1.4</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -399,22 +399,22 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   try {
     addLog("Kobler til Neon database...");
     
-    // --- STRICT ID HANDLING (as requested) ---
+    // --- STRICT ID HANDLING (Corrected) ---
     let userWhere = {};
     const userIdStr = String(effectiveUserId);
     
     if (userIdStr.startsWith('mem_')) {
-        // Valid Memberstack ID -> Search in 'auth_id' directly as string
-        userWhere = { auth_id: userIdStr };
-        addLog(`Søkemetode: auth_id (Memberstack ID)`, 'info');
+        // Valid Memberstack ID -> Search in 'authId' (camelCase)
+        userWhere = { authId: userIdStr }; 
+        addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
     } else if (/^\d+$/.test(userIdStr)) {
-        // Pure digits -> Search in 'id'
+        // Pure digits -> Search in 'id' (numeric)
         userWhere = { id: userIdStr };
         addLog(`Søkemetode: id (Intern ID)`, 'info');
     } else {
-        // Fallback -> Search in 'auth_id'
-        userWhere = { auth_id: userIdStr };
-        addLog(`Søkemetode: auth_id (Generisk)`, 'info');
+        // Fallback -> Search in 'authId'
+        userWhere = { authId: userIdStr };
+        addLog(`Søkemetode: authId (Generisk)`, 'info');
     }
 
     addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
