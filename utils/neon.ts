@@ -1,4 +1,3 @@
-
 // API Client for Neon / AttentioCloud
 
 const API_BASE = "https://attentiocloud-api.vercel.app";
@@ -8,14 +7,14 @@ const TEST_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjZmNjU3ZGRiYWJm
 const TEST_PLAN_ID = "pln_konsernkontroll-ebfc06oh";
 
 function getToken() {
-  return (
-    localStorage.getItem("_ms-mid") ||
+  const t = localStorage.getItem("_ms-mid") ||
     document.cookie
       .split("; ")
       .find((r) => r.startsWith("_ms-mid="))
       ?.split("=")[1] ||
-    TEST_TOKEN // Fallback to test token
-  );
+    TEST_TOKEN; // Fallback to test token
+  
+  return t ? t.trim() : null;
 }
 
 function getPlans() {
@@ -85,29 +84,35 @@ export async function getNEON({
     if (pagination.offset != null) params.set("offset", String(pagination.offset));
   }
 
-  if ([...params].length > 0) url += `?${params.toString()}`;
+  if (params.toString() !== "") url += `?${params.toString()}`;
 
-  const options = isPublic ? {} : { headers: buildHeaders() };
+  const options: RequestInit = isPublic ? { mode: 'cors' } : { headers: buildHeaders(), mode: 'cors' };
 
-  try {
-    const res = await fetch(url, options);
-    const json = await res.json();
-    return apiresponse(
-      {
-        rows: json.rows || [],
-        cached: json.cached,
-        limit: json.limit,
-        offset: json.offset,
-        count: json.count,
-        total: json.total,
-        hasMore: json.hasMore
-      },
-      responsId
-    );
-  } catch (e) {
-      console.error("GET NEON Error", e);
-      return { rows: [] };
+  // Logging
+  console.log(`[NEON] GET Request: ${url}`);
+  console.log(`[NEON] Headers:`, options.headers);
+
+  // Removed internal try/catch so errors propagate to the caller
+  const res = await fetch(url, options);
+
+  if (!res.ok) {
+     throw new Error(`GET failed: ${res.status} ${res.statusText}`);
   }
+
+  const json = await res.json();
+  
+  return apiresponse(
+    {
+      rows: json.rows || [],
+      cached: json.cached,
+      limit: json.limit,
+      offset: json.offset,
+      count: json.count,
+      total: json.total,
+      hasMore: json.hasMore
+    },
+    responsId
+  );
 }
 
 /* ------------------ POST ------------------ */
@@ -116,10 +121,11 @@ export async function postNEON({ table, data, responsId, public: isPublic = fals
 
   const bodyToSend = Array.isArray(data) ? data : [data];
 
-  const options = {
+  const options: RequestInit = {
       method: "POST",
       headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
-      body: JSON.stringify(bodyToSend)
+      body: JSON.stringify(bodyToSend),
+      mode: 'cors'
   };
 
   const res = await fetch(url, options);
@@ -162,10 +168,11 @@ export async function patchNEON({
     });
   }
 
-  const options = {
+  const options: RequestInit = {
     method: "PATCH",
     headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
     body: JSON.stringify(payload),
+    mode: 'cors'
   };
 
   const res = await fetch(url, options);
@@ -188,7 +195,8 @@ export async function deleteNEON({ table, data, responsId }: { table: string, da
 
   const res = await fetch(url, {
     method: "DELETE",
-    headers: buildHeaders()
+    headers: buildHeaders(),
+    mode: 'cors'
   });
 
   if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);

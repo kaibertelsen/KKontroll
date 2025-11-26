@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
-import { Lock, LogIn, MonitorPlay, Loader2 } from 'lucide-react';
+import { Lock, LogIn, MonitorPlay, Loader2, Terminal, CheckCircle2, XCircle, RefreshCw, LogOut } from 'lucide-react';
 
 // Define global interface for window
 declare global {
@@ -57,6 +56,86 @@ const loadMemberstackScript = (): Promise<void> => {
     });
 };
 
+// --- LOADING LOGGER COMPONENT ---
+interface LogEntry {
+    time: string;
+    message: string;
+    type: 'info' | 'success' | 'error';
+}
+
+interface ActionButton {
+    label: string;
+    onClick: () => void;
+    icon?: React.ElementType;
+    variant?: 'primary' | 'secondary' | 'danger';
+}
+
+interface LoadingLoggerProps {
+    logs: LogEntry[];
+    actions?: ActionButton[];
+}
+
+const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
+    const hasError = logs.some(l => l.type === 'error');
+    
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 font-mono p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
+                <div className="bg-slate-100 dark:bg-slate-900 px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                        {hasError ? <XCircle className="text-rose-500" size={18} /> : <Loader2 className="animate-spin text-sky-600" size={18} />}
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                            {hasError ? 'Systemstopp' : 'Systemstart'}
+                        </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">v1.0.8</div>
+                </div>
+                
+                <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
+                    {logs.map((log, idx) => (
+                        <div key={idx} className={`flex gap-3 p-1.5 rounded border ${
+                            log.type === 'error' ? 'text-rose-700 bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/50 dark:text-rose-300' : 
+                            log.type === 'success' ? 'text-emerald-700 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30 dark:text-emerald-400' : 
+                            'text-slate-600 border-transparent dark:text-slate-400'
+                        }`}>
+                            <span className="opacity-40 shrink-0 select-none">[{log.time}]</span>
+                            <span className="break-all">{log.message}</span>
+                        </div>
+                    ))}
+                    <div id="log-end" />
+                </div>
+
+                {actions && actions.length > 0 && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 shrink-0 flex flex-wrap justify-center gap-3">
+                        {actions.map((action, idx) => (
+                             <button 
+                                key={idx}
+                                onClick={action.onClick}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all text-sm
+                                    ${action.variant === 'danger' 
+                                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200' 
+                                        : action.variant === 'secondary'
+                                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
+                                            : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                                    }
+                                `}
+                            >
+                                {action.icon && <action.icon size={16} />}
+                                {action.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            {!actions && (
+                <p className="mt-4 text-xs text-slate-400 max-w-xs text-center animate-pulse">
+                    Jobber...
+                </p>
+            )}
+        </div>
+    );
+};
+
 
 // --- LOGIN SCREEN COMPONENT ---
 const LoginScreen = () => {
@@ -78,11 +157,32 @@ const LoginScreen = () => {
         setIsLoadingMs(true);
         try {
             await loadMemberstackScript();
+            
             if (window.$memberstackDom) {
+                // START POLLING FOR SUCCESSFUL LOGIN
+                const loginCheckInterval = setInterval(() => {
+                    const token = localStorage.getItem("_ms-mid");
+                    if (token) {
+                        clearInterval(loginCheckInterval);
+                        console.log("Login detected via _ms-mid. Initializing app...");
+                        // Add small delay to allow MS to write everything
+                        setTimeout(() => window.initKonsernKontroll(), 500);
+                    }
+                }, 1000); // Check every 1s
+
                 await window.$memberstackDom.openModal('LOGIN');
             } else {
                 setTimeout(async () => {
-                    if(window.$memberstackDom) await window.$memberstackDom.openModal('LOGIN');
+                    if(window.$memberstackDom) {
+                        // Retry logic
+                         const loginCheckInterval = setInterval(() => {
+                            if (localStorage.getItem("_ms-mid")) {
+                                clearInterval(loginCheckInterval);
+                                window.initKonsernKontroll();
+                            }
+                        }, 1000);
+                        await window.$memberstackDom.openModal('LOGIN');
+                    }
                     else alert("Kunne ikke starte innloggingstjenesten. Prøv igjen.");
                 }, 500);
             }
@@ -90,7 +190,10 @@ const LoginScreen = () => {
             console.error("Login error:", err);
             alert("Feil ved lasting av innlogging. Sjekk nettilgang.");
         } finally {
-            setIsLoadingMs(false);
+            // Keep loading true for a bit if we found a token, as init takes over
+            if (!localStorage.getItem("_ms-mid")) {
+                 setIsLoadingMs(false);
+            }
         }
     };
 
@@ -121,7 +224,7 @@ const LoginScreen = () => {
                         className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
                     >
                         {isLoadingMs ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-                        {isLoadingMs ? 'Laster...' : 'Logg inn med Attentio'}
+                        {isLoadingMs ? 'Venter på innlogging...' : 'Logg inn med Attentio'}
                     </button>
                 </div>
 
@@ -178,16 +281,59 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       window.konsernRoot = root;
   }
 
+  // --- LOGGING MECHANISM ---
+  const logs: LogEntry[] = [];
+  
+  // Helper to render logs with optional action buttons
+  const renderLog = (actions?: ActionButton[]) => {
+       root.render(
+        <React.StrictMode>
+            <LoadingLogger logs={[...logs]} actions={actions} />
+        </React.StrictMode>
+      );
+      // Auto-scroll
+      setTimeout(() => {
+          const el = document.getElementById('log-end');
+          if(el) el.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+  };
+
+  const addLog = (msg: string, type: LogEntry['type'] = 'info') => {
+      console.log(`[System] ${msg}`);
+      logs.push({
+          time: new Date().toLocaleTimeString('no-NO', { hour12: false, hour: '2-digit', minute: '2-digit', second:'2-digit' }),
+          message: msg,
+          type
+      });
+      renderLog();
+  };
+  // -------------------------
+
+  addLog("Initialiserer applikasjon...");
+
   // 1. AUTH CHECK
   let memberstackUser = null;
+  const localToken = localStorage.getItem("_ms-mid");
+  if (localToken) {
+      addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
+  }
+
   try {
+      addLog("Sjekker Memberstack status...");
       if (window.$memberstackDom) {
           const member = await window.$memberstackDom.getCurrentMember();
           if (member?.data) {
               memberstackUser = member.data;
+              addLog(`Memberstack bruker funnet: ${memberstackUser.id}`, 'success');
+          } else {
+              addLog("Ingen aktiv Memberstack sesjon funnet.");
           }
+      } else {
+          addLog("Memberstack DOM ikke tilgjengelig.");
       }
-  } catch (e) { console.warn("Memberstack check failed", e); }
+  } catch (e: any) { 
+      addLog(`Feil under Memberstack sjekk: ${e.message}`, 'error');
+  }
 
   // 2. DETERMINE MODE
   let shouldStartApp = false;
@@ -196,25 +342,25 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   if (demoMode === true) {
       shouldStartApp = true;
       isDemo = true;
+      addLog("Modus satt til: DEMO", 'info');
   } else if (memberstackUser) {
       shouldStartApp = true;
       isDemo = false;
+      addLog("Modus satt til: LIVE", 'info');
   }
   
   if (!shouldStartApp) {
-      root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
+      addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
+      // Short delay so user sees log before switching
+      setTimeout(() => {
+          root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
+      }, 800);
       return;
   }
 
-  root.render(
-    <div className="flex h-screen items-center justify-center text-slate-500 font-sans bg-slate-50 dark:bg-slate-900 dark:text-slate-400 animate-pulse">
-      {isDemo ? 'Starter Demo...' : 'Henter data...'}
-    </div>
-  );
-
   // --- DEMO MODE START ---
   if (isDemo) {
-    console.log("Running in DEMO MODE");
+    addLog("Klargjør demodata...");
     localStorage.setItem('konsern_mode', 'demo'); 
     
     const mockUserProfile = {
@@ -225,12 +371,13 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     };
 
     setTimeout(() => {
+        addLog("Demodata lastet. Starter UI.", 'success');
         root.render(
             <React.StrictMode>
                 <App userProfile={mockUserProfile} initialCompanies={INITIAL_DATA} isDemo={true} />
             </React.StrictMode>
         );
-    }, 600);
+    }, 1200);
     return;
   }
 
@@ -240,69 +387,94 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   if (!effectiveUserId && memberstackUser) {
       if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
           effectiveUserId = memberstackUser.customFields['neonid'];
-          console.log("Using Memberstack Custom Field neonid:", effectiveUserId);
+          addLog(`Bruker Custom Field 'neonid': ${effectiveUserId}`, 'info');
       } else {
           effectiveUserId = memberstackUser.id;
-          console.log("Using Memberstack Auth ID:", effectiveUserId);
+          addLog(`Bruker standard Auth ID: ${effectiveUserId}`, 'info');
       }
   }
 
   if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
 
   try {
+    addLog("Kobler til Neon database...");
+    
+    // --- KEY FIX: Strict ID Type Checking ---
     let userWhere = {};
-    if (/^\d+$/.test(String(effectiveUserId))) {
-        userWhere = { id: effectiveUserId };
+    const userIdStr = String(effectiveUserId);
+    
+    if (userIdStr.startsWith('mem_')) {
+        // If it looks like a Memberstack ID, FORCE auth_id lookup
+        userWhere = { auth_id: userIdStr };
+        addLog(`Søkemetode: auth_id (Memberstack ID)`, 'info');
+    } else if (/^\d+$/.test(userIdStr)) {
+        // If it is pure digits, assume internal ID
+        userWhere = { id: userIdStr };
+        addLog(`Søkemetode: id (Intern ID)`, 'info');
     } else {
-        userWhere = { auth_id: effectiveUserId };
+        // Fallback for other string IDs
+        userWhere = { auth_id: userIdStr };
+        addLog(`Søkemetode: auth_id (Generisk)`, 'info');
     }
 
+    addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
     const userRes = await getNEON({ table: 'users', where: userWhere });
     const user = userRes.rows[0];
 
     if (!user) {
-        root.render(
-            <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-                <div className="bg-white p-8 rounded-xl shadow-lg text-center max-w-md">
-                    <h3 className="text-xl font-bold text-rose-600 mb-2">Bruker ikke funnet</h3>
-                    <p className="text-slate-600 mb-4">Vi fant ingen kobling mot din bruker i systemet.</p>
-                    <p className="text-xs text-slate-400 mb-6 font-mono bg-slate-100 p-2 rounded">ID: {String(effectiveUserId)}</p>
-                    <div className="flex gap-3 justify-center">
-                        <button 
-                            onClick={() => { if(window.$memberstackDom) window.$memberstackDom.logout(); window.initKonsernKontroll(); }}
-                            className="px-4 py-2 border border-slate-300 rounded hover:bg-slate-50"
-                        >Logg ut</button>
-                        <button 
-                            onClick={() => { window.initKonsernKontroll(undefined, true); }}
-                            className="px-4 py-2 bg-sky-600 text-white rounded hover:bg-sky-500"
-                        >Gå til Demo</button>
-                    </div>
-                </div>
-            </div>
-        );
+        addLog("FEIL: Bruker ikke funnet i databasen.", 'error');
+        addLog(`Søkte etter: ${JSON.stringify(userWhere)}`, 'error');
+        addLog("Dette betyr at Memberstack-brukeren ikke er koblet mot en rad i users-tabellen.", 'error');
+        
+        // STOP HERE and show actions
+        renderLog([
+            {
+                label: "Start Demo Modus",
+                icon: MonitorPlay,
+                variant: 'secondary',
+                onClick: () => window.initKonsernKontroll(undefined, true)
+            },
+            {
+                label: "Logg ut og prøv igjen",
+                icon: LogOut,
+                onClick: () => { 
+                    if(window.$memberstackDom) window.$memberstackDom.logout(); 
+                    window.initKonsernKontroll(); 
+                }
+            }
+        ]);
         return;
     }
 
+    addLog(`Bruker verifisert: ${user.full_name} (${user.role})`, 'success');
     localStorage.setItem('konsern_mode', 'live'); 
 
     // Fetch Group Name
     let groupName = "Mitt Konsern";
+    addLog(`Henter konserndata (Group ID: ${user.group_id})...`);
     if (user.group_id) {
         const groupRes = await getNEON({ table: 'groups', where: { id: user.group_id } });
-        if(groupRes.rows[0]) groupName = groupRes.rows[0].name;
+        if(groupRes.rows[0]) {
+            groupName = groupRes.rows[0].name;
+            addLog(`Konsern: ${groupName}`, 'success');
+        }
     }
 
     // Fetch Companies
     let companyWhere: any = {};
     if (user.role === 'leader' && user.company_id) {
         companyWhere = { id: user.company_id };
+        addLog(`Henter selskap for leder (ID: ${user.company_id})...`);
     } else {
         companyWhere = { group_id: user.group_id };
+        addLog(`Henter alle selskaper i konsernet...`);
     }
     
     const compRes = await getNEON({ table: 'companies', where: companyWhere });
     const rawCompanies = compRes.rows || [];
+    addLog(`Fant ${rawCompanies.length} selskaper.`, 'success');
 
+    addLog("Prosesserer finansielle data...");
     const mappedCompanies = rawCompanies.map((c: any) => {
         let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
         try {
@@ -346,20 +518,40 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         companyId: user.company_id
     };
 
-    root.render(
-      <React.StrictMode>
-        <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
-      </React.StrictMode>
-    );
+    addLog("Alt klart. Starter dashboard.", 'success');
+    
+    setTimeout(() => {
+        root.render(
+        <React.StrictMode>
+            <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
+        </React.StrictMode>
+        );
+    }, 800);
 
-  } catch (e) {
+  } catch (e: any) {
     console.error("Init Error:", e);
-    root.render(
-        <div className="p-10 text-center font-sans">
-            <p className="text-rose-600 mb-4">Feil ved lasting av data.</p>
-            <button onClick={() => { window.initKonsernKontroll(); }} className="px-4 py-2 bg-slate-200 rounded hover:bg-slate-300">Prøv igjen</button>
-        </div>
-    );
+    let msg = e.message || String(e);
+    // Explicitly handle "Failed to fetch" to give a better user experience
+    if (msg.includes("Failed to fetch")) {
+        msg = "Kan ikke koble til serveren. Sjekk internettforbindelsen eller VPN.";
+    }
+    
+    addLog(`KRITISK FEIL: ${msg}`, 'error');
+    
+    // Stop and show actions (Retry OR Demo)
+    renderLog([
+        {
+            label: "Prøv igjen",
+            icon: RefreshCw,
+            onClick: () => window.initKonsernKontroll()
+        },
+        {
+            label: "Start Demo Modus",
+            icon: MonitorPlay,
+            variant: 'secondary',
+            onClick: () => window.initKonsernKontroll(undefined, true)
+        }
+    ]);
   }
 };
 
