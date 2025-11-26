@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 
 interface UserProfile {
+    id: number; // Added User ID
     fullName: string;
     role: 'controller' | 'leader';
     groupId: number;
@@ -361,9 +362,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
-          // FIXED: Use camelCase keys
+          // FIXED: Use camelCase keys, include submittedByUserId
           const payload: any = {
               companyId: selectedCompany?.id,
+              submittedByUserId: userProfile.id, // ADDED: Current user ID
               authorName: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
@@ -437,7 +439,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approvedAt: new Date().toISOString() 
+                  approvedAt: new Date().toISOString(),
+                  approvedByUserId: userProfile.id // Added: Current user ID as approver
               } 
           });
 
