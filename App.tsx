@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -119,11 +118,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- FETCH USERS (Admin) ---
   useEffect(() => {
       if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
-          getNEON({ table: 'users', where: { group_id: userProfile.groupId } })
+          getNEON({ table: 'users', where: { groupId: userProfile.groupId } })
             .then(res => {
                 if(res.rows) {
-                    // FIXED: Use camelCase properties if API returns them (based on user JSON response)
-                    // Fallback to snake_case if needed
                     const mappedUsers = res.rows.map((u: any) => ({
                         id: u.id,
                         authId: u.authId || u.auth_id, 
@@ -146,27 +143,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       if (!isDemo) {
           // Fetch Reports
-          getNEON({ table: 'reports', where: { company_id: selectedCompany.id } })
+          getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
                     const mappedReports = res.rows.map((r: any) => ({
                         id: r.id,
-                        date: r.report_date ? new Date(r.report_date).toLocaleDateString('no-NO') : '',
-                        author: r.author_name || 'Ukjent',
+                        date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
+                        author: r.authorName || 'Ukjent',
                         comment: r.comment,
                         status: r.status,
-                        result: r.result_ytd != null ? r.result_ytd : undefined,
+                        result: r.resultYtd != null ? r.resultYtd : undefined,
                         liquidity: r.liquidity != null ? r.liquidity : undefined,
                         revenue: r.revenue != null ? r.revenue : undefined,
                         expenses: r.expenses != null ? r.expenses : undefined,
                         receivables: r.receivables != null ? r.receivables : undefined,
-                        accountsPayable: r.accounts_payable != null ? r.accounts_payable : undefined,
-                        liquidityDate: r.liquidity_date || '',
-                        receivablesDate: r.receivables_date || '',
-                        accountsPayableDate: r.accounts_payable_date || '',
+                        accountsPayable: r.accountsPayable != null ? r.accountsPayable : undefined,
+                        liquidityDate: r.liquidityDate || '',
+                        receivablesDate: r.receivablesDate || '',
+                        accountsPayableDate: r.accountsPayableDate || '',
                         source: r.source || 'Manuell',
-                        approvedBy: r.approved_by_user_id ? 'Kontroller' : undefined,
-                        approvedAt: r.approved_at ? new Date(r.approved_at).toLocaleDateString('no-NO') : undefined
+                        approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
+                        approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
                     }));
                     mappedReports.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     setReports(mappedReports);
@@ -175,15 +172,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             .catch(err => console.error("Error fetching reports", err));
 
           // Fetch Forecasts
-          getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } })
+          getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if(res.rows) {
                     const mappedForecasts = res.rows.map((f: any) => ({
                         id: f.id,
-                        companyId: f.company_id,
+                        companyId: f.companyId,
                         month: f.month,
-                        estimatedReceivables: f.estimated_receivables || 0,
-                        estimatedPayables: f.estimated_payables || 0
+                        estimatedReceivables: f.estimatedReceivables || 0,
+                        estimatedPayables: f.estimatedPayables || 0
                     }));
                     setForecasts(mappedForecasts);
                 }
@@ -210,7 +207,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         if (effectiveRole === 'leader' && userProfile.companyId) {
             companyWhere = { id: userProfile.companyId };
         } else {
-            companyWhere = { group_id: userProfile.groupId };
+            companyWhere = { groupId: userProfile.groupId };
         }
 
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
@@ -218,33 +215,33 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             const mapped = compRes.rows.map((c: any) => {
                 let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
                 try {
-                    if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
-                    else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+                    if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
+                    else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
                 return {
                     ...c,
-                    resultYTD: Number(c.result_ytd || 0),
-                    budgetTotal: Number(c.budget_total || 0),
-                    budgetMode: c.budget_mode || 'annual',
+                    resultYTD: Number(c.resultYtd || 0),
+                    budgetTotal: Number(c.budgetTotal || 0),
+                    budgetMode: c.budgetMode || 'annual',
                     budgetMonths: bMonths,
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
-                    accountsPayable: Number(c.accounts_payable || 0),
-                    trendHistory: Number(c.trend_history || 0),
-                    prevLiquidity: Number(c.prev_liquidity || 0),
-                    prevDeviation: Number(c.prev_trend || 0),
+                    accountsPayable: Number(c.accountsPayable || 0),
+                    trendHistory: Number(c.trendHistory || 0),
+                    prevLiquidity: Number(c.prevLiquidity || 0),
+                    prevDeviation: Number(c.prevTrend || 0),
                     name: c.name || '',
-                    fullName: c.full_name || '', 
+                    fullName: c.fullName || '', 
                     manager: c.manager || '',
                     revenue: Number(c.revenue || 0),
                     expenses: Number(c.expenses || 0),
-                    liquidityDate: c.liquidity_date || '',
-                    receivablesDate: c.receivables_date || '',
-                    accountsPayableDate: c.accounts_payable_date || '',
-                    lastReportDate: c.last_report_date || '',
-                    lastReportBy: c.last_report_by || '',
-                    comment: c.current_comment || '',
+                    liquidityDate: c.liquidityDate || '',
+                    receivablesDate: c.receivablesDate || '',
+                    accountsPayableDate: c.accountsPayableDate || '',
+                    lastReportDate: c.lastReportDate || '',
+                    lastReportBy: c.lastReportBy || '',
+                    comment: c.currentComment || '',
                 };
             });
             setCompanies(mapped);
@@ -256,24 +253,25 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- COMPANY CRUD ---
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
+          // FIXED: Use camelCase to match Drizzle Schema
           const dbPayload = {
-              group_id: userProfile.groupId,
+              groupId: userProfile.groupId, 
               name: newCompany.name,
-              full_name: newCompany.fullName,
+              fullName: newCompany.fullName,
               manager: newCompany.manager,
               revenue: newCompany.revenue,
               expenses: newCompany.expenses,
-              result_ytd: newCompany.resultYTD,
-              budget_total: newCompany.budgetTotal,
-              budget_mode: newCompany.budgetMode,
-              budget_months: JSON.stringify(newCompany.budgetMonths),
+              resultYtd: newCompany.resultYTD, // Note: Schema has resultYtd
+              budgetTotal: newCompany.budgetTotal,
+              budgetMode: newCompany.budgetMode,
+              budgetMonths: JSON.stringify(newCompany.budgetMonths),
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
-              accounts_payable: newCompany.accountsPayable,
-              liquidity_date: newCompany.liquidityDate,
-              receivables_date: newCompany.receivablesDate,
-              accounts_payable_date: newCompany.accountsPayableDate,
-              trend_history: newCompany.trendHistory
+              accountsPayable: newCompany.accountsPayable,
+              liquidityDate: newCompany.liquidityDate,
+              receivablesDate: newCompany.receivablesDate,
+              accountsPayableDate: newCompany.accountsPayableDate,
+              trendHistory: newCompany.trendHistory
           };
           
           if (!isDemo) {
@@ -291,24 +289,25 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateCompany = async (updatedCompany: CompanyData) => {
       try {
+           // FIXED: Use camelCase to match Drizzle Schema
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
-              full_name: updatedCompany.fullName,
+              fullName: updatedCompany.fullName,
               manager: updatedCompany.manager,
               revenue: updatedCompany.revenue,
               expenses: updatedCompany.expenses,
-              result_ytd: updatedCompany.resultYTD,
-              budget_total: updatedCompany.budgetTotal,
-              budget_mode: updatedCompany.budgetMode,
-              budget_months: JSON.stringify(updatedCompany.budgetMonths),
+              resultYtd: updatedCompany.resultYTD,
+              budgetTotal: updatedCompany.budgetTotal,
+              budgetMode: updatedCompany.budgetMode,
+              budgetMonths: JSON.stringify(updatedCompany.budgetMonths),
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
-              accounts_payable: updatedCompany.accountsPayable,
-              liquidity_date: updatedCompany.liquidityDate,
-              receivables_date: updatedCompany.receivablesDate,
-              accounts_payable_date: updatedCompany.accountsPayableDate,
-              trend_history: updatedCompany.trendHistory
+              accountsPayable: updatedCompany.accountsPayable,
+              liquidityDate: updatedCompany.liquidityDate,
+              receivablesDate: updatedCompany.receivablesDate,
+              accountsPayableDate: updatedCompany.accountsPayableDate,
+              trendHistory: updatedCompany.trendHistory
           };
 
           if (!isDemo) {
@@ -362,25 +361,26 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
+          // FIXED: Use camelCase keys
           const payload: any = {
-              company_id: selectedCompany?.id,
-              author_name: userProfile.fullName,
+              companyId: selectedCompany?.id,
+              authorName: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted',
-              report_date: new Date().toISOString()
+              reportDate: new Date().toISOString()
           };
           
           if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
           if(reportData.expenses !== undefined && reportData.expenses !== '') payload.expenses = reportData.expenses;
-          if(reportData.resultYTD !== undefined && reportData.resultYTD !== '') payload.result_ytd = reportData.resultYTD;
+          if(reportData.resultYTD !== undefined && reportData.resultYTD !== '') payload.resultYtd = reportData.resultYTD;
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') payload.liquidity = reportData.liquidity;
           if(reportData.receivables !== undefined && reportData.receivables !== '') payload.receivables = reportData.receivables;
-          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') payload.accounts_payable = reportData.accountsPayable;
+          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') payload.accountsPayable = reportData.accountsPayable;
           
-          if(reportData.liquidityDate) payload.liquidity_date = reportData.liquidityDate;
-          if(reportData.receivablesDate) payload.receivables_date = reportData.receivablesDate;
-          if(reportData.accountsPayableDate) payload.accounts_payable_date = reportData.accountsPayableDate;
+          if(reportData.liquidityDate) payload.liquidityDate = reportData.liquidityDate;
+          if(reportData.receivablesDate) payload.receivablesDate = reportData.receivablesDate;
+          if(reportData.accountsPayableDate) payload.accountsPayableDate = reportData.accountsPayableDate;
 
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...payload } });
@@ -390,26 +390,26 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           // Refresh reports for selected company
           if (selectedCompany) {
-              const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
+              const res = await getNEON({ table: 'reports', where: { companyId: selectedCompany.id } });
               if(res.rows) {
                  const mapped = res.rows.map((r:any) => ({
                      id: r.id,
-                     date: r.report_date ? new Date(r.report_date).toLocaleDateString('no-NO') : '',
-                     author: r.author_name || 'Ukjent',
+                     date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
+                     author: r.authorName || 'Ukjent',
                      comment: r.comment,
                      status: r.status,
-                     result: r.result_ytd,
+                     result: r.resultYtd,
                      liquidity: r.liquidity,
                      revenue: r.revenue,
                      expenses: r.expenses,
                      receivables: r.receivables,
-                     accountsPayable: r.accounts_payable,
-                     liquidityDate: r.liquidity_date,
-                     receivablesDate: r.receivables_date,
-                     accountsPayableDate: r.accounts_payable_date,
+                     accountsPayable: r.accountsPayable,
+                     liquidityDate: r.liquidityDate,
+                     receivablesDate: r.receivablesDate,
+                     accountsPayableDate: r.accountsPayableDate,
                      source: r.source || 'Manuell',
-                     approvedBy: r.approved_by_user_id ? 'Kontroller' : undefined,
-                     approvedAt: r.approved_at ? new Date(r.approved_at).toLocaleDateString('no-NO') : undefined
+                     approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
+                     approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
                  }));
                  mapped.sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                  setReports(mapped);
@@ -437,47 +437,34 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approved_at: new Date().toISOString() 
+                  approvedAt: new Date().toISOString() 
               } 
           });
 
-          // 2. Update Company Data
+          // 2. Update Company Data - FIXED: Use camelCase
           const companyUpdate: any = { id: selectedCompany?.id };
           if(report.revenue != null) companyUpdate.revenue = report.revenue;
           if(report.expenses != null) companyUpdate.expenses = report.expenses;
-          if(report.result != null) companyUpdate.result_ytd = report.result;
+          if(report.result != null) companyUpdate.resultYtd = report.result;
           if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
           if(report.receivables != null) companyUpdate.receivables = report.receivables;
-          if(report.accountsPayable != null) companyUpdate.accounts_payable = report.accountsPayable;
+          if(report.accountsPayable != null) companyUpdate.accountsPayable = report.accountsPayable;
           
-          if(report.liquidityDate) companyUpdate.liquidity_date = report.liquidityDate;
-          if(report.receivablesDate) companyUpdate.receivables_date = report.receivablesDate;
-          if(report.accountsPayableDate) companyUpdate.accounts_payable_date = report.accountsPayableDate;
+          if(report.liquidityDate) companyUpdate.liquidityDate = report.liquidityDate;
+          if(report.receivablesDate) companyUpdate.receivablesDate = report.receivablesDate;
+          if(report.accountsPayableDate) companyUpdate.accountsPayableDate = report.accountsPayableDate;
           
-          companyUpdate.last_report_date = report.date;
-          companyUpdate.last_report_by = report.author;
-          companyUpdate.current_comment = report.comment;
+          companyUpdate.lastReportDate = report.date;
+          companyUpdate.lastReportBy = report.author;
+          companyUpdate.currentComment = report.comment;
 
           await patchNEON({ table: 'companies', data: companyUpdate });
 
           // Refresh everything
           await reloadCompanies();
           
-          // Update local reports list state
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
           
-          // Force update selected company to show new values immediately (re-find from updated companies list)
-          // Ideally rely on `companies` update, but since we are in `selectedCompany` view, we might need to manually update `selectedCompany` state or let the view re-render.
-          // Since `selectedCompany` is state, we should update it.
-          // But `reloadCompanies` sets `companies`. `visibleCompanies` derives from `companies`. `computedData` derives from `visibleCompanies`.
-          // If `selectedCompany` is just a reference, it won't auto-update if it's a copy. 
-          // `MetricCard` onSelect sets the copy. 
-          // We need to re-set selectedCompany from the new companies list.
-          // Simplified:
-          // const updatedC = companies.find(c => c.id === selectedCompany.id); 
-          // But `companies` state update is async.
-          // For now, let's rely on user going back or we manually patch selectedCompany state.
-          // Actually, we can just patch `selectedCompany` state with the values we just sent to DB.
           if (selectedCompany) {
                setSelectedCompany(prev => prev ? ({ ...prev, ...companyUpdate }) : null);
           }
@@ -499,8 +486,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               data: { 
                   id: reportId, 
                   status: 'submitted', 
-                  approved_at: null,
-                  approved_by_user_id: null
+                  approvedAt: null,
+                  approvedByUserId: null
               } 
           });
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
@@ -516,11 +503,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
       try {
           for (const f of submittedForecasts) {
+              // FIXED: Use camelCase
               const payload = {
-                  company_id: f.companyId,
+                  companyId: f.companyId,
                   month: f.month,
-                  estimated_receivables: f.estimatedReceivables,
-                  estimated_payables: f.estimatedPayables
+                  estimatedReceivables: f.estimatedReceivables,
+                  estimatedPayables: f.estimatedPayables
               };
               
               if (f.id) {
@@ -531,14 +519,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
           // Reload forecasts
           if(selectedCompany) {
-               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
+               const res = await getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } });
                 if(res.rows) {
                     const mapped = res.rows.map((f: any) => ({
                         id: f.id,
-                        companyId: f.company_id,
+                        companyId: f.companyId,
                         month: f.month,
-                        estimatedReceivables: f.estimated_receivables || 0,
-                        estimatedPayables: f.estimated_payables || 0
+                        estimatedReceivables: f.estimatedReceivables || 0,
+                        estimatedPayables: f.estimatedPayables || 0
                     }));
                     setForecasts(mapped);
                 }
@@ -551,17 +539,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- USER HANDLERS ---
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
+          // FIXED: Use camelCase
           const payload = {
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              group_id: userProfile.groupId,
-              company_id: user.companyId
+              groupId: userProfile.groupId,
+              companyId: user.companyId
           };
           await postNEON({ table: 'users', data: payload });
           
-          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+          const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
           if(res.rows) setUsers(res.rows.map((u:any) => ({
               id: u.id, 
               authId: u.authId || u.auth_id, 
@@ -579,17 +568,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateUser = async (user: UserData) => {
       try {
+          // FIXED: Use camelCase
           const payload = {
               id: user.id,
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              company_id: user.companyId
+              companyId: user.companyId
           };
            await patchNEON({ table: 'users', data: payload });
            
-           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
            if(res.rows) setUsers(res.rows.map((u:any) => ({
                id: u.id, 
                authId: u.authId || u.auth_id, 
