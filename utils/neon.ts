@@ -88,9 +88,8 @@ export async function getNEON({
   // build URL
   if (params.toString() !== "") url += `?${params.toString()}`;
 
-  const options: RequestInit = isPublic 
-    ? { mode: 'cors' } 
-    : { headers: buildHeaders(), mode: 'cors' };
+  // Removed mode: 'cors' to match reference implementation
+  const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
   console.log(`[NEON] GET Request: ${url}`);
 
@@ -126,7 +125,7 @@ export async function getNEON({
       );
   } catch (error: any) {
       console.error(`[NEON] Network/Fetch Error:`, error);
-      throw error; // Re-throw for index.tsx to handle
+      throw error; 
   }
 }
 
@@ -145,11 +144,11 @@ export async function postNEON({
   const url = `${API_BASE}/api/${table}`;
   const bodyToSend = Array.isArray(data) ? data : [data];
   
+  // Removed mode: 'cors'
   const options: RequestInit = {
       method: "POST",
       headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
-      body: JSON.stringify(bodyToSend),
-      mode: 'cors'
+      body: JSON.stringify(bodyToSend)
   };
 
   console.log(`[NEON] POST Request: ${url}`);
@@ -204,11 +203,11 @@ export async function patchNEON({
     });
   }
 
+  // Removed mode: 'cors'
   const options: RequestInit = {
     method: "PATCH",
     headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
-    body: JSON.stringify(payload),
-    mode: 'cors'
+    body: JSON.stringify(payload)
   };
 
   try {
@@ -243,10 +242,10 @@ export async function deleteNEON({
   const url = `${API_BASE}/api/${table}?field=id&value=${value}`;
 
   try {
+      // Removed mode: 'cors'
       const res = await fetch(url, {
         method: "DELETE",
-        headers: buildHeaders(),
-        mode: 'cors'
+        headers: buildHeaders()
       });
 
       if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);

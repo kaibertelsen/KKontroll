@@ -124,7 +124,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.1.8</div>
+                    <div className="text-[10px] text-slate-400">v1.1.9</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -195,19 +195,22 @@ const LoginScreen = () => {
             await loadMemberstackScript();
             
             if (window.$memberstackDom) {
+                // START POLLING FOR SUCCESSFUL LOGIN
                 const loginCheckInterval = setInterval(() => {
                     const token = localStorage.getItem("_ms-mid");
                     if (token) {
                         clearInterval(loginCheckInterval);
                         console.log("Login detected via _ms-mid. Initializing app...");
+                        // Add small delay to allow MS to write everything
                         setTimeout(() => window.initKonsernKontroll(), 500);
                     }
-                }, 1000); 
+                }, 1000); // Check every 1s
 
                 await window.$memberstackDom.openModal('LOGIN');
             } else {
                 setTimeout(async () => {
                     if(window.$memberstackDom) {
+                        // Retry logic
                          const loginCheckInterval = setInterval(() => {
                             if (localStorage.getItem("_ms-mid")) {
                                 clearInterval(loginCheckInterval);
@@ -223,6 +226,7 @@ const LoginScreen = () => {
             console.error("Login error:", err);
             alert("Feil ved lasting av innlogging. Sjekk nettilgang.");
         } finally {
+            // Keep loading true for a bit if we found a token, as init takes over
             if (!localStorage.getItem("_ms-mid")) {
                  setIsLoadingMs(false);
             }
@@ -233,6 +237,7 @@ const LoginScreen = () => {
         <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 font-sans">
             <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-300">
                 
+                {/* CARD 1: ATTENTIO BRUKER (LIVE) */}
                 <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center h-full justify-center relative overflow-hidden group">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
                     
@@ -259,6 +264,7 @@ const LoginScreen = () => {
                     </button>
                 </div>
 
+                {/* CARD 2: DEMO BRUKER */}
                 <div className="bg-slate-100 dark:bg-slate-800/50 p-8 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
                     <div className="text-center mb-6">
                         <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 mb-4">
@@ -297,7 +303,7 @@ const LoginScreen = () => {
     );
 };
 
-// The initialization function
+// The initialization function to be called from Webflow/External Auth
 window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean) => {
   const rootElement = document.getElementById('root');
   if (!rootElement) {
@@ -314,12 +320,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   // --- LOGGING MECHANISM ---
   const logs: LogEntry[] = [];
   
+  // Helper to render logs with optional action buttons
   const renderLog = (actions?: ActionButton[]) => {
        root.render(
         <React.StrictMode>
             <LoadingLogger logs={[...logs]} actions={actions} />
         </React.StrictMode>
       );
+      // Auto-scroll
       setTimeout(() => {
           const el = document.getElementById('log-end');
           if(el) el.scrollIntoView({ behavior: "smooth" });
@@ -335,6 +343,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       });
       renderLog();
   };
+  // -------------------------
 
   addLog("Initialiserer applikasjon...");
 
@@ -378,6 +387,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   
   if (!shouldStartApp) {
       addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
+      // Short delay so user sees log before switching
       setTimeout(() => {
           root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
       }, 800);
@@ -427,22 +437,27 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   try {
     addLog("Kobler til Neon database...");
     
+    // --- STRICT ID HANDLING ---
     let userWhere = {};
     const userIdStr = String(effectiveUserId);
     
     if (userIdStr.startsWith('mem_')) {
+        // Valid Memberstack ID -> Search in 'authId' (camelCase)
         userWhere = { authId: userIdStr }; 
         addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
     } else if (/^\d+$/.test(userIdStr)) {
+        // Pure digits -> Search in 'id' (numeric)
         userWhere = { id: userIdStr };
         addLog(`Søkemetode: id (Intern ID)`, 'info');
     } else {
+        // Fallback -> Search in 'authId'
         userWhere = { authId: userIdStr };
         addLog(`Søkemetode: authId (Generisk)`, 'info');
     }
 
     addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
     
+    // getNEON call with the constructed where object
     const userRes = await getNEON({ table: 'users', where: userWhere });
     const rawUser = userRes.rows[0];
 
@@ -451,6 +466,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         addLog(`Søkte etter: ${JSON.stringify(userWhere)}`, 'error');
         addLog("Dette betyr at Memberstack-brukeren ikke er koblet mot en rad i users-tabellen.", 'error');
         
+        // STOP HERE and show actions
         renderLog([
             {
                 label: "Start Demo Modus",
@@ -470,6 +486,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         return;
     }
 
+    // --- ROBUST MAPPING TO PREVENT WHITE SCREEN ---
+    // Maps both camelCase (if API uses it) and snake_case (DB default)
     const user = {
         id: rawUser.id,
         authId: rawUser.authId || rawUser.auth_id,
@@ -482,7 +500,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     addLog(`Bruker verifisert: ${user.fullName} (${user.role})`, 'success');
     localStorage.setItem('konsern_mode', 'live'); 
 
+    // Fetch Group Name
     let groupName = "Mitt Konsern";
+    // FIXED: Use user.groupId instead of user.group_id
     addLog(`Henter konserndata (Group ID: ${user.groupId})...`);
     
     if (user.groupId) {
@@ -493,6 +513,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         }
     }
 
+    // Fetch Companies
     let companyWhere: any = {};
     if (user.role === 'leader' && user.companyId) {
         companyWhere = { id: user.companyId };
@@ -516,6 +537,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
         return {
             ...c,
+            // Handle camelCase or snake_case from API for robustness
             resultYTD: Number(c.result_ytd || c.resultYTD || 0),
             budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
             budgetMode: c.budget_mode || c.budgetMode || 'annual',
@@ -524,8 +546,10 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             receivables: Number(c.receivables || 0),
             accountsPayable: Number(c.accounts_payable || c.accountsPayable || 0),
             trendHistory: Number(c.trend_history || c.trendHistory || 0),
+            
             prevLiquidity: Number(c.prev_liquidity || c.prevLiquidity || 0),
             prevDeviation: Number(c.prev_trend || c.prevTrend || 0),
+
             name: c.name || '',
             fullName: c.full_name || c.fullName || '', 
             manager: c.manager || '',
@@ -563,26 +587,23 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   } catch (e: any) {
     console.error("Init Error:", e);
     let msg = e.message || String(e);
-    
-    // Special handling for "Failed to fetch" (Network/CORS)
+    // Explicitly handle "Failed to fetch" to give a better user experience
     if (msg.includes("Failed to fetch")) {
+        msg = "Kan ikke koble til serveren. Starter Demo-modus automatisk...";
+        
+        // AUTO FALLBACK TO DEMO MODE
         addLog(`KRITISK NETTVERKSFEIL: ${msg}`, 'error');
         addLog("Dette skyldes ofte at serveren er utilgjengelig, CORS-blokkering eller manglende tilgang.", 'error');
         
-        // Automatically start demo mode if fetch fails, so user isn't stuck
-        renderLog([
-            {
-                label: "Start Demo Modus",
-                icon: MonitorPlay,
-                variant: 'secondary',
-                onClick: () => window.initKonsernKontroll(undefined, true)
-            }
-        ]);
+        setTimeout(() => {
+            window.initKonsernKontroll(undefined, true);
+        }, 1500);
         return;
     }
     
     addLog(`KRITISK FEIL: ${msg}`, 'error');
     
+    // Stop and show actions (Retry OR Demo)
     renderLog([
         {
             label: "Prøv igjen",
