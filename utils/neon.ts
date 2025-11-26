@@ -2,24 +2,20 @@
 
 const API_BASE = "https://attentiocloud-api.vercel.app";
 
-// FALLBACK CREDENTIALS FOR TESTING/PREVIEW (When Memberstack is not active)
-const TEST_TOKEN = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjZmNjU3ZGRiYWJmYmZkOTVhNGVkNjZjMjMyNDExZWFhNjE5OGQ4NGMxYmJkOGEyYTI5M2I4MTVmYjRhOTlhYjEifQ.eyJpZCI6Im1lbV9zYl9jbWk0bnk0NDgwMDltMHNyNGV3M2hkZ2UxIiwidHlwZSI6Im1lbWJlciIsImlhdCI6MTc2MzU1MzcyMiwiZXhwIjoxNzY0NzYzMzIyLCJhdWQiOiJhcHBfY21odnpyMTBhMDBicTBzczM5c3pwOW96aiIsImlzcyI6Imh0dHBzOi8vYXBpLm1lbWJlcnN0YWNrLmNvbSJ9.lUpQ8viAZi0Mjz9BADOdpejFST3vDggO1ctO6Sg4ivKWMGumZPMDLyvk85NjYgknTNaMxiMTqhay726Z9XBUpsBHKPLV85miz7Sd59KYc3560ozp3Mz9UlaAv6QoHOYVRTjOKVi7yq68F1B0YsE9UQmAmg4Zg38JulX8AiBEIU1MvNI8OrsxVK_hpyjc2FTIzAbCF4cdTXETJqIC7lGKlCy9wwF1fBn3Azzfa4eMWKMFIbWK0HmJSXNaDhDqNU1iWrCNmV1qm8MmiChZNvfLWeJEFQCtFlziztT_SDdmWp1K_rdSIIdu43L_wm8tAXVUBiDGjRG7kTMOv0uZruDNWw";
-const TEST_PLAN_ID = "pln_konsernkontroll-ebfc06oh";
-
 function getToken() {
-  const t = localStorage.getItem("_ms-mid") ||
+  return (
+    localStorage.getItem("_ms-mid") ||
     document.cookie
       .split("; ")
       .find((r) => r.startsWith("_ms-mid="))
       ?.split("=")[1] ||
-    TEST_TOKEN; // Fallback to test token
-  
-  return t ? t.trim() : null;
+    null
+  );
 }
 
 function getPlans() {
   const raw = localStorage.getItem("_ms-mem");
-  if (!raw) return [TEST_PLAN_ID]; // Fallback to test plan
+  if (!raw) return [];
   try {
     const obj = JSON.parse(raw);
     // @ts-ignore
@@ -32,16 +28,13 @@ function getPlans() {
 
 function buildHeaders() {
   const token = getToken();
-  const headers: Record<string, string> = {
+  if (!token) throw new Error("Missing Memberstack token (_ms-mid)");
+
+  return {
     "Content-Type": "application/json",
+    "Authorization": `Bearer ${token}`,
+    "X-MS-Plans": getPlans().join(","),
   };
-  
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-    headers["X-MS-Plans"] = getPlans().join(",");
-  }
-  
-  return headers;
 }
 
 function apiresponse(data: any, responsId?: string) {
@@ -71,31 +64,35 @@ export async function getNEON({
   let url = `${API_BASE}/api/${table}`;
   const params = new URLSearchParams();
 
+  // fields
   if (fields?.length) params.set("fields", fields.join(","));
 
+  // where logic
   if (where) {
     Object.entries(where).forEach(([k, v]) => params.set(k, String(v)));
   }
 
+  // cache
   if (cache) params.set("cache", "1");
 
+  // pagination
   if (pagination) {
     if (pagination.limit != null) params.set("limit", String(pagination.limit));
     if (pagination.offset != null) params.set("offset", String(pagination.offset));
   }
 
+  // build URL
   if (params.toString() !== "") url += `?${params.toString()}`;
 
-  const options: RequestInit = isPublic ? { mode: 'cors' } : { headers: buildHeaders(), mode: 'cors' };
+  // EXACT REFERENCE IMPLEMENTATION FOR OPTIONS
+  const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
-  // Logging
-  console.log(`[NEON] GET Request: ${url}`);
-  console.log(`[NEON] Headers:`, options.headers);
+  console.log(`[NEON] GET Request: ${url}`, options);
 
-  // Removed internal try/catch so errors propagate to the caller
   const res = await fetch(url, options);
 
   if (!res.ok) {
+     // If 401/403, it might be strictly due to headers or token.
      throw new Error(`GET failed: ${res.status} ${res.statusText}`);
   }
 
@@ -116,16 +113,26 @@ export async function getNEON({
 }
 
 /* ------------------ POST ------------------ */
-export async function postNEON({ table, data, responsId, public: isPublic = false }: { table: string, data: any, responsId?: string, public?: boolean }) {
+export async function postNEON({ 
+  table, 
+  data, 
+  responsId, 
+  public: isPublic = false 
+}: { 
+  table: string, 
+  data: any, 
+  responsId?: string, 
+  public?: boolean 
+}) {
   const url = `${API_BASE}/api/${table}`;
-
+  
+  // Reference implementation wraps single object in array if not already array
   const bodyToSend = Array.isArray(data) ? data : [data];
 
   const options: RequestInit = {
       method: "POST",
-      headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
-      body: JSON.stringify(bodyToSend),
-      mode: 'cors'
+      headers: isPublic ? {} : buildHeaders(),
+      body: JSON.stringify(bodyToSend)
   };
 
   const res = await fetch(url, options);
@@ -136,7 +143,15 @@ export async function postNEON({ table, data, responsId, public: isPublic = fals
   }
 
   const json = await res.json();
-  return apiresponse(json, responsId);
+  
+  return apiresponse(
+    {
+      inserted: json.inserted,
+      insertedCount: json.insertedCount,
+      user: json.user
+    }, 
+    responsId
+  );
 }
 
 
@@ -146,7 +161,12 @@ export async function patchNEON({
   data,
   responsId,
   public: isPublic = false
-}: { table: string, data: any, responsId?: string, public?: boolean }) {
+}: { 
+  table: string, 
+  data: any, 
+  responsId?: string, 
+  public?: boolean 
+}) {
   const url = `${API_BASE}/api/${table}`;
 
   let payload;
@@ -170,20 +190,35 @@ export async function patchNEON({
 
   const options: RequestInit = {
     method: "PATCH",
-    headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
-    body: JSON.stringify(payload),
-    mode: 'cors'
+    headers: isPublic ? {} : buildHeaders(),
+    body: JSON.stringify(payload)
   };
 
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
 
   const json = await res.json();
-  return apiresponse(json, responsId);
+  
+  return apiresponse(
+    {
+      rows: json.rows,
+      updatedCount: json.updatedCount,
+      mode: json.mode,
+    },
+    responsId
+  );
 }
 
 /* ------------------ DELETE ------------------ */
-export async function deleteNEON({ table, data, responsId }: { table: string, data: any, responsId?: string }) {
+export async function deleteNEON({ 
+  table, 
+  data, 
+  responsId 
+}: { 
+  table: string, 
+  data: any, 
+  responsId?: string 
+}) {
   if (data === undefined || data === null) {
     throw new Error("deleteNEON requires 'data' to be an ID or array of IDs");
   }
@@ -195,8 +230,7 @@ export async function deleteNEON({ table, data, responsId }: { table: string, da
 
   const res = await fetch(url, {
     method: "DELETE",
-    headers: buildHeaders(),
-    mode: 'cors'
+    headers: buildHeaders()
   });
 
   if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);

@@ -88,7 +88,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.0.8</div>
+                    <div className="text-[10px] text-slate-400">v1.1.1</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -399,25 +399,27 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   try {
     addLog("Kobler til Neon database...");
     
-    // --- KEY FIX: Strict ID Type Checking ---
+    // --- STRICT ID HANDLING (as requested) ---
     let userWhere = {};
     const userIdStr = String(effectiveUserId);
     
     if (userIdStr.startsWith('mem_')) {
-        // If it looks like a Memberstack ID, FORCE auth_id lookup
+        // Valid Memberstack ID -> Search in 'auth_id' directly as string
         userWhere = { auth_id: userIdStr };
         addLog(`Søkemetode: auth_id (Memberstack ID)`, 'info');
     } else if (/^\d+$/.test(userIdStr)) {
-        // If it is pure digits, assume internal ID
+        // Pure digits -> Search in 'id'
         userWhere = { id: userIdStr };
         addLog(`Søkemetode: id (Intern ID)`, 'info');
     } else {
-        // Fallback for other string IDs
+        // Fallback -> Search in 'auth_id'
         userWhere = { auth_id: userIdStr };
         addLog(`Søkemetode: auth_id (Generisk)`, 'info');
     }
 
     addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
+    
+    // getNEON call with the constructed where object
     const userRes = await getNEON({ table: 'users', where: userWhere });
     const user = userRes.rows[0];
 
@@ -533,7 +535,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     let msg = e.message || String(e);
     // Explicitly handle "Failed to fetch" to give a better user experience
     if (msg.includes("Failed to fetch")) {
-        msg = "Kan ikke koble til serveren. Sjekk internettforbindelsen eller VPN.";
+        msg = "Kan ikke koble til serveren. Starter Demo-modus automatisk...";
+        
+        // AUTO FALLBACK TO DEMO MODE
+        addLog(`KRITISK FEIL: ${msg}`, 'error');
+        setTimeout(() => {
+            window.initKonsernKontroll(undefined, true);
+        }, 1500);
+        return;
     }
     
     addLog(`KRITISK FEIL: ${msg}`, 'error');
