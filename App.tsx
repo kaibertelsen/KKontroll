@@ -122,14 +122,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           getNEON({ table: 'users', where: { group_id: userProfile.groupId } })
             .then(res => {
                 if(res.rows) {
+                    // FIXED: Use camelCase properties if API returns them (based on user JSON response)
+                    // Fallback to snake_case if needed
                     const mappedUsers = res.rows.map((u: any) => ({
                         id: u.id,
-                        authId: u.auth_id,
+                        authId: u.authId || u.auth_id, 
                         email: u.email,
-                        fullName: u.full_name,
+                        fullName: u.fullName || u.full_name,
                         role: u.role,
-                        groupId: u.group_id,
-                        companyId: u.company_id
+                        groupId: u.groupId || u.group_id,
+                        companyId: u.companyId || u.company_id
                     }));
                     setUsers(mappedUsers);
                 }
@@ -560,7 +562,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           await postNEON({ table: 'users', data: payload });
           
           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
-          if(res.rows) setUsers(res.rows.map((u:any) => ({id: u.id, authId: u.auth_id, email: u.email, role: u.role, fullName: u.full_name, groupId: u.group_id, companyId: u.company_id})));
+          if(res.rows) setUsers(res.rows.map((u:any) => ({
+              id: u.id, 
+              authId: u.authId || u.auth_id, 
+              email: u.email, 
+              role: u.role, 
+              fullName: u.fullName || u.full_name, 
+              groupId: u.groupId || u.group_id, 
+              companyId: u.companyId || u.company_id
+          })));
       } catch (e) {
           console.error("Add user error", e);
           alert("Kunne ikke legge til bruker");
@@ -580,7 +590,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
            await patchNEON({ table: 'users', data: payload });
            
            const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
-           if(res.rows) setUsers(res.rows.map((u:any) => ({id: u.id, authId: u.auth_id, email: u.email, role: u.role, fullName: u.full_name, groupId: u.group_id, companyId: u.company_id})));
+           if(res.rows) setUsers(res.rows.map((u:any) => ({
+               id: u.id, 
+               authId: u.authId || u.auth_id, 
+               email: u.email, 
+               role: u.role, 
+               fullName: u.fullName || u.full_name, 
+               groupId: u.groupId || u.group_id, 
+               companyId: u.companyId || u.company_id
+           })));
       } catch (e) {
           console.error("Update user error", e);
           alert("Kunne ikke oppdatere bruker");

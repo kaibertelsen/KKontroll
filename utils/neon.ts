@@ -28,7 +28,8 @@ function getPlans() {
 
 function buildHeaders() {
   const token = getToken();
-  if (!token) throw new Error("Missing Memberstack token (_ms-mid)");
+  // Allow missing token for public routes or demo mode fallback, but warn
+  if (!token) console.warn("Missing Memberstack token (_ms-mid), request may fail if not public.");
 
   return {
     "Content-Type": "application/json",
@@ -67,9 +68,14 @@ export async function getNEON({
   // fields
   if (fields?.length) params.set("fields", fields.join(","));
 
-  // where logic - Matches reference exactly
+  // where logic - ROBUST HANDLING
   if (where) {
-    Object.entries(where).forEach(([k, v]) => params.set(k, v as string));
+    Object.entries(where).forEach(([k, v]) => {
+        // Only add if value is not null or undefined
+        if (v !== null && v !== undefined) {
+            params.set(k, String(v));
+        }
+    });
   }
 
   // cache
@@ -86,7 +92,7 @@ export async function getNEON({
 
   const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
-  console.log(`[NEON] GET: ${url}`);
+  console.log(`[NEON] GET Request: ${url}`);
 
   const res = await fetch(url, options);
 
@@ -94,7 +100,17 @@ export async function getNEON({
      throw new Error(`GET failed: ${res.status} ${res.statusText}`);
   }
 
-  const json = await res.json();
+  // LOGGING RAW RESPONSE FOR DEBUGGING
+  const text = await res.text();
+  console.log(`[NEON] Response Body for ${table}:`, text);
+
+  let json;
+  try {
+      json = JSON.parse(text);
+  } catch (e) {
+      console.error("JSON Parse Error:", e);
+      throw new Error(`Invalid JSON response from ${url}`);
+  }
   
   return apiresponse(
     {
