@@ -42,6 +42,20 @@ interface AppProps {
     isDemo: boolean;
 }
 
+// Helper to convert DD.MM.YYYY to YYYY-MM-DD for DB
+const toISODate = (dateStr: string) => {
+    if (!dateStr) return null;
+    // If already ISO (contains -), return as is
+    if (dateStr.includes('-')) return dateStr;
+    
+    // Expecting DD.MM.YYYY
+    const parts = dateStr.split('.');
+    if (parts.length === 3) {
+        return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return null;
+};
+
 function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const [sortField, setSortField] = useState<SortField>(SortField.DEFAULT);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
@@ -82,7 +96,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       setIsSortMode(false);
       dragItem.current = null;
       dragOverItem.current = null;
-      // In a real app, we would save the new order index to the DB here.
       console.log("New order saved:", companies.map(c => c.name));
   };
 
@@ -112,8 +125,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- FETCH USERS (Admin) ---
   useEffect(() => {
       if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
-          // Use group_id for DB query
-          getNEON({ table: 'users', where: { group_id: userProfile.groupId } })
+          getNEON({ table: 'users', where: { groupId: userProfile.groupId } })
             .then(res => {
                 if(res.rows) {
                     const mappedUsers = res.rows.map((u: any) => ({
@@ -137,11 +149,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       if (!selectedCompany) return;
 
       if (!isDemo) {
-          // Fetch Reports using company_id
-          getNEON({ table: 'reports', where: { company_id: selectedCompany.id } })
+          // Fetch Reports
+          getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
-                    // Sort raw rows by report_date descending (Newest first)
                     const sortedRows = res.rows.sort((a: any, b: any) => {
                         const dateA = new Date(a.reportDate || a.report_date).getTime();
                         const dateB = new Date(b.reportDate || b.report_date).getTime();
@@ -176,8 +187,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             })
             .catch(err => console.error("Error fetching reports", err));
 
-          // Fetch Forecasts using company_id
-          getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } })
+          // Fetch Forecasts
+          getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if(res.rows) {
                     const mappedForecasts = res.rows.map((f: any) => ({
@@ -212,7 +223,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         if (effectiveRole === 'leader' && userProfile.companyId) {
             companyWhere = { id: userProfile.companyId };
         } else {
-            companyWhere = { group_id: userProfile.groupId };
+            companyWhere = { groupId: userProfile.groupId };
         }
 
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
@@ -222,14 +233,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 try {
                     if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
                     else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
-                    // Fallback for snake_case
                     else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
                     else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
                 return {
                     ...c,
-                    // Robust Mapping: Handle both camelCase (API) and snake_case (DB) for all fields
                     resultYTD: Number(c.resultYtd || c.result_ytd || 0),
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
@@ -262,12 +271,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             });
             setCompanies(mapped);
             
-            // Update selected company if active
             if (selectedCompany) {
                 const updated = mapped.find((c: any) => c.id === selectedCompany.id);
                 if (updated) {
-                    // Preserve calculated fields from useMemo if necessary, but here we mainly need raw data
-                    // Re-calculating locally for instant feedback in modal
                     const now = new Date();
                     const currentMonthIndex = now.getMonth();
                     const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
@@ -298,7 +304,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- COMPANY CRUD ---
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
-          // Payload in snake_case for DB
           const dbPayload = {
               group_id: userProfile.groupId, 
               name: newCompany.name,
@@ -336,7 +341,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateCompany = async (updatedCompany: CompanyData) => {
       try {
-           // Payload in snake_case for DB
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
@@ -417,7 +421,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
-          // 1. Save to Reports Table
           const reportPayload: any = {
               company_id: selectedCompany?.id,
               submitted_by_user_id: userProfile.id, 
@@ -436,7 +439,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              reportPayload.revenue = r;
              reportPayload.expenses = e;
              reportPayload.result_ytd = r - e; 
-             if(reportData.pnlDate) reportPayload.pnl_date = reportData.pnlDate; 
+             // Convert P&L Date to ISO
+             if(reportData.pnlDate) reportPayload.pnl_date = toISODate(reportData.pnlDate) || reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
@@ -460,7 +464,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               await postNEON({ table: 'reports', data: reportPayload });
           }
 
-          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY (Source of Truth for Dashboard)
+          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY
           const companyUpdate: any = { id: selectedCompany?.id };
           
           if (hasRevenue || hasExpenses) {
@@ -469,6 +473,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              companyUpdate.revenue = r;
              companyUpdate.expenses = e;
              companyUpdate.result_ytd = r - e;
+             // Also update company P&L date
              if(reportData.pnlDate) companyUpdate.pnl_date = reportData.pnlDate;
           }
 
@@ -496,7 +501,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           // 3. Refresh App State
           await reloadCompanies();
 
-          // Refresh reports list for selected company
           if (selectedCompany) {
               const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
               if(res.rows) {
@@ -563,7 +567,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
-          // Use snake_case keys for DB
           await patchNEON({ 
               table: 'reports', 
               data: { 
@@ -572,11 +575,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   approved_by_user_id: userProfile.id 
               } 
           });
-
-          // NOTE: We no longer need to update companies table here for values, 
-          // because handleSubmitReport updates it immediately. 
-          // Approval is just a status change.
           
+          // Update list immediately
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
 
       } catch (e) {
