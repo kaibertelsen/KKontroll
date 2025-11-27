@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { CompanyData } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2 } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
@@ -150,6 +149,18 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
   const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
   const budgetModes: Array<'annual' | 'quarterly' | 'monthly'> = ['annual', 'quarterly', 'monthly'];
 
+  // Reusable Read-Only Input Component
+  const ReadOnlyInput = ({ label, value }: { label: string, value: any }) => (
+    <div className="space-y-1 opacity-75">
+        <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 flex items-center gap-1">
+            <Lock size={10} /> {label}
+        </label>
+        <div className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 font-mono text-sm cursor-not-allowed">
+            {typeof value === 'number' ? formatCurrency(value) : value || '-'}
+        </div>
+    </div>
+  );
+
   return (
     <div className="animate-in fade-in duration-500">
       
@@ -225,7 +236,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
-                <button onClick={() => setActiveTab('general')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'general' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}><Edit size={14} /> Generelt</button>
+                <button onClick={() => setActiveTab('general')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'general' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}><Edit size={14} /> Generelt & Status</button>
                 <button onClick={() => setActiveTab('budget')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'budget' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}`}><BarChart2 size={14} /> Budsjett</button>
             </div>
 
@@ -234,6 +245,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
                     
                     {activeTab === 'general' && (
                         <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* General Info (Editable) */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Navn (Initialer)</label>
@@ -249,22 +261,24 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Omsetning YTD</label>
-                                    <input name="revenue" type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.revenue} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Kostnader YTD</label>
-                                    <input name="expenses" type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.expenses} onChange={handleInputChange} />
+                            {/* INFO BOX - EXPLAINING READ ONLY FIELDS */}
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 p-3 rounded-lg flex gap-3">
+                                <AlertCircle className="text-blue-500 shrink-0" size={18} />
+                                <div className="text-xs text-blue-700 dark:text-blue-300">
+                                    <p className="font-bold mb-0.5">Økonomiske tall oppdateres via rapportering</p>
+                                    <p>Feltene under viser nå-situasjonen basert på siste godkjente rapport. De kan ikke endres her for å sikre dataintegritet.</p>
                                 </div>
                             </div>
 
+                            {/* Financials (Read Only) */}
+                            <div className="grid grid-cols-2 gap-6">
+                                <ReadOnlyInput label="Omsetning YTD" value={formData.revenue} />
+                                <ReadOnlyInput label="Kostnader YTD" value={formData.expenses} />
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Resultat YTD</label>
-                                    <input name="resultYTD" type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.resultYTD} onChange={handleInputChange} />
-                                </div>
+                                <ReadOnlyInput label="Resultat YTD" value={formData.resultYTD} />
+                                {/* Trend can technically be calculated or manually set. Keeping editable if needed, but usually calc'd */}
                                 <div className="space-y-2">
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Trend (YoY %)</label>
                                     <input name="trendHistory" type="number" step="0.1" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.trendHistory} onChange={handleInputChange} />
@@ -272,30 +286,14 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, onAdd, onUpdate, onDel
                             </div>
 
                             <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-lg border border-slate-200 dark:border-slate-700 grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-2"><AlertCircle size={12}/> Likviditet</label>
-                                    <input name="liquidity" type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.liquidity} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Likviditet Dato</label>
-                                    <input name="liquidityDate" type="text" placeholder="DD.MM.YY" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" value={formData.liquidityDate} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Fordringer</label>
-                                    <input name="receivables" type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.receivables} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Dato Fordringer</label>
-                                    <input name="receivablesDate" type="text" placeholder="DD.MM.YY" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" value={formData.receivablesDate} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Leverandørgjeld</label>
-                                    <input name="accountsPayable" type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono" value={formData.accountsPayable} onChange={handleInputChange} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400">Dato Gjeld</label>
-                                    <input name="accountsPayableDate" type="text" placeholder="DD.MM.YY" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none" value={formData.accountsPayableDate} onChange={handleInputChange} />
-                                </div>
+                                <ReadOnlyInput label="Likviditet" value={formData.liquidity} />
+                                <ReadOnlyInput label="Likviditet Dato" value={formData.liquidityDate} />
+                                
+                                <ReadOnlyInput label="Fordringer" value={formData.receivables} />
+                                <ReadOnlyInput label="Dato Fordringer" value={formData.receivablesDate} />
+                                
+                                <ReadOnlyInput label="Leverandørgjeld" value={formData.accountsPayable} />
+                                <ReadOnlyInput label="Dato Gjeld" value={formData.accountsPayableDate} />
                             </div>
                         </div>
                     )}
