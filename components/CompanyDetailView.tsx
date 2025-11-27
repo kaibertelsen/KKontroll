@@ -456,7 +456,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
         {/* Top Stats Grid */}
         <div className="space-y-4 mb-8">
             {/* Row 1: P&L */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
@@ -470,7 +470,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
 
             {/* Row 2: Liquidity & Balance */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
@@ -947,7 +947,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 </div>
             </div>
         )}
-        
+
         {/* Budget Modal */}
         {isBudgetModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
