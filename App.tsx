@@ -96,6 +96,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       setIsSortMode(false);
       dragItem.current = null;
       dragOverItem.current = null;
+      // In a real app, we would save the new order index to the DB here.
       console.log("New order saved:", companies.map(c => c.name));
   };
 
@@ -125,6 +126,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- FETCH USERS (Admin) ---
   useEffect(() => {
       if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
+          // Use camelCase 'groupId' for Drizzle query if mapped, but usually where clauses need to match DB column if raw, 
+          // however getNEON wrapper might handle it. 
+          // SAFEST: Use the prop that matched successful GETs before. 
+          // Previous working code used `group_id` or `groupId` depending on wrapper. 
+          // Let's stick to `groupId` as we are aligning with Schema.
           getNEON({ table: 'users', where: { groupId: userProfile.groupId } })
             .then(res => {
                 if(res.rows) {
@@ -149,7 +155,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       if (!selectedCompany) return;
 
       if (!isDemo) {
-          // Fetch Reports
+          // Fetch Reports using companyId (Drizzle Schema)
           getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
@@ -305,27 +311,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- COMPANY CRUD ---
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
-          // Payload in snake_case for DB
+          // FIX: Use camelCase keys matching Schema
           const dbPayload = {
-              group_id: userProfile.groupId, 
+              groupId: userProfile.groupId, 
               name: newCompany.name,
-              full_name: newCompany.fullName,
+              fullName: newCompany.fullName,
               manager: newCompany.manager,
               revenue: newCompany.revenue,
               expenses: newCompany.expenses,
-              result_ytd: newCompany.resultYTD, 
-              budget_total: newCompany.budgetTotal,
-              budget_mode: newCompany.budgetMode,
-              budget_months: JSON.stringify(newCompany.budgetMonths),
+              resultYtd: newCompany.resultYTD, 
+              budgetTotal: newCompany.budgetTotal,
+              budgetMode: newCompany.budgetMode,
+              budgetMonths: newCompany.budgetMonths, // Pass array directly, Drizzle handles JSON
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
-              accounts_payable: newCompany.accountsPayable,
+              accountsPayable: newCompany.accountsPayable,
               
-              pnl_date: newCompany.pnlDate,
-              liquidity_date: newCompany.liquidityDate,
-              receivables_date: newCompany.receivablesDate,
-              accounts_payable_date: newCompany.accountsPayableDate,
-              trend_history: newCompany.trendHistory
+              pnlDate: newCompany.pnlDate,
+              liquidityDate: newCompany.liquidityDate,
+              receivablesDate: newCompany.receivablesDate,
+              accountsPayableDate: newCompany.accountsPayableDate,
+              trendHistory: newCompany.trendHistory
           };
           
           if (!isDemo) {
@@ -343,27 +349,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateCompany = async (updatedCompany: CompanyData) => {
       try {
-           // Payload in snake_case for DB
+           // FIX: Use camelCase keys matching Schema
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
-              full_name: updatedCompany.fullName,
+              fullName: updatedCompany.fullName,
               manager: updatedCompany.manager,
               revenue: updatedCompany.revenue,
               expenses: updatedCompany.expenses,
-              result_ytd: updatedCompany.resultYTD,
-              budget_total: updatedCompany.budgetTotal,
-              budget_mode: updatedCompany.budgetMode,
-              budget_months: JSON.stringify(updatedCompany.budgetMonths),
+              resultYtd: updatedCompany.resultYTD,
+              budgetTotal: updatedCompany.budgetTotal,
+              budgetMode: updatedCompany.budgetMode,
+              budgetMonths: updatedCompany.budgetMonths, // Pass array directly
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
-              accounts_payable: updatedCompany.accountsPayable,
+              accountsPayable: updatedCompany.accountsPayable,
               
-              pnl_date: updatedCompany.pnlDate,
-              liquidity_date: updatedCompany.liquidityDate,
-              receivables_date: updatedCompany.receivablesDate,
-              accounts_payable_date: updatedCompany.accountsPayableDate,
-              trend_history: updatedCompany.trendHistory
+              pnlDate: updatedCompany.pnlDate,
+              liquidityDate: updatedCompany.liquidityDate,
+              receivablesDate: updatedCompany.receivablesDate,
+              accountsPayableDate: updatedCompany.accountsPayableDate,
+              trendHistory: updatedCompany.trendHistory
           };
 
           if (!isDemo) {
@@ -424,10 +430,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
+          // FIX: Use camelCase keys matching Schema
           const reportPayload: any = {
-              company_id: selectedCompany?.id,
-              submitted_by_user_id: userProfile.id, 
-              author_name: userProfile.fullName,
+              companyId: selectedCompany?.id,
+              submittedByUserId: userProfile.id, 
+              authorName: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted'
@@ -441,24 +448,24 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              const e = Number(reportData.expenses || 0);
              reportPayload.revenue = r;
              reportPayload.expenses = e;
-             reportPayload.result_ytd = r - e; 
-             // Convert P&L Date to ISO
-             if(reportData.pnlDate) reportPayload.pnl_date = toISODate(reportData.pnlDate) || reportData.pnlDate;
+             reportPayload.resultYtd = r - e; 
+             
+             if(reportData.pnlDate) reportPayload.pnlDate = toISODate(reportData.pnlDate) || reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              reportPayload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) reportPayload.liquidity_date = reportData.liquidityDate;
+             if(reportData.liquidityDate) reportPayload.liquidityDate = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               reportPayload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) reportPayload.receivables_date = reportData.receivablesDate;
+              if(reportData.receivablesDate) reportPayload.receivablesDate = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              reportPayload.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) reportPayload.accounts_payable_date = reportData.accountsPayableDate;
+              reportPayload.accountsPayable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) reportPayload.accountsPayableDate = reportData.accountsPayableDate;
           }
 
           if (reportData.id) {
@@ -467,7 +474,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               await postNEON({ table: 'reports', data: reportPayload });
           }
 
-          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY
+          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY (Using camelCase keys)
           const companyUpdate: any = { id: selectedCompany?.id };
           
           if (hasRevenue || hasExpenses) {
@@ -475,29 +482,28 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              const e = Number(reportData.expenses || 0);
              companyUpdate.revenue = r;
              companyUpdate.expenses = e;
-             companyUpdate.result_ytd = r - e;
-             // Also update company P&L date
-             if(reportData.pnlDate) companyUpdate.pnl_date = reportData.pnlDate;
+             companyUpdate.resultYtd = r - e;
+             if(reportData.pnlDate) companyUpdate.pnlDate = reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              companyUpdate.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) companyUpdate.liquidity_date = reportData.liquidityDate;
+             if(reportData.liquidityDate) companyUpdate.liquidityDate = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               companyUpdate.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) companyUpdate.receivables_date = reportData.receivablesDate;
+              if(reportData.receivablesDate) companyUpdate.receivablesDate = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              companyUpdate.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) companyUpdate.accounts_payable_date = reportData.accountsPayableDate;
+              companyUpdate.accountsPayable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) companyUpdate.accountsPayableDate = reportData.accountsPayableDate;
           }
 
-          companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
-          companyUpdate.last_report_by = userProfile.fullName;
-          companyUpdate.current_comment = reportData.comment;
+          companyUpdate.lastReportDate = new Date().toLocaleDateString('no-NO');
+          companyUpdate.lastReportBy = userProfile.fullName;
+          companyUpdate.currentComment = reportData.comment;
 
           await patchNEON({ table: 'companies', data: companyUpdate });
 
@@ -570,13 +576,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
-          // Use snake_case keys for DB
+          // FIX: Use camelCase keys matching Schema
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approved_by_user_id: userProfile.id 
+                  approvedByUserId: userProfile.id 
               } 
           });
           
@@ -595,13 +601,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
            return;
       }
       try {
+          // FIX: Use camelCase keys matching Schema
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'submitted', 
-                  approved_at: null,
-                  approved_by_user_id: null
+                  approvedAt: null,
+                  approvedByUserId: null
               } 
           });
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
@@ -617,11 +624,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
       try {
           for (const f of submittedForecasts) {
+              // FIX: Use camelCase keys matching Schema
               const payload = {
-                  company_id: f.companyId,
+                  companyId: f.companyId,
                   month: f.month,
-                  estimated_receivables: f.estimatedReceivables,
-                  estimated_payables: f.estimatedPayables
+                  estimatedReceivables: f.estimatedReceivables,
+                  estimatedPayables: f.estimatedPayables
               };
               
               if (f.id) {
@@ -632,7 +640,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
           // Reload forecasts
           if(selectedCompany) {
-               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
+               const res = await getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } });
                 if(res.rows) {
                     const mapped = res.rows.map((f: any) => ({
                         id: f.id,
@@ -652,17 +660,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- USER HANDLERS ---
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
+          // FIX: Use camelCase keys matching Schema
           const payload = {
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              group_id: userProfile.groupId,
-              company_id: user.companyId
+              groupId: userProfile.groupId,
+              companyId: user.companyId
           };
           await postNEON({ table: 'users', data: payload });
           
-          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+          const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
           if(res.rows) setUsers(res.rows.map((u:any) => ({
               id: u.id, 
               authId: u.authId || u.auth_id, 
@@ -680,17 +689,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateUser = async (user: UserData) => {
       try {
+          // FIX: Use camelCase keys matching Schema
           const payload = {
               id: user.id,
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              company_id: user.companyId
+              companyId: user.companyId
           };
            await patchNEON({ table: 'users', data: payload });
            
-           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
            if(res.rows) setUsers(res.rows.map((u:any) => ({
                id: u.id, 
                authId: u.authId || u.auth_id, 
@@ -828,7 +838,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           <div className="flex justify-between items-center h-16">
             <a href="https://www.attentio.no" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
                <div className="bg-white/10 p-1.5 rounded-lg">
-                  <img src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" alt="Attentio" className="h-8 w-auto" />
+                  <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Attentio" className="h-8 w-8 rounded-lg shadow-sm" />
                </div>
                <div className="hidden sm:block">
                   <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{userProfile.groupName || 'Konsernoversikt'}</h1>
