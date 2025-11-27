@@ -82,6 +82,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       setIsSortMode(false);
       dragItem.current = null;
       dragOverItem.current = null;
+      // In a real app, we would save the new order index to the DB here.
       console.log("New order saved:", companies.map(c => c.name));
   };
 
@@ -111,7 +112,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- FETCH USERS (Admin) ---
   useEffect(() => {
       if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
-          getNEON({ table: 'users', where: { groupId: userProfile.groupId } })
+          // Use group_id for DB query
+          getNEON({ table: 'users', where: { group_id: userProfile.groupId } })
             .then(res => {
                 if(res.rows) {
                     const mappedUsers = res.rows.map((u: any) => ({
@@ -135,8 +137,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       if (!selectedCompany) return;
 
       if (!isDemo) {
-          // Fetch Reports
-          getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
+          // Fetch Reports using company_id
+          getNEON({ table: 'reports', where: { company_id: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
                     // Sort raw rows by report_date descending (Newest first)
@@ -152,7 +154,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         author: r.authorName || 'Ukjent',
                         comment: r.comment,
                         status: r.status,
-                        // Check all possible casing for result
                         result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
                         revenue: r.revenue != null ? r.revenue : undefined,
                         expenses: r.expenses != null ? r.expenses : undefined,
@@ -175,8 +176,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             })
             .catch(err => console.error("Error fetching reports", err));
 
-          // Fetch Forecasts
-          getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } })
+          // Fetch Forecasts using company_id
+          getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } })
             .then(res => {
                 if(res.rows) {
                     const mappedForecasts = res.rows.map((f: any) => ({
@@ -211,7 +212,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         if (effectiveRole === 'leader' && userProfile.companyId) {
             companyWhere = { id: userProfile.companyId };
         } else {
-            companyWhere = { groupId: userProfile.groupId };
+            companyWhere = { group_id: userProfile.groupId };
         }
 
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
@@ -226,14 +227,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
-                // Robust Mapping: Handle both camelCase (API) and snake_case (DB) for all fields
                 return {
                     ...c,
-                    id: c.id,
-                    
-                    // Result YTD Mapping (Critical Fix)
-                    resultYTD: c.resultYtd != null ? Number(c.resultYtd) : (c.result_ytd != null ? Number(c.result_ytd) : 0),
-                    
+                    // Robust Mapping: Handle both camelCase (API) and snake_case (DB) for all fields
+                    resultYTD: Number(c.resultYtd || c.result_ytd || 0),
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
@@ -272,26 +269,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- COMPANY CRUD ---
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
+          // Payload in snake_case for DB
           const dbPayload = {
-              groupId: userProfile.groupId, 
+              group_id: userProfile.groupId, 
               name: newCompany.name,
-              fullName: newCompany.fullName,
+              full_name: newCompany.fullName,
               manager: newCompany.manager,
               revenue: newCompany.revenue,
               expenses: newCompany.expenses,
-              resultYtd: newCompany.resultYTD, 
-              budgetTotal: newCompany.budgetTotal,
-              budgetMode: newCompany.budgetMode,
-              budgetMonths: JSON.stringify(newCompany.budgetMonths),
+              result_ytd: newCompany.resultYTD, 
+              budget_total: newCompany.budgetTotal,
+              budget_mode: newCompany.budgetMode,
+              budget_months: JSON.stringify(newCompany.budgetMonths),
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
-              accountsPayable: newCompany.accountsPayable,
+              accounts_payable: newCompany.accountsPayable,
               
-              pnlDate: newCompany.pnlDate,
-              liquidityDate: newCompany.liquidityDate,
-              receivablesDate: newCompany.receivablesDate,
-              accountsPayableDate: newCompany.accountsPayableDate,
-              trendHistory: newCompany.trendHistory
+              pnl_date: newCompany.pnlDate,
+              liquidity_date: newCompany.liquidityDate,
+              receivables_date: newCompany.receivablesDate,
+              accounts_payable_date: newCompany.accountsPayableDate,
+              trend_history: newCompany.trendHistory
           };
           
           if (!isDemo) {
@@ -309,26 +307,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateCompany = async (updatedCompany: CompanyData) => {
       try {
+           // Payload in snake_case for DB
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
-              fullName: updatedCompany.fullName,
+              full_name: updatedCompany.fullName,
               manager: updatedCompany.manager,
               revenue: updatedCompany.revenue,
               expenses: updatedCompany.expenses,
-              resultYtd: updatedCompany.resultYTD,
-              budgetTotal: updatedCompany.budgetTotal,
-              budgetMode: updatedCompany.budgetMode,
-              budgetMonths: JSON.stringify(updatedCompany.budgetMonths),
+              result_ytd: updatedCompany.resultYTD,
+              budget_total: updatedCompany.budgetTotal,
+              budget_mode: updatedCompany.budgetMode,
+              budget_months: JSON.stringify(updatedCompany.budgetMonths),
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
-              accountsPayable: updatedCompany.accountsPayable,
+              accounts_payable: updatedCompany.accountsPayable,
               
-              pnlDate: updatedCompany.pnlDate,
-              liquidityDate: updatedCompany.liquidityDate,
-              receivablesDate: updatedCompany.receivablesDate,
-              accountsPayableDate: updatedCompany.accountsPayableDate,
-              trendHistory: updatedCompany.trendHistory
+              pnl_date: updatedCompany.pnlDate,
+              liquidity_date: updatedCompany.liquidityDate,
+              receivables_date: updatedCompany.receivablesDate,
+              accounts_payable_date: updatedCompany.accountsPayableDate,
+              trend_history: updatedCompany.trendHistory
           };
 
           if (!isDemo) {
@@ -338,7 +337,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
           }
           
-          // Also update selected company local state if it's the one being edited
           if (selectedCompany && selectedCompany.id === updatedCompany.id) {
                setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : null);
           }
@@ -390,17 +388,17 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
+          // Use snake_case keys for DB
           const payload: any = {
-              companyId: selectedCompany?.id,
-              submittedByUserId: userProfile.id, 
-              authorName: userProfile.fullName,
+              company_id: selectedCompany?.id,
+              submitted_by_user_id: userProfile.id, 
+              author_name: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted'
           };
           
           // P&L LOGIC: Only send revenue/expenses/result if inputs are NOT empty strings
-          // This prevents overriding existing data with 0 when reporting only liquidity
           const hasRevenue = reportData.revenue !== '' && reportData.revenue !== undefined;
           const hasExpenses = reportData.expenses !== '' && reportData.expenses !== undefined;
 
@@ -409,25 +407,25 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              const e = Number(reportData.expenses || 0);
              payload.revenue = r;
              payload.expenses = e;
-             payload.resultYtd = r - e; // Force calculation to ensure DB consistency
+             payload.result_ytd = r - e; // KEY FIX: result_ytd (snake_case)
              
-             if(reportData.pnlDate) payload.pnlDate = reportData.pnlDate; 
+             if(reportData.pnlDate) payload.pnl_date = reportData.pnlDate; 
           }
 
           // BALANCE SHEET LOGIC
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              payload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) payload.liquidityDate = reportData.liquidityDate;
+             if(reportData.liquidityDate) payload.liquidity_date = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               payload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) payload.receivablesDate = reportData.receivablesDate;
+              if(reportData.receivablesDate) payload.receivables_date = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              payload.accountsPayable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) payload.accountsPayableDate = reportData.accountsPayableDate;
+              payload.accounts_payable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) payload.accounts_payable_date = reportData.accountsPayableDate;
           }
 
           if (reportData.id) {
@@ -438,7 +436,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           // Refresh reports for selected company
           if (selectedCompany) {
-              const res = await getNEON({ table: 'reports', where: { companyId: selectedCompany.id } });
+              const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
               if(res.rows) {
                  const sortedRows = res.rows.sort((a: any, b: any) => {
                     const dateA = new Date(a.reportDate || a.report_date).getTime();
@@ -452,7 +450,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      author: r.authorName || 'Ukjent',
                      comment: r.comment,
                      status: r.status,
-                     // Map result properly
+                     
                      result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
                      revenue: r.revenue,
                      expenses: r.expenses,
@@ -507,33 +505,34 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
+          // Use snake_case keys for DB
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approvedByUserId: userProfile.id 
+                  approved_by_user_id: userProfile.id 
               } 
           });
 
           const companyUpdate: any = { id: selectedCompany?.id };
           if(report.revenue != null) companyUpdate.revenue = report.revenue;
           if(report.expenses != null) companyUpdate.expenses = report.expenses;
-          // Ensure we map report.result to resultYtd correctly
-          if(report.result != null) companyUpdate.resultYtd = report.result;
+          // KEY FIX: result_ytd
+          if(report.result != null) companyUpdate.result_ytd = report.result;
           
           if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
           if(report.receivables != null) companyUpdate.receivables = report.receivables;
-          if(report.accountsPayable != null) companyUpdate.accountsPayable = report.accountsPayable;
+          if(report.accountsPayable != null) companyUpdate.accounts_payable = report.accountsPayable;
           
-          if(report.pnlDate) companyUpdate.pnlDate = report.pnlDate;
-          if(report.liquidityDate) companyUpdate.liquidityDate = report.liquidityDate;
-          if(report.receivablesDate) companyUpdate.receivablesDate = report.receivablesDate;
-          if(report.accountsPayableDate) companyUpdate.accountsPayableDate = report.accountsPayableDate;
+          if(report.pnlDate) companyUpdate.pnl_date = report.pnlDate;
+          if(report.liquidityDate) companyUpdate.liquidity_date = report.liquidityDate;
+          if(report.receivablesDate) companyUpdate.receivables_date = report.receivablesDate;
+          if(report.accountsPayableDate) companyUpdate.accounts_payable_date = report.accountsPayableDate;
           
-          companyUpdate.lastReportDate = report.date;
-          companyUpdate.lastReportBy = report.author;
-          companyUpdate.currentComment = report.comment;
+          companyUpdate.last_report_date = report.date;
+          companyUpdate.last_report_by = report.author;
+          companyUpdate.current_comment = report.comment;
 
           await patchNEON({ table: 'companies', data: companyUpdate });
 
@@ -542,7 +541,21 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
           
           if (selectedCompany) {
-               setSelectedCompany(prev => prev ? ({ ...prev, ...companyUpdate }) : null);
+               // Note: We update the local state with camelCase keys for the UI, 
+               // even though we sent snake_case to DB. Ideally reloadCompanies handles this via mapped 'companies',
+               // but here we just need the UI to feel responsive.
+               // Simulating the update locally:
+               const localUpdate = {
+                   ...selectedCompany,
+                   revenue: report.revenue ?? selectedCompany.revenue,
+                   expenses: report.expenses ?? selectedCompany.expenses,
+                   resultYTD: report.result ?? selectedCompany.resultYTD,
+                   liquidity: report.liquidity ?? selectedCompany.liquidity,
+                   receivables: report.receivables ?? selectedCompany.receivables,
+                   accountsPayable: report.accountsPayable ?? selectedCompany.accountsPayable,
+                   // ... and dates
+               };
+               setSelectedCompany(localUpdate);
           }
 
       } catch (e) {
@@ -562,8 +575,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               data: { 
                   id: reportId, 
                   status: 'submitted', 
-                  approvedAt: null,
-                  approvedByUserId: null
+                  approved_at: null,
+                  approved_by_user_id: null
               } 
           });
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
@@ -580,10 +593,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           for (const f of submittedForecasts) {
               const payload = {
-                  companyId: f.companyId,
+                  company_id: f.companyId,
                   month: f.month,
-                  estimatedReceivables: f.estimatedReceivables,
-                  estimatedPayables: f.estimatedPayables
+                  estimated_receivables: f.estimatedReceivables,
+                  estimated_payables: f.estimatedPayables
               };
               
               if (f.id) {
@@ -594,14 +607,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
           // Reload forecasts
           if(selectedCompany) {
-               const res = await getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } });
+               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
                 if(res.rows) {
                     const mapped = res.rows.map((f: any) => ({
                         id: f.id,
-                        companyId: f.companyId,
+                        companyId: f.companyId || f.company_id,
                         month: f.month,
-                        estimatedReceivables: f.estimatedReceivables || 0,
-                        estimatedPayables: f.estimatedPayables || 0
+                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
+                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
                     }));
                     setForecasts(mapped);
                 }
@@ -615,16 +628,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
           const payload = {
-              authId: user.authId,
+              auth_id: user.authId,
               email: user.email,
-              fullName: user.fullName,
+              full_name: user.fullName,
               role: user.role,
-              groupId: userProfile.groupId,
-              companyId: user.companyId
+              group_id: userProfile.groupId,
+              company_id: user.companyId
           };
           await postNEON({ table: 'users', data: payload });
           
-          const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
+          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
           if(res.rows) setUsers(res.rows.map((u:any) => ({
               id: u.id, 
               authId: u.authId || u.auth_id, 
@@ -644,15 +657,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           const payload = {
               id: user.id,
-              authId: user.authId,
+              auth_id: user.authId,
               email: user.email,
-              fullName: user.fullName,
+              full_name: user.fullName,
               role: user.role,
-              companyId: user.companyId
+              company_id: user.companyId
           };
            await patchNEON({ table: 'users', data: payload });
            
-           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
+           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
            if(res.rows) setUsers(res.rows.map((u:any) => ({
                id: u.id, 
                authId: u.authId || u.auth_id, 
