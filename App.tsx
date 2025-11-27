@@ -433,13 +433,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
-          // 1. Update Report Status
+          // 1. Update Report Status - REMOVED approvedAt to let DB handle timestamp
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approvedAt: new Date().toISOString(),
+                  // REMOVED: approvedAt: new Date().toISOString(),
                   approvedByUserId: userProfile.id // Added: Current user ID as approver
               } 
           });
