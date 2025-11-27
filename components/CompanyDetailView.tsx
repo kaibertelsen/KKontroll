@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem } from '../types';
 import { formatCurrency } from '../constants';
-import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart } from 'lucide-react';
+import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
 } from 'recharts';
@@ -18,6 +17,23 @@ interface CompanyDetailViewProps {
   onUnlockReport?: (reportId: number) => void; 
   onForecastSubmit: (forecasts: ForecastItem[]) => void;
 }
+
+// Helper to convert DD.MM.YYYY to YYYY-MM-DD for input[type="date"]
+const toInputDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-')) return dateStr; // Already correct format
+    const parts = dateStr.split('.');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return '';
+};
+
+// Helper to convert YYYY-MM-DD back to DD.MM.YYYY for display/storage
+const fromInputDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onForecastSubmit }) => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -63,47 +79,38 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   // --- FORECAST CHART DATA PREPARATION ---
   const forecastChartData = useMemo(() => {
-      // 1. Start with historical liquidity
       const combinedData = historyData.map(d => ({
           name: d.month,
           liquidity: d.liquidity,
-          forecast: null as number | null, // Null for history part
+          forecast: null as number | null,
           type: 'history'
       }));
 
-      // 2. Add Future Months
       const now = new Date();
-      let runningLiquidity = company.liquidity; // Start from current actuals
+      let runningLiquidity = company.liquidity; 
 
       const futureData = [];
       for (let i = 1; i <= 6; i++) {
           const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-          const monthStr = futureDate.toISOString().slice(0, 7); // YYYY-MM
+          const monthStr = futureDate.toISOString().slice(0, 7); 
           const monthName = futureDate.toLocaleString('no-NO', { month: 'short' });
           
-          // Find forecast for this month
           const forecastItem = forecasts.find(f => f.month === monthStr);
           const estIn = forecastItem ? forecastItem.estimatedReceivables : 0;
           const estOut = forecastItem ? forecastItem.estimatedPayables : 0;
           
-          // Calculate: Start + In - Out
           runningLiquidity = runningLiquidity + estIn - estOut;
 
           futureData.push({
               name: monthName,
-              liquidity: null as number | null, // Null for forecast line (to separate visuals)
+              liquidity: null as number | null,
               forecast: runningLiquidity,
               type: 'forecast'
           });
       }
 
-      // To connect the lines, the first forecast point needs to start at the last history point
       if(futureData.length > 0) {
-          // Add a "bridge" point: Last history point but with 'forecast' value
           const lastHistory = combinedData[combinedData.length - 1];
-          // We actually want the forecast line to start from the last history point
-          // Recharts handles nulls by breaking lines. To connect, we can add the last history point to futureData?
-          // Better: Combined data. Last history point has BOTH liquidity and forecast (same value) to link them?
           lastHistory.forecast = lastHistory.liquidity;
       }
 
@@ -111,10 +118,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   }, [historyData, company.liquidity, forecasts]);
 
 
-  // Status Calculation
   const statusValue = (company.receivables - company.accountsPayable) + company.liquidity;
 
-  // Form State - Using strings to allow empty fields
+  // Form State
   const [formData, setFormData] = useState<{
       revenue: string | number;
       expenses: string | number;
@@ -191,7 +197,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               const existing = forecasts.find(f => f.month === monthStr);
               
               next6Months.push({
-                  id: existing?.id, // Keep ID if exists for updates
+                  id: existing?.id, 
                   companyId: company.id,
                   month: monthStr,
                   monthName: futureDate.toLocaleString('no-NO', { month: 'long', year: 'numeric' }),
@@ -517,88 +523,119 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Omsetning</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.revenue} onChange={e => setFormData({...formData, revenue: e.target.value})} placeholder="Valgfritt" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kostnader</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.expenses} onChange={e => setFormData({...formData, expenses: e.target.value})} placeholder="Valgfritt" />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Resultat YTD</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.resultYTD} onChange={e => setFormData({...formData, resultYTD: e.target.value})} placeholder="Valgfritt" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.liquidity} onChange={e => setFormData({...formData, liquidity: e.target.value})} placeholder="Valgfritt" />
-                            </div>
-                        </div>
+                    <form onSubmit={handleSubmit} className="p-6 space-y-6">
                         
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet Dato</label>
-                                <input type="text" placeholder="DD.MM.YY" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.liquidityDate} onChange={e => setFormData({...formData, liquidityDate: e.target.value})} />
+                        {/* SECTION 1: P&L */}
+                        <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
+                                <TrendingUp size={14}/> Drift & Resultat
+                            </h4>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Omsetning</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        value={formData.revenue} onChange={e => setFormData({...formData, revenue: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kostnader</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        value={formData.expenses} onChange={e => setFormData({...formData, expenses: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">Resultat YTD</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-bold" 
+                                        value={formData.resultYTD} onChange={e => setFormData({...formData, resultYTD: e.target.value})} placeholder="0" />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Fordringer</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.receivables} onChange={e => setFormData({...formData, receivables: e.target.value})} placeholder="Valgfritt" />
+                        {/* SECTION 2: BALANCE */}
+                        <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-4">
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
+                                <Wallet size={14}/> Likviditet & Balanse
+                            </h4>
+                            
+                            {/* Liquidity Row */}
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet (Bankinnskudd)</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                        value={formData.liquidity} onChange={e => setFormData({...formData, liquidity: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        value={toInputDate(formData.liquidityDate)} 
+                                        onChange={e => setFormData({...formData, liquidityDate: fromInputDate(e.target.value)})} 
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Dato Fordringer</label>
-                                <input type="text" placeholder="DD.MM.YY" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.receivablesDate} onChange={e => setFormData({...formData, receivablesDate: e.target.value})} />
+
+                            {/* Receivables Row */}
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kundefordringer</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                        value={formData.receivables} onChange={e => setFormData({...formData, receivables: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        value={toInputDate(formData.receivablesDate)} 
+                                        onChange={e => setFormData({...formData, receivablesDate: fromInputDate(e.target.value)})} 
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Payables Row */}
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leverandørgjeld</label>
+                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                        value={formData.accountsPayable} onChange={e => setFormData({...formData, accountsPayable: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        value={toInputDate(formData.accountsPayableDate)} 
+                                        onChange={e => setFormData({...formData, accountsPayableDate: fromInputDate(e.target.value)})} 
+                                    />
+                                </div>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Meta Data */}
+                        <div className="grid grid-cols-1 gap-4">
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leverandørgjeld</label>
-                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.accountsPayable} onChange={e => setFormData({...formData, accountsPayable: e.target.value})} placeholder="Valgfritt" />
+                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
+                                <select 
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
+                                    value={formData.source}
+                                    onChange={e => setFormData({...formData, source: e.target.value})}
+                                >
+                                    <option value="Manuell">Manuell registrering</option>
+                                    <option value="Tripletex">Tripletex Eksport</option>
+                                    <option value="PowerOffice">PowerOffice Eksport</option>
+                                    <option value="Visma">Visma eAccounting</option>
+                                </select>
                             </div>
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Dato Gjeld</label>
-                                <input type="text" placeholder="DD.MM.YY" className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                    value={formData.accountsPayableDate} onChange={e => setFormData({...formData, accountsPayableDate: e.target.value})} />
+                                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kommentar / Status</label>
+                                <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} placeholder="Kort beskrivelse av månedens status..." />
                             </div>
                         </div>
 
-                        <div>
-                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
-                            <select 
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
-                                value={formData.source}
-                                onChange={e => setFormData({...formData, source: e.target.value})}
-                            >
-                                <option value="Manuell">Manuell</option>
-                                <option value="Tripletex">Tripletex</option>
-                                <option value="PowerOffice">PowerOffice</option>
-                                <option value="Visma">Visma</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kommentar</label>
-                            <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white" 
-                                value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} placeholder="Beskriv status..." />
-                        </div>
-                        <div className="flex justify-end pt-4">
-                            <button type="submit" className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2">
-                                <Save size={16} /> 
-                                {editingReport ? 'Lagre endringer' : 'Send Rapport'}
+                        <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <button type="submit" className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2 transition-transform active:scale-95">
+                                <Save size={18} /> 
+                                {editingReport ? 'Lagre endringer' : 'Send inn rapport'}
                             </button>
                         </div>
                     </form>
