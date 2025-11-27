@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 
 interface UserProfile {
-    id: number; // Added User ID
+    id: number;
     fullName: string;
     role: 'controller' | 'leader';
     groupId: number;
@@ -83,14 +83,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       dragItem.current = null;
       dragOverItem.current = null;
       // In a real app, we would save the new order index to the DB here.
-      // e.g. await patchNEON({ table: 'companies', data: companies.map((c, i) => ({ id: c.id, sort_order: i })) })
       console.log("New order saved:", companies.map(c => c.name));
   };
 
   const onDragStart = (e: React.DragEvent, index: number) => {
       dragItem.current = index;
-      // Hide the ghost image slightly or style it
-      // e.dataTransfer.effectAllowed = "move";
   };
 
   const onDragEnter = (e: React.DragEvent, index: number) => {
@@ -99,14 +96,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       if (dragItem.current !== null && dragItem.current !== index) {
           const newCompanies = [...companies];
           const draggedItemContent = newCompanies[dragItem.current];
-          
-          // Remove from old pos
           newCompanies.splice(dragItem.current, 1);
-          // Insert at new pos
           newCompanies.splice(index, 0, draggedItemContent);
-          
           setCompanies(newCompanies);
-          dragItem.current = index; // Update drag index to new position
+          dragItem.current = index; 
       }
   };
 
@@ -154,14 +147,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         comment: r.comment,
                         status: r.status,
                         result: r.resultYtd != null ? r.resultYtd : undefined,
-                        liquidity: r.liquidity != null ? r.liquidity : undefined,
                         revenue: r.revenue != null ? r.revenue : undefined,
                         expenses: r.expenses != null ? r.expenses : undefined,
+                        pnlDate: r.pnlDate || r.pnl_date || '', // MAPPED
+                        
+                        liquidity: r.liquidity != null ? r.liquidity : undefined,
                         receivables: r.receivables != null ? r.receivables : undefined,
                         accountsPayable: r.accountsPayable != null ? r.accountsPayable : undefined,
-                        liquidityDate: r.liquidityDate || '',
-                        receivablesDate: r.receivablesDate || '',
-                        accountsPayableDate: r.accountsPayableDate || '',
+                        
+                        liquidityDate: r.liquidityDate || r.liquidity_date || '',
+                        receivablesDate: r.receivablesDate || r.receivables_date || '',
+                        accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
+                        
                         source: r.source || 'Manuell',
                         approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
                         approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
@@ -178,10 +175,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 if(res.rows) {
                     const mappedForecasts = res.rows.map((f: any) => ({
                         id: f.id,
-                        companyId: f.companyId,
+                        companyId: f.companyId || f.company_id,
                         month: f.month,
-                        estimatedReceivables: f.estimatedReceivables || 0,
-                        estimatedPayables: f.estimatedPayables || 0
+                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
+                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
                     }));
                     setForecasts(mappedForecasts);
                 }
@@ -218,31 +215,42 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 try {
                     if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
                     else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
+                    // Fallback for snake_case
+                    else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
+                    else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
                 return {
                     ...c,
-                    resultYTD: Number(c.resultYtd || 0),
-                    budgetTotal: Number(c.budgetTotal || 0),
-                    budgetMode: c.budgetMode || 'annual',
+                    // Robust Mapping: Check both camelCase and snake_case
+                    resultYTD: Number(c.resultYtd || c.result_ytd || 0),
+                    budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
+                    budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
-                    liquidity: Number(c.liquidity || 0),
-                    receivables: Number(c.receivables || 0),
-                    accountsPayable: Number(c.accountsPayable || 0),
-                    trendHistory: Number(c.trendHistory || 0),
-                    prevLiquidity: Number(c.prevLiquidity || 0),
-                    prevDeviation: Number(c.prevTrend || 0),
-                    name: c.name || '',
-                    fullName: c.fullName || '', 
-                    manager: c.manager || '',
+                    
                     revenue: Number(c.revenue || 0),
                     expenses: Number(c.expenses || 0),
-                    liquidityDate: c.liquidityDate || '',
-                    receivablesDate: c.receivablesDate || '',
-                    accountsPayableDate: c.accountsPayableDate || '',
-                    lastReportDate: c.lastReportDate || '',
-                    lastReportBy: c.lastReportBy || '',
-                    comment: c.currentComment || '',
+                    
+                    liquidity: Number(c.liquidity || 0),
+                    receivables: Number(c.receivables || 0),
+                    accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
+                    
+                    pnlDate: c.pnlDate || c.pnl_date || '', 
+                    liquidityDate: c.liquidityDate || c.liquidity_date || '',
+                    receivablesDate: c.receivablesDate || c.receivables_date || '',
+                    accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
+                    
+                    trendHistory: Number(c.trendHistory || c.trend_history || 0),
+                    prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
+                    prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
+                    
+                    name: c.name || '',
+                    fullName: c.fullName || c.full_name || '', 
+                    manager: c.manager || '',
+                    
+                    lastReportDate: c.lastReportDate || c.last_report_date || '',
+                    lastReportBy: c.lastReportBy || c.last_report_by || '',
+                    comment: c.currentComment || c.current_comment || '',
                 };
             });
             setCompanies(mapped);
@@ -268,6 +276,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
               accountsPayable: newCompany.accountsPayable,
+              
+              pnlDate: newCompany.pnlDate,
               liquidityDate: newCompany.liquidityDate,
               receivablesDate: newCompany.receivablesDate,
               accountsPayableDate: newCompany.accountsPayableDate,
@@ -303,6 +313,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
               accountsPayable: updatedCompany.accountsPayable,
+              
+              pnlDate: updatedCompany.pnlDate,
               liquidityDate: updatedCompany.liquidityDate,
               receivablesDate: updatedCompany.receivablesDate,
               accountsPayableDate: updatedCompany.accountsPayableDate,
@@ -352,8 +364,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                    result: reportData.resultYTD,
                    liquidity: reportData.liquidity,
                    revenue: reportData.revenue,
+                   expenses: reportData.expenses,
                    receivables: reportData.receivables,
                    accountsPayable: reportData.accountsPayable,
+                   pnlDate: reportData.pnlDate, 
                    source: reportData.source || 'Manuell'
                };
                setReports([newReport, ...reports]);
@@ -369,6 +383,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               status: 'submitted'
           };
           
+          // Only include fields that have values
           if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
           if(reportData.expenses !== undefined && reportData.expenses !== '') payload.expenses = reportData.expenses;
           if(reportData.resultYTD !== undefined && reportData.resultYTD !== '') payload.resultYtd = reportData.resultYTD;
@@ -376,6 +391,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if(reportData.receivables !== undefined && reportData.receivables !== '') payload.receivables = reportData.receivables;
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') payload.accountsPayable = reportData.accountsPayable;
           
+          // DATES
+          if(reportData.pnlDate) payload.pnlDate = reportData.pnlDate; 
           if(reportData.liquidityDate) payload.liquidityDate = reportData.liquidityDate;
           if(reportData.receivablesDate) payload.receivablesDate = reportData.receivablesDate;
           if(reportData.accountsPayableDate) payload.accountsPayableDate = reportData.accountsPayableDate;
@@ -397,14 +414,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      comment: r.comment,
                      status: r.status,
                      result: r.resultYtd,
-                     liquidity: r.liquidity,
                      revenue: r.revenue,
                      expenses: r.expenses,
+                     pnlDate: r.pnlDate || r.pnl_date, // MAPPED
+                     
+                     liquidity: r.liquidity,
                      receivables: r.receivables,
                      accountsPayable: r.accountsPayable,
+                     
                      liquidityDate: r.liquidityDate,
                      receivablesDate: r.receivablesDate,
                      accountsPayableDate: r.accountsPayableDate,
+                     
                      source: r.source || 'Manuell',
                      approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
                      approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
@@ -420,7 +441,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   };
 
-  // NEW: Handle Delete Report
+  // Handle Delete Report
   const handleDeleteReport = async (reportId: number) => {
       if (!window.confirm("Er du sikker på at du vil slette denne rapporten?")) return;
       
@@ -460,10 +481,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if(report.revenue != null) companyUpdate.revenue = report.revenue;
           if(report.expenses != null) companyUpdate.expenses = report.expenses;
           if(report.result != null) companyUpdate.resultYtd = report.result;
+          
           if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
           if(report.receivables != null) companyUpdate.receivables = report.receivables;
           if(report.accountsPayable != null) companyUpdate.accountsPayable = report.accountsPayable;
           
+          if(report.pnlDate) companyUpdate.pnlDate = report.pnlDate;
           if(report.liquidityDate) companyUpdate.liquidityDate = report.liquidityDate;
           if(report.receivablesDate) companyUpdate.receivablesDate = report.receivablesDate;
           if(report.accountsPayableDate) companyUpdate.accountsPayableDate = report.accountsPayableDate;
@@ -710,7 +733,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         onReportSubmit={handleSubmitReport}
         onApproveReport={handleApproveReport}
         onUnlockReport={handleUnlockReport}
-        onDeleteReport={handleDeleteReport} // Passed Handler
+        onDeleteReport={handleDeleteReport} 
         onForecastSubmit={handleForecastSubmit}
       />
     );
@@ -720,7 +743,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
-      {/* Header and Main content logic identical to previous, just re-rendering for context if needed */}
+      {/* Header same as before */}
       <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -759,7 +782,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-        {/* Content Components rendered same as before */}
+        {/* Same view rendering */}
         {isSortMode && (
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
                 <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">
@@ -822,7 +845,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         )}
       </main>
       
-      {/* Footer Summary - Same as before */}
+      {/* Footer */}
       {viewMode !== ViewMode.ADMIN && viewMode !== ViewMode.USER_ADMIN && !isSortMode && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

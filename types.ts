@@ -1,27 +1,27 @@
 
 export interface CompanyData {
   id: number;
-  name: string; // Acronym e.g., VPS
-  fullName?: string; // Full legal name e.g. Vestlands Prosjektservice
-  manager: string; // e.g., Kai
+  name: string; 
+  fullName?: string; 
+  manager: string; 
   resultYTD: number;
-  budgetTotal: number; // Annual budget (Calculated sum of months)
+  budgetTotal: number; 
   budgetMode: 'annual' | 'quarterly' | 'monthly';
-  budgetMonths: number[]; // Array of 12 numbers [Jan, Feb, ... Dec]
-  revenue: number; // Omsetning
-  expenses: number; // Kostnader
+  budgetMonths: number[]; 
+  revenue: number; 
+  expenses: number; 
+  pnlDate?: string; // NEW: Date for Profit & Loss figures
   liquidity: number;
-  receivables: number; // Fordringer
-  accountsPayable: number; // Leverandørgjeld
-  liquidityDate: string; // Date for liquidity snapshot
-  receivablesDate?: string; // Date for receivables snapshot
-  accountsPayableDate?: string; // Date for payables snapshot
+  receivables: number; 
+  accountsPayable: number; 
+  liquidityDate: string; 
+  receivablesDate?: string; 
+  accountsPayableDate?: string; 
   lastReportDate: string;
   lastReportBy: string;
   comment: string;
-  trendHistory: number; // Percentage change vs same period last year
+  trendHistory: number; 
   
-  // For Risk Matrix History
   prevLiquidity?: number;
   prevDeviation?: number;
 }
@@ -38,7 +38,7 @@ export interface UserData {
   fullName: string;
   role: 'controller' | 'leader';
   groupId: number;
-  companyId?: number | null; // Optional, for leaders
+  companyId?: number | null; 
 }
 
 export interface ReportLogItem {
@@ -47,11 +47,14 @@ export interface ReportLogItem {
   author: string;
   comment: string;
   status: 'submitted' | 'approved' | 'draft';
-  // All financials are now optional to support partial reporting
+  
   result?: number | null;
   liquidity?: number | null;
   revenue?: number | null;
   expenses?: number | null;
+  
+  pnlDate?: string; // NEW
+
   receivables?: number | null;
   accountsPayable?: number | null;
   
@@ -67,8 +70,8 @@ export interface ReportLogItem {
 export interface ForecastItem {
   id?: number;
   companyId: number;
-  month: string; // YYYY-MM
-  monthName?: string; // Optional UI field for display (e.g. "Januar 2024")
+  month: string; 
+  monthName?: string; 
   estimatedReceivables: number;
   estimatedPayables: number;
 }
@@ -77,7 +80,7 @@ export enum SortField {
   RESULT = 'RESULT',
   DEVIATION = 'DEVIATION',
   LIQUIDITY = 'LIQUIDITY',
-  DEFAULT = 'DEFAULT' // ID order
+  DEFAULT = 'DEFAULT' 
 }
 
 export enum ViewMode {
