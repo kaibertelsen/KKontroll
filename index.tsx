@@ -124,7 +124,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.2.0</div>
+                    <div className="text-[10px] text-slate-400">v1.2.1</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -390,7 +390,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     localStorage.setItem('konsern_mode', 'demo'); 
     
     const mockUserProfile = {
-        id: 999, // ADDED MOCK ID
         fullName: "Demo Controller",
         role: 'controller' as const,
         groupId: 1,
@@ -471,7 +470,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         return;
     }
 
-    // --- ROBUST MAPPING TO PREVENT WHITE SCREEN ---
     const user = {
         id: rawUser.id,
         authId: rawUser.authId || rawUser.auth_id,
@@ -518,18 +516,19 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
         return {
             ...c,
-            resultYTD: Number(c.result_ytd || c.resultYTD || 0),
-            budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
+            // Mapping robustness for snake_case vs camelCase
+            resultYTD: Number(c.resultYtd || c.result_ytd || 0),
+            budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
             budgetMode: c.budget_mode || c.budgetMode || 'annual',
             budgetMonths: bMonths,
             liquidity: Number(c.liquidity || 0),
             receivables: Number(c.receivables || 0),
-            accountsPayable: Number(c.accounts_payable || c.accountsPayable || 0),
-            trendHistory: Number(c.trend_history || c.trendHistory || 0),
-            prevLiquidity: Number(c.prev_liquidity || c.prevLiquidity || 0),
+            accountsPayable: Number(c.accountsPayable || c.accountsPayable || 0),
+            trendHistory: Number(c.trendHistory || c.trendHistory || 0),
+            prevLiquidity: Number(c.prevLiquidity || c.prevLiquidity || 0),
             prevDeviation: Number(c.prev_trend || c.prevTrend || 0),
             name: c.name || '',
-            fullName: c.full_name || c.fullName || '', 
+            fullName: c.fullName || c.full_name || '', 
             manager: c.manager || '',
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
@@ -539,11 +538,12 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             lastReportDate: c.last_report_date || c.lastReportDate || '',
             lastReportBy: c.last_report_by || c.lastReportBy || '',
             comment: c.current_comment || c.currentComment || '',
+            pnlDate: c.pnlDate || c.pnl_date || ''
         };
     });
 
     const userProfile = {
-        id: user.id, // ADDED ID
+        id: user.id,
         fullName: user.fullName,
         role: user.role as 'controller' | 'leader',
         groupId: user.groupId,

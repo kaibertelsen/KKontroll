@@ -152,14 +152,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         author: r.authorName || 'Ukjent',
                         comment: r.comment,
                         status: r.status,
-                        result: r.resultYtd != null ? r.resultYtd : undefined,
+                        // Check all possible casing for result
+                        result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
                         revenue: r.revenue != null ? r.revenue : undefined,
                         expenses: r.expenses != null ? r.expenses : undefined,
                         pnlDate: r.pnlDate || r.pnl_date || '', 
                         
                         liquidity: r.liquidity != null ? r.liquidity : undefined,
                         receivables: r.receivables != null ? r.receivables : undefined,
-                        accountsPayable: r.accountsPayable != null ? r.accountsPayable : undefined,
+                        accountsPayable: r.accountsPayable != null ? r.accountsPayable : (r.accounts_payable != null ? r.accounts_payable : undefined),
                         
                         liquidityDate: r.liquidityDate || r.liquidity_date || '',
                         receivablesDate: r.receivablesDate || r.receivables_date || '',
@@ -225,10 +226,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
+                // Robust Mapping: Handle both camelCase (API) and snake_case (DB) for all fields
                 return {
                     ...c,
-                    // Robust Mapping: Check both camelCase and snake_case
-                    resultYTD: Number(c.resultYtd || c.result_ytd || 0),
+                    id: c.id,
+                    
+                    // Result YTD Mapping (Critical Fix)
+                    resultYTD: c.resultYtd != null ? Number(c.resultYtd) : (c.result_ytd != null ? Number(c.result_ytd) : 0),
+                    
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
@@ -394,19 +399,36 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               status: 'submitted'
           };
           
-          // Only include fields that have values
-          if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
-          if(reportData.expenses !== undefined && reportData.expenses !== '') payload.expenses = reportData.expenses;
-          if(reportData.resultYTD !== undefined && reportData.resultYTD !== '') payload.resultYtd = reportData.resultYTD;
-          if(reportData.liquidity !== undefined && reportData.liquidity !== '') payload.liquidity = reportData.liquidity;
-          if(reportData.receivables !== undefined && reportData.receivables !== '') payload.receivables = reportData.receivables;
-          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') payload.accountsPayable = reportData.accountsPayable;
+          // P&L LOGIC: Only send revenue/expenses/result if inputs are NOT empty strings
+          // This prevents overriding existing data with 0 when reporting only liquidity
+          const hasRevenue = reportData.revenue !== '' && reportData.revenue !== undefined;
+          const hasExpenses = reportData.expenses !== '' && reportData.expenses !== undefined;
+
+          if (hasRevenue || hasExpenses) {
+             const r = Number(reportData.revenue || 0);
+             const e = Number(reportData.expenses || 0);
+             payload.revenue = r;
+             payload.expenses = e;
+             payload.resultYtd = r - e; // Force calculation to ensure DB consistency
+             
+             if(reportData.pnlDate) payload.pnlDate = reportData.pnlDate; 
+          }
+
+          // BALANCE SHEET LOGIC
+          if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
+             payload.liquidity = Number(reportData.liquidity);
+             if(reportData.liquidityDate) payload.liquidityDate = reportData.liquidityDate;
+          }
           
-          // DATES
-          if(reportData.pnlDate) payload.pnlDate = reportData.pnlDate; 
-          if(reportData.liquidityDate) payload.liquidityDate = reportData.liquidityDate;
-          if(reportData.receivablesDate) payload.receivablesDate = reportData.receivablesDate;
-          if(reportData.accountsPayableDate) payload.accountsPayableDate = reportData.accountsPayableDate;
+          if(reportData.receivables !== undefined && reportData.receivables !== '') {
+              payload.receivables = Number(reportData.receivables);
+              if(reportData.receivablesDate) payload.receivablesDate = reportData.receivablesDate;
+          }
+          
+          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
+              payload.accountsPayable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) payload.accountsPayableDate = reportData.accountsPayableDate;
+          }
 
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...payload } });
@@ -430,18 +452,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      author: r.authorName || 'Ukjent',
                      comment: r.comment,
                      status: r.status,
-                     result: r.resultYtd,
+                     // Map result properly
+                     result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
                      revenue: r.revenue,
                      expenses: r.expenses,
                      pnlDate: r.pnlDate || r.pnl_date, 
                      
                      liquidity: r.liquidity,
                      receivables: r.receivables,
-                     accountsPayable: r.accountsPayable,
+                     accountsPayable: r.accountsPayable || r.accounts_payable,
                      
-                     liquidityDate: r.liquidityDate,
-                     receivablesDate: r.receivablesDate,
-                     accountsPayableDate: r.accountsPayableDate,
+                     liquidityDate: r.liquidityDate || r.liquidity_date,
+                     receivablesDate: r.receivablesDate || r.receivables_date,
+                     accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date,
                      
                      source: r.source || 'Manuell',
                      approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
@@ -496,6 +519,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const companyUpdate: any = { id: selectedCompany?.id };
           if(report.revenue != null) companyUpdate.revenue = report.revenue;
           if(report.expenses != null) companyUpdate.expenses = report.expenses;
+          // Ensure we map report.result to resultYtd correctly
           if(report.result != null) companyUpdate.resultYtd = report.result;
           
           if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
