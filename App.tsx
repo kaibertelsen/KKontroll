@@ -362,15 +362,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
-          // FIXED: Use camelCase keys, include submittedByUserId
+          // FIXED: Use camelCase keys, include submittedByUserId, REMOVE reportDate
           const payload: any = {
               companyId: selectedCompany?.id,
-              submittedByUserId: userProfile.id, // ADDED: Current user ID
+              submittedByUserId: userProfile.id, 
               authorName: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
-              status: 'submitted',
-              reportDate: new Date().toISOString()
+              status: 'submitted'
+              // REMOVED: reportDate: new Date().toISOString() to let DB handle it
           };
           
           if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
