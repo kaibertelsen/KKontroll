@@ -254,7 +254,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- COMPANY CRUD ---
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
-          // FIXED: Use camelCase to match Drizzle Schema
           const dbPayload = {
               groupId: userProfile.groupId, 
               name: newCompany.name,
@@ -262,7 +261,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               manager: newCompany.manager,
               revenue: newCompany.revenue,
               expenses: newCompany.expenses,
-              resultYtd: newCompany.resultYTD, // Note: Schema has resultYtd
+              resultYtd: newCompany.resultYTD, 
               budgetTotal: newCompany.budgetTotal,
               budgetMode: newCompany.budgetMode,
               budgetMonths: JSON.stringify(newCompany.budgetMonths),
@@ -290,7 +289,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateCompany = async (updatedCompany: CompanyData) => {
       try {
-           // FIXED: Use camelCase to match Drizzle Schema
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
@@ -362,7 +360,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
-          // FIXED: Use camelCase keys, include submittedByUserId, REMOVE reportDate
           const payload: any = {
               companyId: selectedCompany?.id,
               submittedByUserId: userProfile.id, 
@@ -370,7 +367,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted'
-              // REMOVED: reportDate: new Date().toISOString() to let DB handle it
           };
           
           if(reportData.revenue !== undefined && reportData.revenue !== '') payload.revenue = reportData.revenue;
@@ -424,6 +420,24 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   };
 
+  // NEW: Handle Delete Report
+  const handleDeleteReport = async (reportId: number) => {
+      if (!window.confirm("Er du sikker på at du vil slette denne rapporten?")) return;
+      
+      if (isDemo) {
+          setReports(prev => prev.filter(r => r.id !== reportId));
+          return;
+      }
+
+      try {
+          await deleteNEON({ table: 'reports', data: reportId });
+          setReports(prev => prev.filter(r => r.id !== reportId));
+      } catch (e) {
+          console.error("Delete report error", e);
+          alert("Kunne ikke slette rapporten.");
+      }
+  };
+
   const handleApproveReport = async (reportId: number) => {
       if (isDemo) {
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Demo Controller' } : r));
@@ -433,18 +447,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
-          // 1. Update Report Status - REMOVED approvedAt to let DB handle timestamp
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  // REMOVED: approvedAt: new Date().toISOString(),
-                  approvedByUserId: userProfile.id // Added: Current user ID as approver
+                  approvedByUserId: userProfile.id 
               } 
           });
 
-          // 2. Update Company Data - FIXED: Use camelCase
           const companyUpdate: any = { id: selectedCompany?.id };
           if(report.revenue != null) companyUpdate.revenue = report.revenue;
           if(report.expenses != null) companyUpdate.expenses = report.expenses;
@@ -463,7 +474,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           await patchNEON({ table: 'companies', data: companyUpdate });
 
-          // Refresh everything
           await reloadCompanies();
           
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
@@ -506,7 +516,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
       try {
           for (const f of submittedForecasts) {
-              // FIXED: Use camelCase
               const payload = {
                   companyId: f.companyId,
                   month: f.month,
@@ -542,7 +551,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- USER HANDLERS ---
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
-          // FIXED: Use camelCase
           const payload = {
               authId: user.authId,
               email: user.email,
@@ -571,7 +579,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateUser = async (user: UserData) => {
       try {
-          // FIXED: Use camelCase
           const payload = {
               id: user.id,
               authId: user.authId,
@@ -635,7 +642,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if (isDemo) return companies.filter(c => c.name === 'BCC');
           if (userProfile.companyId) return companies.filter(c => c.id === userProfile.companyId);
       }
-      // In sort mode, we use the local 'companies' state which is being reordered
       return companies;
   }, [companies, effectiveRole, isDemo, userProfile.companyId]);
 
@@ -668,16 +674,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     return computedData;
   }, [computedData, viewMode]);
 
-  // Only sort if NOT in Sort Mode (Manual override)
   const sortedData = useMemo(() => {
-    if (isSortMode) return displayedData; // Don't auto-sort while dragging
+    if (isSortMode) return displayedData; 
 
     const data = [...displayedData];
     switch (sortField) {
       case SortField.RESULT: return data.sort((a, b) => b.resultYTD - a.resultYTD);
       case SortField.DEVIATION: return data.sort((a, b) => a.calculatedDeviationPercent - b.calculatedDeviationPercent);
       case SortField.LIQUIDITY: return data.sort((a, b) => b.liquidity - a.liquidity);
-      default: return data; // Default order (as is in state)
+      default: return data; 
     }
   }, [displayedData, sortField, isSortMode]);
 
@@ -705,6 +710,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         onReportSubmit={handleSubmitReport}
         onApproveReport={handleApproveReport}
         onUnlockReport={handleUnlockReport}
+        onDeleteReport={handleDeleteReport} // Passed Handler
         onForecastSubmit={handleForecastSubmit}
       />
     );
@@ -714,7 +720,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
-      
+      {/* Header and Main content logic identical to previous, just re-rendering for context if needed */}
       <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -753,8 +759,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-        
-        {/* SORT MODE OVERLAY UI */}
+        {/* Content Components rendered same as before */}
         {isSortMode && (
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
                 <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">
@@ -774,7 +779,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         )}
         {!isAdminMode && (
             <>
-                <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 transition-opacity duration-300 ${isSortMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+               <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 transition-opacity duration-300 ${isSortMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                     <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
                         <button onClick={() => setIsTodayMode(false)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span></button>
                         <div className="w-2"></div>
@@ -803,8 +808,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                                     key={company.id} 
                                     data={company} 
                                     onSelect={setSelectedCompany}
-                                    
-                                    // Sorting Props
                                     isSortMode={isSortMode}
                                     onDragStart={onDragStart}
                                     onDragEnter={onDragEnter}
@@ -819,6 +822,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         )}
       </main>
       
+      {/* Footer Summary - Same as before */}
       {viewMode !== ViewMode.ADMIN && viewMode !== ViewMode.USER_ADMIN && !isSortMode && (
         <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

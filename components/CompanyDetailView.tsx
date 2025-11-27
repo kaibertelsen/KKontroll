@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem } from '../types';
 import { formatCurrency } from '../constants';
-import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar } from 'lucide-react';
+import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
 } from 'recharts';
@@ -15,6 +15,7 @@ interface CompanyDetailViewProps {
   onReportSubmit: (report: any) => void;
   onApproveReport: (reportId: number) => void;
   onUnlockReport?: (reportId: number) => void; 
+  onDeleteReport: (reportId: number) => void; // Added handler
   onForecastSubmit: (forecasts: ForecastItem[]) => void;
 }
 
@@ -35,7 +36,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onForecastSubmit }) => {
+const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit }) => {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<ReportLogItem | null>(null);
   
@@ -120,7 +121,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   const statusValue = (company.receivables - company.accountsPayable) + company.liquidity;
 
-  // Form State
+  // --- REPORTING FORM LOGIC ---
+  // We need to separate "Reporting Mode" (YTD vs Monthly)
+  const [reportingMode, setReportingMode] = useState<'ytd' | 'monthly'>('ytd');
+  
+  // Form State - holds the YTD values eventually
   const [formData, setFormData] = useState<{
       revenue: string | number;
       expenses: string | number;
@@ -149,24 +154,44 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       reportDate: new Date().toISOString().split('T')[0]
   });
 
-  // Auto-calculate Result YTD whenever Revenue or Expenses change
+  // Dedicated state for Monthly inputs (if mode is monthly)
+  const [monthlyInputs, setMonthlyInputs] = useState({
+      revenue: '',
+      expenses: ''
+  });
+
+  // Effect: Auto-calculate Result YTD and handle Monthly Mode Math
   useEffect(() => {
-      const rev = Number(formData.revenue) || 0;
-      const exp = Number(formData.expenses) || 0;
-      // Only update result if at least one input has a value to avoid overwriting initial state too aggressively on load, 
-      // but here we want live calc. 
-      // We also need to handle empty strings to allow clearing inputs.
-      if (formData.revenue === '' && formData.expenses === '') {
-          // Optional: reset result if both are cleared? Or keep last calc? 
-          // Let's keep it simple: result = revenue - expenses
-          setFormData(prev => ({ ...prev, resultYTD: 0 }));
+      if (reportingMode === 'ytd') {
+          // YTD Mode: Simple subtraction of the main inputs
+          const rev = Number(formData.revenue) || 0;
+          const exp = Number(formData.expenses) || 0;
+          if (formData.revenue === '' && formData.expenses === '') {
+              setFormData(prev => ({ ...prev, resultYTD: 0 }));
+          } else {
+              setFormData(prev => ({ ...prev, resultYTD: rev - exp }));
+          }
       } else {
-          setFormData(prev => ({ ...prev, resultYTD: rev - exp }));
+          // Monthly Mode: Add Input to Company Current
+          // If monthly inputs change, update formData (which holds the "To Be Submitted" YTD value)
+          const mRev = Number(monthlyInputs.revenue) || 0;
+          const mExp = Number(monthlyInputs.expenses) || 0;
+          
+          const newTotalRevenue = company.revenue + mRev;
+          const newTotalExpenses = company.expenses + mExp;
+          
+          setFormData(prev => ({
+              ...prev,
+              revenue: newTotalRevenue,
+              expenses: newTotalExpenses,
+              resultYTD: newTotalRevenue - newTotalExpenses
+          }));
       }
-  }, [formData.revenue, formData.expenses]);
+  }, [formData.revenue, formData.expenses, monthlyInputs, reportingMode, company.revenue, company.expenses]);
 
   useEffect(() => {
       if (editingReport) {
+          setReportingMode('ytd'); // Always force YTD on edit to avoid confusion
           setFormData({
               revenue: editingReport.revenue ?? '',
               expenses: editingReport.expenses ?? '',
@@ -184,6 +209,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               reportDate: editingReport.date 
           });
       } else {
+          // Reset for new report
+          setReportingMode('ytd'); // Default
+          setMonthlyInputs({ revenue: '', expenses: '' });
           setFormData({
             revenue: '',
             expenses: '',
@@ -240,6 +268,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      // For submit, we just take formData as it's already calculated correctly by the useEffect
       const payload = {
           ...formData,
           revenue: formData.revenue === '' ? undefined : Number(formData.revenue),
@@ -444,7 +473,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     const isTripletex = report.source === 'Tripletex';
 
                     return (
-                    <div key={report.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <div key={report.id} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-2">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-full ${isTripletex ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-slate-100 dark:bg-slate-700'}`}>
@@ -514,6 +543,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                         >
                                             <Edit size={14} />
                                         </button>
+                                        
+                                        {/* DELETE BUTTON FOR UNAPPROVED REPORTS */}
+                                        <button 
+                                            onClick={() => onDeleteReport(report.id)}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                                            title="Slett rapport"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -539,33 +577,84 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
+                    
+                    {/* Reporting Mode Toggle (Only for New Reports) */}
+                    {!editingReport && (
+                        <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-200 dark:border-slate-700 flex justify-center">
+                            <div className="bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-600 flex shadow-sm">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setReportingMode('ytd')}
+                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportingMode === 'ytd' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                                >
+                                    Akkumulert (YTD)
+                                </button>
+                                <button 
+                                    type="button" 
+                                    onClick={() => setReportingMode('monthly')}
+                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportingMode === 'monthly' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                                >
+                                    Legg til Månedstall
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
                         
                         {/* SECTION 1: P&L */}
-                        <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600">
+                        <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 transition-all">
                             <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-2">
-                                <TrendingUp size={14}/> Drift & Resultat
+                                <TrendingUp size={14}/> Drift & Resultat {reportingMode === 'monthly' ? '(Denne Måned)' : '(Hittil i år)'}
                             </h4>
+                            
+                            {reportingMode === 'monthly' && (
+                                <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-xs text-blue-700 dark:text-blue-300">
+                                    <p className="font-bold mb-1">Månedlig Modus:</p>
+                                    <p>Legg inn tallene for <strong>denne måneden</strong>. Vi legger dem automatisk til de eksisterende tallene.</p>
+                                    <div className="mt-2 grid grid-cols-2 gap-4 font-mono">
+                                        <div>Forrige Omsetning: <strong>{formatCurrency(company.revenue)}</strong></div>
+                                        <div>Forrige Kostnader: <strong>{formatCurrency(company.expenses)}</strong></div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Omsetning</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
-                                        value={formData.revenue} onChange={e => setFormData({...formData, revenue: e.target.value})} placeholder="0" />
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                                        {reportingMode === 'monthly' ? 'Mnd. Omsetning' : 'Omsetning YTD'}
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
+                                        value={reportingMode === 'ytd' ? formData.revenue : monthlyInputs.revenue} 
+                                        onChange={e => reportingMode === 'ytd' ? setFormData({...formData, revenue: e.target.value}) : setMonthlyInputs({...monthlyInputs, revenue: e.target.value})} 
+                                        placeholder="0" 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kostnader</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
-                                        value={formData.expenses} onChange={e => setFormData({...formData, expenses: e.target.value})} placeholder="0" />
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                                        {reportingMode === 'monthly' ? 'Mnd. Kostnader' : 'Kostnader YTD'}
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
+                                        value={reportingMode === 'ytd' ? formData.expenses : monthlyInputs.expenses} 
+                                        onChange={e => reportingMode === 'ytd' ? setFormData({...formData, expenses: e.target.value}) : setMonthlyInputs({...monthlyInputs, expenses: e.target.value})} 
+                                        placeholder="0" 
+                                    />
                                 </div>
                                 <div>
-                                    <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">Resultat YTD</label>
+                                    <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">
+                                        {reportingMode === 'monthly' ? 'Ny Resultat YTD' : 'Resultat YTD'}
+                                    </label>
                                     {/* READ-ONLY FIELD, AUTO-CALCULATED */}
                                     <input 
                                         type="number" 
                                         readOnly
                                         className="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed" 
                                         value={formData.resultYTD} 
-                                        title="Resultat beregnes automatisk (Omsetning - Kostnader)"
+                                        title="Resultat beregnes automatisk"
                                     />
                                 </div>
                             </div>
@@ -574,7 +663,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                         {/* SECTION 2: BALANCE */}
                         <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-4">
                             <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
-                                <Wallet size={14}/> Likviditet & Balanse
+                                <Wallet size={14}/> Likviditet & Balanse (Nå-situasjon)
                             </h4>
                             
                             {/* Liquidity Row */}
@@ -642,6 +731,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     onChange={e => setFormData({...formData, source: e.target.value})}
                                 >
                                     <option value="Manuell">Manuell registrering</option>
+                                    <option value="Tripletex">Tripletex Eksport</option>
+                                    <option value="PowerOffice">PowerOffice Eksport</option>
+                                    <option value="Visma">Visma eAccounting</option>
                                 </select>
                             </div>
                             <div>
