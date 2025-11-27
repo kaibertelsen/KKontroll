@@ -227,6 +227,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
                 return {
                     ...c,
+                    // Robust Mapping: Check both camelCase and snake_case
                     resultYTD: Number(c.resultYtd || c.result_ytd || 0),
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
@@ -331,6 +332,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           } else {
               setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
           }
+          
+          // Also update selected company local state if it's the one being edited
+          if (selectedCompany && selectedCompany.id === updatedCompany.id) {
+               setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : null);
+          }
+
       } catch (e) {
           console.error("Failed to update company", e);
           alert("Kunne ikke oppdatere selskap.");
@@ -744,6 +751,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         onUnlockReport={handleUnlockReport}
         onDeleteReport={handleDeleteReport} 
         onForecastSubmit={handleForecastSubmit}
+        onUpdateCompany={handleUpdateCompany}
       />
     );
   }
