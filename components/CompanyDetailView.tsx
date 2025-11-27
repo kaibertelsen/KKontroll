@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem } from '../types';
 import { formatCurrency } from '../constants';
-import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2 } from 'lucide-react';
+import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
 } from 'recharts';
@@ -128,7 +128,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       revenue: string | number;
       expenses: string | number;
       resultYTD: string | number;
-      pnlDate: string; // NEW: Date for Profit & Loss
+      pnlDate: string; 
       liquidity: string | number;
       receivables: string | number;
       accountsPayable: string | number;
@@ -154,16 +154,16 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       reportDate: new Date().toISOString().split('T')[0]
   });
 
-  // Dedicated state for Monthly inputs (if mode is monthly)
   const [monthlyInputs, setMonthlyInputs] = useState({
       revenue: '',
       expenses: ''
   });
 
-  // Effect: Auto-calculate Result YTD and handle Monthly Mode Math
+  // READ-ONLY MODE CHECK
+  const isReadOnly = editingReport?.status === 'approved';
+
   useEffect(() => {
       if (reportingMode === 'ytd') {
-          // YTD Mode: Simple subtraction of the main inputs
           const rev = Number(formData.revenue) || 0;
           const exp = Number(formData.expenses) || 0;
           if (formData.revenue === '' && formData.expenses === '') {
@@ -172,7 +172,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               setFormData(prev => ({ ...prev, resultYTD: rev - exp }));
           }
       } else {
-          // Monthly Mode: Add Input to Company Current
           const mRev = Number(monthlyInputs.revenue) || 0;
           const mExp = Number(monthlyInputs.expenses) || 0;
           
@@ -190,7 +189,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   useEffect(() => {
       if (editingReport) {
-          setReportingMode('ytd'); // Always force YTD on edit
+          setReportingMode('ytd'); 
           setFormData({
               revenue: editingReport.revenue ?? '',
               expenses: editingReport.expenses ?? '',
@@ -210,7 +209,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               reportDate: editingReport.date 
           });
       } else {
-          // Reset for new report
           setReportingMode('ytd');
           setMonthlyInputs({ revenue: '', expenses: '' });
           setFormData({
@@ -270,6 +268,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      if (isReadOnly) return; // Prevent submit in read-only mode
+      
       const payload = {
           ...formData,
           revenue: formData.revenue === '' ? undefined : Number(formData.revenue),
@@ -392,8 +392,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            
-            {/* Resultat Graf */}
+            {/* Same chart code as before */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Resultatutvikling (Akkumulert)</h3>
                 <div className="h-[350px]">
@@ -488,15 +487,19 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     {isTripletex ? (
                                         <div className="flex flex-col">
                                             <span className="text-sm font-bold text-slate-900 dark:text-white">Tripletex</span>
-                                            <span className="text-xs text-slate-500">{report.date}</span>
+                                            <span className="text-xs text-slate-500">Sendt: {report.date}</span>
                                         </div>
                                     ) : (
                                         <>
                                             <p className="text-sm font-bold text-slate-900 dark:text-white">{report.author}</p>
                                             <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                                <span>{report.date}</span>
-                                                <span>•</span>
-                                                <span className="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-600 dark:text-slate-300 font-medium">{report.source}</span>
+                                                <span>Sendt: {report.date}</span>
+                                                {report.pnlDate && (
+                                                    <>
+                                                        <span>•</span>
+                                                        <span className="font-semibold text-slate-600 dark:text-slate-300">Tall pr: {report.pnlDate}</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </>
                                     )}
@@ -513,6 +516,16 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200 cursor-help" title={`Godkjent av ${report.approvedBy || 'Ukjent'} ${report.approvedAt ? 'den ' + report.approvedAt : ''}`}>
                                             <CheckCircle size={12} className="mr-1" /> Godkjent
                                         </span>
+                                        
+                                        {/* VIEW BUTTON for Approved Reports */}
+                                        <button 
+                                            onClick={() => handleEditReport(report)}
+                                            className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                            title="Se rapport"
+                                        >
+                                            <Eye size={14} />
+                                        </button>
+
                                         {userRole === 'controller' && onUnlockReport && (
                                             <button 
                                                 onClick={() => onUnlockReport(report.id)}
@@ -572,15 +585,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
                     <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                            {editingReport ? 'Rediger Rapport' : 'Ny Rapport'}
+                            {isReadOnly ? 'Vis Rapport' : (editingReport ? 'Rediger Rapport' : 'Ny Rapport')}
                         </h3>
                         <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
                     
-                    {/* Reporting Mode Toggle (Only for New Reports) */}
-                    {!editingReport && (
+                    {/* Reporting Mode Toggle (Only for New Reports and NOT ReadOnly) */}
+                    {!editingReport && !isReadOnly && (
                         <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-200 dark:border-slate-700 flex justify-center">
                             <div className="bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-600 flex shadow-sm">
                                 <button 
@@ -609,7 +622,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 <TrendingUp size={14}/> Drift & Resultat {reportingMode === 'monthly' ? '(Denne Måned)' : '(Hittil i år)'}
                             </h4>
                             
-                            {reportingMode === 'monthly' && (
+                            {reportingMode === 'monthly' && !isReadOnly && (
                                 <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-xs text-blue-700 dark:text-blue-300">
                                     <p className="font-bold mb-1">Månedlig Modus:</p>
                                     <p>Legg inn tallene for <strong>denne måneden</strong>. Vi legger dem automatisk til de eksisterende tallene.</p>
@@ -623,31 +636,33 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                                        {reportingMode === 'monthly' ? 'Mnd. Omsetning' : 'Omsetning YTD'}
+                                        {reportingMode === 'monthly' && !isReadOnly ? 'Mnd. Omsetning' : 'Omsetning YTD'}
                                     </label>
                                     <input 
                                         type="number" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
-                                        value={reportingMode === 'ytd' ? formData.revenue : monthlyInputs.revenue} 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
+                                        value={reportingMode === 'ytd' || isReadOnly ? formData.revenue : monthlyInputs.revenue} 
                                         onChange={e => reportingMode === 'ytd' ? setFormData({...formData, revenue: e.target.value}) : setMonthlyInputs({...monthlyInputs, revenue: e.target.value})} 
                                         placeholder="0" 
                                     />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
-                                        {reportingMode === 'monthly' ? 'Mnd. Kostnader' : 'Kostnader YTD'}
+                                        {reportingMode === 'monthly' && !isReadOnly ? 'Mnd. Kostnader' : 'Kostnader YTD'}
                                     </label>
                                     <input 
                                         type="number" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
-                                        value={reportingMode === 'ytd' ? formData.expenses : monthlyInputs.expenses} 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
+                                        value={reportingMode === 'ytd' || isReadOnly ? formData.expenses : monthlyInputs.expenses} 
                                         onChange={e => reportingMode === 'ytd' ? setFormData({...formData, expenses: e.target.value}) : setMonthlyInputs({...monthlyInputs, expenses: e.target.value})} 
                                         placeholder="0" 
                                     />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">
-                                        {reportingMode === 'monthly' ? 'Ny Resultat YTD' : 'Resultat YTD'}
+                                        {reportingMode === 'monthly' && !isReadOnly ? 'Ny Resultat YTD' : 'Resultat YTD'}
                                     </label>
                                     {/* READ-ONLY FIELD, AUTO-CALCULATED */}
                                     <input 
@@ -666,7 +681,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1 justify-end"><Calendar size={10}/> Dato for tallene</label>
                                     <input 
                                         type="date" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm text-right" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm text-right disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={toInputDate(formData.pnlDate)} 
                                         onChange={e => setFormData({...formData, pnlDate: fromInputDate(e.target.value)})} 
                                     />
@@ -684,14 +700,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet (Bankinnskudd)</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    <input type="number" disabled={isReadOnly} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={formData.liquidity} onChange={e => setFormData({...formData, liquidity: e.target.value})} placeholder="0" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
                                     <input 
                                         type="date" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={toInputDate(formData.liquidityDate)} 
                                         onChange={e => setFormData({...formData, liquidityDate: fromInputDate(e.target.value)})} 
                                     />
@@ -702,14 +719,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kundefordringer</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    <input type="number" disabled={isReadOnly} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={formData.receivables} onChange={e => setFormData({...formData, receivables: e.target.value})} placeholder="0" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
                                     <input 
                                         type="date" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={toInputDate(formData.receivablesDate)} 
                                         onChange={e => setFormData({...formData, receivablesDate: fromInputDate(e.target.value)})} 
                                     />
@@ -720,14 +738,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leverandørgjeld</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    <input type="number" disabled={isReadOnly} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={formData.accountsPayable} onChange={e => setFormData({...formData, accountsPayable: e.target.value})} placeholder="0" />
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
                                     <input 
                                         type="date" 
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                         value={toInputDate(formData.accountsPayableDate)} 
                                         onChange={e => setFormData({...formData, accountsPayableDate: fromInputDate(e.target.value)})} 
                                     />
@@ -740,7 +759,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <div>
                                 <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
                                 <select 
-                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
+                                    disabled={isReadOnly}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700"
                                     value={formData.source}
                                     onChange={e => setFormData({...formData, source: e.target.value})}
                                 >
@@ -752,17 +772,19 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             </div>
                             <div>
                                 <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kommentar / Status</label>
-                                <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                <textarea rows={3} disabled={isReadOnly} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
                                     value={formData.comment} onChange={e => setFormData({...formData, comment: e.target.value})} placeholder="Kort beskrivelse av månedens status..." />
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-                            <button type="submit" className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2 transition-transform active:scale-95">
-                                <Save size={18} /> 
-                                {editingReport ? 'Lagre endringer' : 'Send inn rapport'}
-                            </button>
-                        </div>
+                        {!isReadOnly && (
+                            <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
+                                <button type="submit" className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2 transition-transform active:scale-95">
+                                    <Save size={18} /> 
+                                    {editingReport ? 'Lagre endringer' : 'Send inn rapport'}
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div>
             </div>

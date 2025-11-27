@@ -82,7 +82,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       setIsSortMode(false);
       dragItem.current = null;
       dragOverItem.current = null;
-      // In a real app, we would save the new order index to the DB here.
       console.log("New order saved:", companies.map(c => c.name));
   };
 
@@ -140,7 +139,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
             .then(res => {
                 if (res.rows) {
-                    const mappedReports = res.rows.map((r: any) => ({
+                    // Sort raw rows by report_date descending (Newest first)
+                    const sortedRows = res.rows.sort((a: any, b: any) => {
+                        const dateA = new Date(a.reportDate || a.report_date).getTime();
+                        const dateB = new Date(b.reportDate || b.report_date).getTime();
+                        return dateB - dateA;
+                    });
+
+                    const mappedReports = sortedRows.map((r: any) => ({
                         id: r.id,
                         date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
                         author: r.authorName || 'Ukjent',
@@ -149,7 +155,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         result: r.resultYtd != null ? r.resultYtd : undefined,
                         revenue: r.revenue != null ? r.revenue : undefined,
                         expenses: r.expenses != null ? r.expenses : undefined,
-                        pnlDate: r.pnlDate || r.pnl_date || '', // MAPPED
+                        pnlDate: r.pnlDate || r.pnl_date || '', 
                         
                         liquidity: r.liquidity != null ? r.liquidity : undefined,
                         receivables: r.receivables != null ? r.receivables : undefined,
@@ -163,7 +169,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
                         approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
                     }));
-                    mappedReports.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     setReports(mappedReports);
                 }
             })
@@ -187,8 +192,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       } else {
           setReports([
-              { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller' },
-              { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex' }
+              { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023' },
+              { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex', pnlDate: '31.08.2023' }
           ]);
           setForecasts([
               { companyId: 1, month: '2023-12', estimatedReceivables: 150000, estimatedPayables: 100000 },
@@ -222,7 +227,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
                 return {
                     ...c,
-                    // Robust Mapping: Check both camelCase and snake_case
                     resultYTD: Number(c.resultYtd || c.result_ytd || 0),
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
@@ -407,7 +411,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if (selectedCompany) {
               const res = await getNEON({ table: 'reports', where: { companyId: selectedCompany.id } });
               if(res.rows) {
-                 const mapped = res.rows.map((r:any) => ({
+                 const sortedRows = res.rows.sort((a: any, b: any) => {
+                    const dateA = new Date(a.reportDate || a.report_date).getTime();
+                    const dateB = new Date(b.reportDate || b.report_date).getTime();
+                    return dateB - dateA;
+                 });
+
+                 const mapped = sortedRows.map((r:any) => ({
                      id: r.id,
                      date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
                      author: r.authorName || 'Ukjent',
@@ -416,7 +426,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      result: r.resultYtd,
                      revenue: r.revenue,
                      expenses: r.expenses,
-                     pnlDate: r.pnlDate || r.pnl_date, // MAPPED
+                     pnlDate: r.pnlDate || r.pnl_date, 
                      
                      liquidity: r.liquidity,
                      receivables: r.receivables,
@@ -430,7 +440,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
                      approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
                  }));
-                 mapped.sort((a:any, b:any) => new Date(b.date).getTime() - new Date(a.date).getTime());
                  setReports(mapped);
               }
           }
