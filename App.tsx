@@ -261,6 +261,35 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 };
             });
             setCompanies(mapped);
+            
+            // Update selected company if active
+            if (selectedCompany) {
+                const updated = mapped.find((c: any) => c.id === selectedCompany.id);
+                if (updated) {
+                    // Preserve calculated fields from useMemo if necessary, but here we mainly need raw data
+                    // Re-calculating locally for instant feedback in modal
+                    const now = new Date();
+                    const currentMonthIndex = now.getMonth();
+                    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+                    
+                    let targetBudget = 0;
+                    const bMonths = updated.budgetMonths;
+                    if (isTodayMode) {
+                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+                         targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * now.getDate();
+                    } else {
+                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+                    }
+                    const deviation = updated.resultYTD - targetBudget;
+                    const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
+
+                    setSelectedCompany({
+                        ...updated,
+                        calculatedBudgetYTD: targetBudget,
+                        calculatedDeviationPercent: deviationPercent
+                    });
+                }
+            }
         }
     } catch(e) { console.error("Reload companies error", e); }
   };
@@ -388,8 +417,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                return;
           }
 
-          // Use snake_case keys for DB
-          const payload: any = {
+          // 1. Save to Reports Table
+          const reportPayload: any = {
               company_id: selectedCompany?.id,
               submitted_by_user_id: userProfile.id, 
               author_name: userProfile.fullName,
@@ -398,43 +427,76 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               status: 'submitted'
           };
           
-          // P&L LOGIC: Only send revenue/expenses/result if inputs are NOT empty strings
           const hasRevenue = reportData.revenue !== '' && reportData.revenue !== undefined;
           const hasExpenses = reportData.expenses !== '' && reportData.expenses !== undefined;
 
           if (hasRevenue || hasExpenses) {
              const r = Number(reportData.revenue || 0);
              const e = Number(reportData.expenses || 0);
-             payload.revenue = r;
-             payload.expenses = e;
-             payload.result_ytd = r - e; // KEY FIX: result_ytd (snake_case)
-             
-             if(reportData.pnlDate) payload.pnl_date = reportData.pnlDate; 
+             reportPayload.revenue = r;
+             reportPayload.expenses = e;
+             reportPayload.result_ytd = r - e; 
+             if(reportData.pnlDate) reportPayload.pnl_date = reportData.pnlDate; 
           }
 
-          // BALANCE SHEET LOGIC
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
-             payload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) payload.liquidity_date = reportData.liquidityDate;
+             reportPayload.liquidity = Number(reportData.liquidity);
+             if(reportData.liquidityDate) reportPayload.liquidity_date = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
-              payload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) payload.receivables_date = reportData.receivablesDate;
+              reportPayload.receivables = Number(reportData.receivables);
+              if(reportData.receivablesDate) reportPayload.receivables_date = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              payload.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) payload.accounts_payable_date = reportData.accountsPayableDate;
+              reportPayload.accounts_payable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) reportPayload.accounts_payable_date = reportData.accountsPayableDate;
           }
 
           if (reportData.id) {
-              await patchNEON({ table: 'reports', data: { id: reportData.id, ...payload } });
+              await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
           } else {
-              await postNEON({ table: 'reports', data: payload });
+              await postNEON({ table: 'reports', data: reportPayload });
           }
 
-          // Refresh reports for selected company
+          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY (Source of Truth for Dashboard)
+          const companyUpdate: any = { id: selectedCompany?.id };
+          
+          if (hasRevenue || hasExpenses) {
+             const r = Number(reportData.revenue || 0);
+             const e = Number(reportData.expenses || 0);
+             companyUpdate.revenue = r;
+             companyUpdate.expenses = e;
+             companyUpdate.result_ytd = r - e;
+             if(reportData.pnlDate) companyUpdate.pnl_date = reportData.pnlDate;
+          }
+
+          if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
+             companyUpdate.liquidity = Number(reportData.liquidity);
+             if(reportData.liquidityDate) companyUpdate.liquidity_date = reportData.liquidityDate;
+          }
+          
+          if(reportData.receivables !== undefined && reportData.receivables !== '') {
+              companyUpdate.receivables = Number(reportData.receivables);
+              if(reportData.receivablesDate) companyUpdate.receivables_date = reportData.receivablesDate;
+          }
+          
+          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
+              companyUpdate.accounts_payable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) companyUpdate.accounts_payable_date = reportData.accountsPayableDate;
+          }
+
+          companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
+          companyUpdate.last_report_by = userProfile.fullName;
+          companyUpdate.current_comment = reportData.comment;
+
+          await patchNEON({ table: 'companies', data: companyUpdate });
+
+          // 3. Refresh App State
+          await reloadCompanies();
+
+          // Refresh reports list for selected company
           if (selectedCompany) {
               const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
               if(res.rows) {
@@ -450,20 +512,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                      author: r.authorName || 'Ukjent',
                      comment: r.comment,
                      status: r.status,
-                     
                      result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
                      revenue: r.revenue,
                      expenses: r.expenses,
                      pnlDate: r.pnlDate || r.pnl_date, 
-                     
                      liquidity: r.liquidity,
                      receivables: r.receivables,
                      accountsPayable: r.accountsPayable || r.accounts_payable,
-                     
                      liquidityDate: r.liquidityDate || r.liquidity_date,
                      receivablesDate: r.receivablesDate || r.receivables_date,
                      accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date,
-                     
                      source: r.source || 'Manuell',
                      approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
                      approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
@@ -515,48 +573,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               } 
           });
 
-          const companyUpdate: any = { id: selectedCompany?.id };
-          if(report.revenue != null) companyUpdate.revenue = report.revenue;
-          if(report.expenses != null) companyUpdate.expenses = report.expenses;
-          // KEY FIX: result_ytd
-          if(report.result != null) companyUpdate.result_ytd = report.result;
-          
-          if(report.liquidity != null) companyUpdate.liquidity = report.liquidity;
-          if(report.receivables != null) companyUpdate.receivables = report.receivables;
-          if(report.accountsPayable != null) companyUpdate.accounts_payable = report.accountsPayable;
-          
-          if(report.pnlDate) companyUpdate.pnl_date = report.pnlDate;
-          if(report.liquidityDate) companyUpdate.liquidity_date = report.liquidityDate;
-          if(report.receivablesDate) companyUpdate.receivables_date = report.receivablesDate;
-          if(report.accountsPayableDate) companyUpdate.accounts_payable_date = report.accountsPayableDate;
-          
-          companyUpdate.last_report_date = report.date;
-          companyUpdate.last_report_by = report.author;
-          companyUpdate.current_comment = report.comment;
-
-          await patchNEON({ table: 'companies', data: companyUpdate });
-
-          await reloadCompanies();
+          // NOTE: We no longer need to update companies table here for values, 
+          // because handleSubmitReport updates it immediately. 
+          // Approval is just a status change.
           
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
-          
-          if (selectedCompany) {
-               // Note: We update the local state with camelCase keys for the UI, 
-               // even though we sent snake_case to DB. Ideally reloadCompanies handles this via mapped 'companies',
-               // but here we just need the UI to feel responsive.
-               // Simulating the update locally:
-               const localUpdate = {
-                   ...selectedCompany,
-                   revenue: report.revenue ?? selectedCompany.revenue,
-                   expenses: report.expenses ?? selectedCompany.expenses,
-                   resultYTD: report.result ?? selectedCompany.resultYTD,
-                   liquidity: report.liquidity ?? selectedCompany.liquidity,
-                   receivables: report.receivables ?? selectedCompany.receivables,
-                   accountsPayable: report.accountsPayable ?? selectedCompany.accountsPayable,
-                   // ... and dates
-               };
-               setSelectedCompany(localUpdate);
-          }
 
       } catch (e) {
           console.error("Approval error", e);
