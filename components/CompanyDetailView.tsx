@@ -149,6 +149,22 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       reportDate: new Date().toISOString().split('T')[0]
   });
 
+  // Auto-calculate Result YTD whenever Revenue or Expenses change
+  useEffect(() => {
+      const rev = Number(formData.revenue) || 0;
+      const exp = Number(formData.expenses) || 0;
+      // Only update result if at least one input has a value to avoid overwriting initial state too aggressively on load, 
+      // but here we want live calc. 
+      // We also need to handle empty strings to allow clearing inputs.
+      if (formData.revenue === '' && formData.expenses === '') {
+          // Optional: reset result if both are cleared? Or keep last calc? 
+          // Let's keep it simple: result = revenue - expenses
+          setFormData(prev => ({ ...prev, resultYTD: 0 }));
+      } else {
+          setFormData(prev => ({ ...prev, resultYTD: rev - exp }));
+      }
+  }, [formData.revenue, formData.expenses]);
+
   useEffect(() => {
       if (editingReport) {
           setFormData({
@@ -543,8 +559,14 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">Resultat YTD</label>
-                                    <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-bold" 
-                                        value={formData.resultYTD} onChange={e => setFormData({...formData, resultYTD: e.target.value})} placeholder="0" />
+                                    {/* READ-ONLY FIELD, AUTO-CALCULATED */}
+                                    <input 
+                                        type="number" 
+                                        readOnly
+                                        className="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed" 
+                                        value={formData.resultYTD} 
+                                        title="Resultat beregnes automatisk (Omsetning - Kostnader)"
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -620,9 +642,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     onChange={e => setFormData({...formData, source: e.target.value})}
                                 >
                                     <option value="Manuell">Manuell registrering</option>
-                                    <option value="Tripletex">Tripletex Eksport</option>
-                                    <option value="PowerOffice">PowerOffice Eksport</option>
-                                    <option value="Visma">Visma eAccounting</option>
                                 </select>
                             </div>
                             <div>
