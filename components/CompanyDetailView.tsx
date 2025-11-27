@@ -17,7 +17,7 @@ interface CompanyDetailViewProps {
   onUnlockReport?: (reportId: number) => void; 
   onDeleteReport: (reportId: number) => void; 
   onForecastSubmit: (forecasts: ForecastItem[]) => void;
-  onUpdateCompany: (company: CompanyData) => void; // New prop
+  onUpdateCompany: (company: CompanyData) => void; 
 }
 
 // Helper to convert DD.MM.YYYY to YYYY-MM-DD for input[type="date"]
@@ -456,7 +456,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
         {/* Top Stats Grid */}
         <div className="space-y-4 mb-8">
             {/* Row 1: P&L */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
@@ -470,7 +470,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
 
             {/* Row 2: Liquidity & Balance */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
@@ -774,6 +774,20 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                         className="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed" 
                                         value={formData.resultYTD} 
                                         title="Resultat beregnes automatisk"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* NEW: P&L Date Field */}
+                            <div className="mt-3 flex justify-end">
+                                <div className="w-1/2">
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1 justify-end"><Calendar size={10}/> Dato for tallene</label>
+                                    <input 
+                                        type="date" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm text-right disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
+                                        value={toInputDate(formData.pnlDate)} 
+                                        onChange={e => setFormData({...formData, pnlDate: fromInputDate(e.target.value)})} 
                                     />
                                 </div>
                             </div>
