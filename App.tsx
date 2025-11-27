@@ -305,25 +305,25 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
       try {
           const dbPayload = {
-              group_id: userProfile.groupId, 
+              groupId: userProfile.groupId, 
               name: newCompany.name,
-              full_name: newCompany.fullName,
+              fullName: newCompany.fullName,
               manager: newCompany.manager,
               revenue: newCompany.revenue,
               expenses: newCompany.expenses,
-              result_ytd: newCompany.resultYTD, 
-              budget_total: newCompany.budgetTotal,
-              budget_mode: newCompany.budgetMode,
-              budget_months: JSON.stringify(newCompany.budgetMonths),
+              resultYtd: newCompany.resultYTD, 
+              budgetTotal: newCompany.budgetTotal,
+              budgetMode: newCompany.budgetMode,
+              budgetMonths: JSON.stringify(newCompany.budgetMonths),
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
-              accounts_payable: newCompany.accountsPayable,
+              accountsPayable: newCompany.accountsPayable,
               
-              pnl_date: newCompany.pnlDate,
-              liquidity_date: newCompany.liquidityDate,
-              receivables_date: newCompany.receivablesDate,
-              accounts_payable_date: newCompany.accountsPayableDate,
-              trend_history: newCompany.trendHistory
+              pnlDate: newCompany.pnlDate,
+              liquidityDate: newCompany.liquidityDate,
+              receivablesDate: newCompany.receivablesDate,
+              accountsPayableDate: newCompany.accountsPayableDate,
+              trendHistory: newCompany.trendHistory
           };
           
           if (!isDemo) {
@@ -344,23 +344,23 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
            const dbPayload = {
               id: updatedCompany.id,
               name: updatedCompany.name,
-              full_name: updatedCompany.fullName,
+              fullName: updatedCompany.fullName,
               manager: updatedCompany.manager,
               revenue: updatedCompany.revenue,
               expenses: updatedCompany.expenses,
-              result_ytd: updatedCompany.resultYTD,
-              budget_total: updatedCompany.budgetTotal,
-              budget_mode: updatedCompany.budgetMode,
-              budget_months: JSON.stringify(updatedCompany.budgetMonths),
+              resultYtd: updatedCompany.resultYTD,
+              budgetTotal: updatedCompany.budgetTotal,
+              budgetMode: updatedCompany.budgetMode,
+              budgetMonths: JSON.stringify(updatedCompany.budgetMonths),
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
-              accounts_payable: updatedCompany.accountsPayable,
+              accountsPayable: updatedCompany.accountsPayable,
               
-              pnl_date: updatedCompany.pnlDate,
-              liquidity_date: updatedCompany.liquidityDate,
-              receivables_date: updatedCompany.receivablesDate,
-              accounts_payable_date: updatedCompany.accountsPayableDate,
-              trend_history: updatedCompany.trendHistory
+              pnlDate: updatedCompany.pnlDate,
+              liquidityDate: updatedCompany.liquidityDate,
+              receivablesDate: updatedCompany.receivablesDate,
+              accountsPayableDate: updatedCompany.accountsPayableDate,
+              trendHistory: updatedCompany.trendHistory
           };
 
           if (!isDemo) {
@@ -422,9 +422,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
 
           const reportPayload: any = {
-              company_id: selectedCompany?.id,
-              submitted_by_user_id: userProfile.id, 
-              author_name: userProfile.fullName,
+              companyId: selectedCompany?.id,
+              submittedByUserId: userProfile.id, 
+              authorName: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted'
@@ -438,24 +438,24 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              const e = Number(reportData.expenses || 0);
              reportPayload.revenue = r;
              reportPayload.expenses = e;
-             reportPayload.result_ytd = r - e; 
+             reportPayload.resultYtd = r - e; 
              // Convert P&L Date to ISO
-             if(reportData.pnlDate) reportPayload.pnl_date = toISODate(reportData.pnlDate) || reportData.pnlDate;
+             if(reportData.pnlDate) reportPayload.pnlDate = toISODate(reportData.pnlDate) || reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              reportPayload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) reportPayload.liquidity_date = reportData.liquidityDate;
+             if(reportData.liquidityDate) reportPayload.liquidityDate = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               reportPayload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) reportPayload.receivables_date = reportData.receivablesDate;
+              if(reportData.receivablesDate) reportPayload.receivablesDate = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              reportPayload.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) reportPayload.accounts_payable_date = reportData.accountsPayableDate;
+              reportPayload.accountsPayable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) reportPayload.accountsPayableDate = reportData.accountsPayableDate;
           }
 
           if (reportData.id) {
@@ -472,29 +472,29 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              const e = Number(reportData.expenses || 0);
              companyUpdate.revenue = r;
              companyUpdate.expenses = e;
-             companyUpdate.result_ytd = r - e;
+             companyUpdate.resultYtd = r - e;
              // Also update company P&L date
-             if(reportData.pnlDate) companyUpdate.pnl_date = reportData.pnlDate;
+             if(reportData.pnlDate) companyUpdate.pnlDate = reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              companyUpdate.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) companyUpdate.liquidity_date = reportData.liquidityDate;
+             if(reportData.liquidityDate) companyUpdate.liquidityDate = reportData.liquidityDate;
           }
           
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               companyUpdate.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) companyUpdate.receivables_date = reportData.receivablesDate;
+              if(reportData.receivablesDate) companyUpdate.receivablesDate = reportData.receivablesDate;
           }
           
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              companyUpdate.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) companyUpdate.accounts_payable_date = reportData.accountsPayableDate;
+              companyUpdate.accountsPayable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) companyUpdate.accountsPayableDate = reportData.accountsPayableDate;
           }
 
-          companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
-          companyUpdate.last_report_by = userProfile.fullName;
-          companyUpdate.current_comment = reportData.comment;
+          companyUpdate.lastReportDate = new Date().toLocaleDateString('no-NO');
+          companyUpdate.lastReportBy = userProfile.fullName;
+          companyUpdate.currentComment = reportData.comment;
 
           await patchNEON({ table: 'companies', data: companyUpdate });
 
@@ -502,7 +502,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           await reloadCompanies();
 
           if (selectedCompany) {
-              const res = await getNEON({ table: 'reports', where: { company_id: selectedCompany.id } });
+              const res = await getNEON({ table: 'reports', where: { companyId: selectedCompany.id } });
               if(res.rows) {
                  const sortedRows = res.rows.sort((a: any, b: any) => {
                     const dateA = new Date(a.reportDate || a.report_date).getTime();
@@ -567,12 +567,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const report = reports.find(r => r.id === reportId);
           if (!report) return;
 
+          // Use camelCase keys for Drizzle
           await patchNEON({ 
               table: 'reports', 
               data: { 
                   id: reportId, 
                   status: 'approved', 
-                  approved_by_user_id: userProfile.id 
+                  approvedByUserId: userProfile.id 
               } 
           });
           
@@ -596,8 +597,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               data: { 
                   id: reportId, 
                   status: 'submitted', 
-                  approved_at: null,
-                  approved_by_user_id: null
+                  approvedAt: null,
+                  approvedByUserId: null
               } 
           });
           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
@@ -613,11 +614,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
       try {
           for (const f of submittedForecasts) {
+              // CamelCase keys
               const payload = {
-                  company_id: f.companyId,
+                  companyId: f.companyId,
                   month: f.month,
-                  estimated_receivables: f.estimatedReceivables,
-                  estimated_payables: f.estimatedPayables
+                  estimatedReceivables: f.estimatedReceivables,
+                  estimatedPayables: f.estimatedPayables
               };
               
               if (f.id) {
@@ -628,7 +630,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
           // Reload forecasts
           if(selectedCompany) {
-               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
+               const res = await getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } });
                 if(res.rows) {
                     const mapped = res.rows.map((f: any) => ({
                         id: f.id,
@@ -648,17 +650,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- USER HANDLERS ---
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
+          // CamelCase
           const payload = {
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              group_id: userProfile.groupId,
-              company_id: user.companyId
+              groupId: userProfile.groupId,
+              companyId: user.companyId
           };
           await postNEON({ table: 'users', data: payload });
           
-          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+          const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
           if(res.rows) setUsers(res.rows.map((u:any) => ({
               id: u.id, 
               authId: u.authId || u.auth_id, 
@@ -678,15 +681,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           const payload = {
               id: user.id,
-              auth_id: user.authId,
+              authId: user.authId,
               email: user.email,
-              full_name: user.fullName,
+              fullName: user.fullName,
               role: user.role,
-              company_id: user.companyId
+              companyId: user.companyId
           };
            await patchNEON({ table: 'users', data: payload });
            
-           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
+           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
            if(res.rows) setUsers(res.rows.map((u:any) => ({
                id: u.id, 
                authId: u.authId || u.auth_id, 

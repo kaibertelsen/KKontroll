@@ -390,6 +390,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     localStorage.setItem('konsern_mode', 'demo'); 
     
     const mockUserProfile = {
+        id: 0,
         fullName: "Demo Controller",
         role: 'controller' as const,
         groupId: 1,
