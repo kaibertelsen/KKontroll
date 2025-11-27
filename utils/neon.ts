@@ -210,6 +210,8 @@ export async function patchNEON({
     body: JSON.stringify(payload)
   };
 
+  console.log("[NEON] PATCH options:",options);
+
   try {
       const res = await fetch(url, options);
       if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
