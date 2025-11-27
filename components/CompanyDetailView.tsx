@@ -15,14 +15,14 @@ interface CompanyDetailViewProps {
   onReportSubmit: (report: any) => void;
   onApproveReport: (reportId: number) => void;
   onUnlockReport?: (reportId: number) => void; 
-  onDeleteReport: (reportId: number) => void; // Added handler
+  onDeleteReport: (reportId: number) => void; 
   onForecastSubmit: (forecasts: ForecastItem[]) => void;
 }
 
 // Helper to convert DD.MM.YYYY to YYYY-MM-DD for input[type="date"]
 const toInputDate = (dateStr: string) => {
     if (!dateStr) return '';
-    if (dateStr.includes('-')) return dateStr; // Already correct format
+    if (dateStr.includes('-')) return dateStr; 
     const parts = dateStr.split('.');
     if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
     return '';
@@ -122,14 +122,13 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   const statusValue = (company.receivables - company.accountsPayable) + company.liquidity;
 
   // --- REPORTING FORM LOGIC ---
-  // We need to separate "Reporting Mode" (YTD vs Monthly)
   const [reportingMode, setReportingMode] = useState<'ytd' | 'monthly'>('ytd');
   
-  // Form State - holds the YTD values eventually
   const [formData, setFormData] = useState<{
       revenue: string | number;
       expenses: string | number;
       resultYTD: string | number;
+      pnlDate: string; // NEW: Date for Profit & Loss
       liquidity: string | number;
       receivables: string | number;
       accountsPayable: string | number;
@@ -143,6 +142,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       revenue: '',
       expenses: '',
       resultYTD: '',
+      pnlDate: new Date().toLocaleDateString('no-NO'), 
       liquidity: '',
       receivables: '',
       accountsPayable: '',
@@ -173,7 +173,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           }
       } else {
           // Monthly Mode: Add Input to Company Current
-          // If monthly inputs change, update formData (which holds the "To Be Submitted" YTD value)
           const mRev = Number(monthlyInputs.revenue) || 0;
           const mExp = Number(monthlyInputs.expenses) || 0;
           
@@ -191,11 +190,13 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   useEffect(() => {
       if (editingReport) {
-          setReportingMode('ytd'); // Always force YTD on edit to avoid confusion
+          setReportingMode('ytd'); // Always force YTD on edit
           setFormData({
               revenue: editingReport.revenue ?? '',
               expenses: editingReport.expenses ?? '',
               resultYTD: editingReport.result ?? '',
+              pnlDate: editingReport.pnlDate || new Date().toLocaleDateString('no-NO'),
+
               liquidity: editingReport.liquidity ?? '',
               receivables: editingReport.receivables ?? '',
               accountsPayable: editingReport.accountsPayable ?? '',
@@ -210,12 +211,13 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           });
       } else {
           // Reset for new report
-          setReportingMode('ytd'); // Default
+          setReportingMode('ytd');
           setMonthlyInputs({ revenue: '', expenses: '' });
           setFormData({
             revenue: '',
             expenses: '',
             resultYTD: '',
+            pnlDate: new Date().toLocaleDateString('no-NO'),
             liquidity: '',
             receivables: '',
             accountsPayable: '',
@@ -236,7 +238,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           const now = new Date();
           for (let i = 1; i <= 6; i++) {
               const futureDate = new Date(now.getFullYear(), now.getMonth() + i, 1);
-              const monthStr = futureDate.toISOString().slice(0, 7); // YYYY-MM
+              const monthStr = futureDate.toISOString().slice(0, 7); 
               
               const existing = forecasts.find(f => f.month === monthStr);
               
@@ -268,7 +270,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      // For submit, we just take formData as it's already calculated correctly by the useEffect
       const payload = {
           ...formData,
           revenue: formData.revenue === '' ? undefined : Number(formData.revenue),
@@ -655,6 +656,19 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                         className="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed" 
                                         value={formData.resultYTD} 
                                         title="Resultat beregnes automatisk"
+                                    />
+                                </div>
+                            </div>
+                            
+                            {/* NEW: P&L Date Field */}
+                            <div className="mt-3 flex justify-end">
+                                <div className="w-1/2">
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1 justify-end"><Calendar size={10}/> Dato for tallene</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm text-right" 
+                                        value={toInputDate(formData.pnlDate)} 
+                                        onChange={e => setFormData({...formData, pnlDate: fromInputDate(e.target.value)})} 
                                     />
                                 </div>
                             </div>
