@@ -1,961 +1,614 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { formatCurrency } from './constants';
-import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
-import MetricCard from './components/MetricCard';
-import AnalyticsView from './components/AnalyticsView';
-import CompanyDetailView from './components/CompanyDetailView';
-import AdminView from './components/AdminView';
-import UserAdminView from './components/UserAdminView';
-import AnimatedGrid from './components/AnimatedGrid';
-import { postNEON, patchNEON, deleteNEON, getNEON } from './utils/neon';
-import { 
-  LayoutGrid, 
-  BarChart3, 
-  ArrowUpDown, 
-  UserCircle, 
-  Moon,
-  Sun,
-  Building2,
-  CalendarClock,
-  ShieldAlert,
-  Settings,
-  Database,
-  MonitorPlay,
-  Users,
-  LogOut,
-  Check,
-  X
-} from 'lucide-react';
+import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import { getNEON } from './utils/neon';
+import { INITIAL_DATA } from './constants';
+import { Lock, LogIn, MonitorPlay, Loader2, Terminal, CheckCircle2, XCircle, RefreshCw, LogOut } from 'lucide-react';
 
-interface UserProfile {
-    id: number;
-    fullName: string;
-    role: 'controller' | 'leader';
-    groupId: number;
-    groupName: string;
-    companyId?: number;
+console.log("KonsernKontroll Script Loaded");
+
+// Define global interface for window
+declare global {
+  interface Window {
+    initKonsernKontroll: (userId?: string | number, demoMode?: boolean) => Promise<void>;
+    $memberstackDom?: any;
+    konsernRoot?: ReactDOM.Root; 
+  }
 }
 
-interface AppProps {
-    userProfile: UserProfile;
-    initialCompanies: CompanyData[];
-    isDemo: boolean;
-}
-
-// Helper to convert DD.MM.YYYY to YYYY-MM-DD for DB
-const toISODate = (dateStr: string) => {
-    if (!dateStr) return null;
-    // If already ISO (contains -), return as is
-    if (dateStr.includes('-')) return dateStr;
-    
-    // Expecting DD.MM.YYYY
-    const parts = dateStr.split('.');
-    if (parts.length === 3) {
-        return `${parts[2]}-${parts[1]}-${parts[0]}`;
-    }
-    return null;
-};
-
-function App({ userProfile, initialCompanies, isDemo }: AppProps) {
-  const [sortField, setSortField] = useState<SortField>(SortField.DEFAULT);
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
-  const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
-  const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  const [demoRole, setDemoRole] = useState<'controller' | 'leader'>(userProfile.role);
-  const effectiveRole = isDemo ? demoRole : userProfile.role;
-
-  const [companies, setCompanies] = useState<CompanyData[]>(initialCompanies || []);
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [reports, setReports] = useState<ReportLogItem[]>([]);
-  const [forecasts, setForecasts] = useState<ForecastItem[]>([]);
-
-  // SORTING STATE
-  const [isSortMode, setIsSortMode] = useState(false);
-  const [originalOrder, setOriginalOrder] = useState<CompanyData[]>([]);
-  const dragItem = useRef<number | null>(null);
-  const dragOverItem = useRef<number | null>(null);
-
-  // --- SORT MODE HANDLERS ---
-  const handleSortToggle = () => {
-      if (viewMode === ViewMode.GRID && !isSortMode) {
-          setOriginalOrder([...companies]); // Backup for cancel
-          setIsSortMode(true);
-      }
-  };
-
-  const cancelSort = () => {
-      setCompanies(originalOrder);
-      setIsSortMode(false);
-      dragItem.current = null;
-      dragOverItem.current = null;
-  };
-
-  const saveSort = async () => {
-      setIsSortMode(false);
-      dragItem.current = null;
-      dragOverItem.current = null;
-      console.log("New order saved:", companies.map(c => c.name));
-  };
-
-  const onDragStart = (e: React.DragEvent, index: number) => {
-      dragItem.current = index;
-  };
-
-  const onDragEnter = (e: React.DragEvent, index: number) => {
-      dragOverItem.current = index;
-      
-      if (dragItem.current !== null && dragItem.current !== index) {
-          const newCompanies = [...companies];
-          const draggedItemContent = newCompanies[dragItem.current];
-          newCompanies.splice(dragItem.current, 1);
-          newCompanies.splice(index, 0, draggedItemContent);
-          setCompanies(newCompanies);
-          dragItem.current = index; 
-      }
-  };
-
-  const onDragEnd = () => {
-      dragItem.current = null;
-      dragOverItem.current = null;
-  };
-
-
-  // --- FETCH USERS (Admin) ---
-  useEffect(() => {
-      if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
-          getNEON({ table: 'users', where: { groupId: userProfile.groupId } })
-            .then(res => {
-                if(res.rows) {
-                    const mappedUsers = res.rows.map((u: any) => ({
-                        id: u.id,
-                        authId: u.authId || u.auth_id, 
-                        email: u.email,
-                        fullName: u.fullName || u.full_name,
-                        role: u.role,
-                        groupId: u.groupId || u.group_id,
-                        companyId: u.companyId || u.company_id
-                    }));
-                    setUsers(mappedUsers);
-                }
-            })
-            .catch(err => console.error("Error fetching users", err));
-      }
-  }, [isDemo, userProfile, viewMode, effectiveRole]);
-
-  // --- FETCH REPORTS & FORECASTS ---
-  useEffect(() => {
-      if (!selectedCompany) return;
-
-      if (!isDemo) {
-          // Fetch Reports
-          getNEON({ table: 'reports', where: { companyId: selectedCompany.id } })
-            .then(res => {
-                if (res.rows) {
-                    const sortedRows = res.rows.sort((a: any, b: any) => {
-                        const dateA = new Date(a.reportDate || a.report_date).getTime();
-                        const dateB = new Date(b.reportDate || b.report_date).getTime();
-                        return dateB - dateA;
-                    });
-
-                    const mappedReports = sortedRows.map((r: any) => ({
-                        id: r.id,
-                        date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
-                        author: r.authorName || 'Ukjent',
-                        comment: r.comment,
-                        status: r.status,
-                        result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
-                        revenue: r.revenue != null ? r.revenue : undefined,
-                        expenses: r.expenses != null ? r.expenses : undefined,
-                        pnlDate: r.pnlDate || r.pnl_date || '', 
-                        
-                        liquidity: r.liquidity != null ? r.liquidity : undefined,
-                        receivables: r.receivables != null ? r.receivables : undefined,
-                        accountsPayable: r.accountsPayable != null ? r.accountsPayable : (r.accounts_payable != null ? r.accounts_payable : undefined),
-                        
-                        liquidityDate: r.liquidityDate || r.liquidity_date || '',
-                        receivablesDate: r.receivablesDate || r.receivables_date || '',
-                        accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
-                        
-                        source: r.source || 'Manuell',
-                        approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
-                        approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
-                    }));
-                    setReports(mappedReports);
-                }
-            })
-            .catch(err => console.error("Error fetching reports", err));
-
-          // Fetch Forecasts
-          getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } })
-            .then(res => {
-                if(res.rows) {
-                    const mappedForecasts = res.rows.map((f: any) => ({
-                        id: f.id,
-                        companyId: f.companyId || f.company_id,
-                        month: f.month,
-                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
-                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
-                    }));
-                    setForecasts(mappedForecasts);
-                }
-            })
-            .catch(err => console.error("Error fetching forecasts", err));
-
-      } else {
-          setReports([
-              { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023' },
-              { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex', pnlDate: '31.08.2023' }
-          ]);
-          setForecasts([
-              { companyId: 1, month: '2023-12', estimatedReceivables: 150000, estimatedPayables: 100000 },
-              { companyId: 1, month: '2024-01', estimatedReceivables: 200000, estimatedPayables: 120000 }
-          ]);
-      }
-  }, [selectedCompany?.id, isDemo]);
-
-
-  // --- HELPER to Refresh Companies ---
-  const reloadCompanies = async () => {
-    try {
-        let companyWhere: any = {};
-        if (effectiveRole === 'leader' && userProfile.companyId) {
-            companyWhere = { id: userProfile.companyId };
-        } else {
-            companyWhere = { groupId: userProfile.groupId };
-        }
-
-        const compRes = await getNEON({ table: 'companies', where: companyWhere });
-        if(compRes.rows) {
-            const mapped = compRes.rows.map((c: any) => {
-                let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
-                try {
-                    if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
-                    else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
-                    else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
-                    else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
-                } catch(e) { console.warn("Budget parsing error", e); }
-
-                return {
-                    ...c,
-                    // Robust Mapping: Handle both camelCase (API) and snake_case (DB) for all fields
-                    resultYTD: Number(c.resultYtd || c.result_ytd || 0),
-                    budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
-                    budgetMode: c.budgetMode || c.budget_mode || 'annual',
-                    budgetMonths: bMonths,
-                    
-                    revenue: Number(c.revenue || 0),
-                    expenses: Number(c.expenses || 0),
-                    
-                    liquidity: Number(c.liquidity || 0),
-                    receivables: Number(c.receivables || 0),
-                    accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-                    
-                    pnlDate: c.pnlDate || c.pnl_date || '', 
-                    liquidityDate: c.liquidityDate || c.liquidity_date || '',
-                    receivablesDate: c.receivablesDate || c.receivables_date || '',
-                    accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
-                    
-                    trendHistory: Number(c.trendHistory || c.trend_history || 0),
-                    prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
-                    prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
-                    
-                    name: c.name || '',
-                    fullName: c.fullName || c.full_name || '', 
-                    manager: c.manager || '',
-                    
-                    lastReportDate: c.lastReportDate || c.last_report_date || '',
-                    lastReportBy: c.lastReportBy || c.last_report_by || '',
-                    comment: c.currentComment || c.current_comment || '',
-                };
-            });
-            setCompanies(mapped);
-            
-            if (selectedCompany) {
-                const updated = mapped.find((c: any) => c.id === selectedCompany.id);
-                if (updated) {
-                    const now = new Date();
-                    const currentMonthIndex = now.getMonth();
-                    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
-                    
-                    let targetBudget = 0;
-                    const bMonths = updated.budgetMonths;
-                    if (isTodayMode) {
-                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-                         targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * now.getDate();
-                    } else {
-                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-                    }
-                    const deviation = updated.resultYTD - targetBudget;
-                    const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-
-                    setSelectedCompany({
-                        ...updated,
-                        calculatedBudgetYTD: targetBudget,
-                        calculatedDeviationPercent: deviationPercent
-                    });
-                }
-            }
-        }
-    } catch(e) { console.error("Reload companies error", e); }
-  };
-
-
-  // --- COMPANY CRUD ---
-  const handleAddCompany = async (newCompany: Omit<CompanyData, 'id'>) => {
-      try {
-          // Payload in snake_case for DB
-          const dbPayload = {
-              group_id: userProfile.groupId, 
-              name: newCompany.name,
-              full_name: newCompany.fullName,
-              manager: newCompany.manager,
-              revenue: newCompany.revenue,
-              expenses: newCompany.expenses,
-              result_ytd: newCompany.resultYTD, 
-              budget_total: newCompany.budgetTotal,
-              budget_mode: newCompany.budgetMode,
-              budget_months: JSON.stringify(newCompany.budgetMonths),
-              liquidity: newCompany.liquidity,
-              receivables: newCompany.receivables,
-              accounts_payable: newCompany.accountsPayable,
-              
-              pnl_date: newCompany.pnlDate,
-              liquidity_date: newCompany.liquidityDate,
-              receivables_date: newCompany.receivablesDate,
-              accounts_payable_date: newCompany.accountsPayableDate,
-              trend_history: newCompany.trendHistory
-          };
-          
-          if (!isDemo) {
-              await postNEON({ table: 'companies', data: dbPayload });
-              await reloadCompanies();
-          } else {
-              const id = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
-              setCompanies([...companies, { ...newCompany, id } as CompanyData]);
-          }
-      } catch (e) {
-          console.error("Failed to add company", e);
-          alert("Kunne ikke lagre selskap.");
-      }
-  };
-
-  const handleUpdateCompany = async (updatedCompany: CompanyData) => {
-      try {
-           // Payload in snake_case for DB
-           const dbPayload = {
-              id: updatedCompany.id,
-              name: updatedCompany.name,
-              full_name: updatedCompany.fullName,
-              manager: updatedCompany.manager,
-              revenue: updatedCompany.revenue,
-              expenses: updatedCompany.expenses,
-              result_ytd: updatedCompany.resultYTD,
-              budget_total: updatedCompany.budgetTotal,
-              budget_mode: updatedCompany.budgetMode,
-              budget_months: JSON.stringify(updatedCompany.budgetMonths),
-              liquidity: updatedCompany.liquidity,
-              receivables: updatedCompany.receivables,
-              accounts_payable: updatedCompany.accountsPayable,
-              
-              pnl_date: updatedCompany.pnlDate,
-              liquidity_date: updatedCompany.liquidityDate,
-              receivables_date: updatedCompany.receivablesDate,
-              accounts_payable_date: updatedCompany.accountsPayableDate,
-              trend_history: updatedCompany.trendHistory
-          };
-
-          if (!isDemo) {
-              await patchNEON({ table: 'companies', data: dbPayload });
-              await reloadCompanies();
-          } else {
-              setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
-          }
-          
-          if (selectedCompany && selectedCompany.id === updatedCompany.id) {
-               setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : null);
-          }
-
-      } catch (e) {
-          console.error("Failed to update company", e);
-          alert("Kunne ikke oppdatere selskap.");
-      }
-  };
-
-  const handleDeleteCompany = async (id: number) => {
-      if (!window.confirm("Er du sikker? Dette kan ikke angres.")) return;
-      try {
-          if (!isDemo) {
-              await deleteNEON({ table: 'companies', data: id });
-              await reloadCompanies();
-              if (selectedCompany?.id === id) setSelectedCompany(null);
-          } else {
-              setCompanies(companies.filter(c => c.id !== id));
-              if (selectedCompany?.id === id) setSelectedCompany(null);
-          }
-      } catch (e) {
-          console.error("Failed to delete company", e);
-          alert("Kunne ikke slette selskap. Det kan ha tilknyttede rapporter.");
-      }
-  };
-
-
-  // --- REPORT HANDLERS ---
-  const handleSubmitReport = async (reportData: any) => {
-      try {
-          if (isDemo) {
-               const newReport: ReportLogItem = {
-                   id: Math.random(),
-                   date: new Date().toLocaleDateString('no-NO'),
-                   author: userProfile.fullName,
-                   comment: reportData.comment,
-                   status: 'submitted',
-                   result: reportData.resultYTD,
-                   liquidity: reportData.liquidity,
-                   revenue: reportData.revenue,
-                   expenses: reportData.expenses,
-                   receivables: reportData.receivables,
-                   accountsPayable: reportData.accountsPayable,
-                   pnlDate: reportData.pnlDate, 
-                   source: reportData.source || 'Manuell'
-               };
-               setReports([newReport, ...reports]);
-               return;
-          }
-
-          const reportPayload: any = {
-              company_id: selectedCompany?.id,
-              submitted_by_user_id: userProfile.id, 
-              author_name: userProfile.fullName,
-              comment: reportData.comment,
-              source: reportData.source,
-              status: 'submitted'
-          };
-          
-          const hasRevenue = reportData.revenue !== '' && reportData.revenue !== undefined;
-          const hasExpenses = reportData.expenses !== '' && reportData.expenses !== undefined;
-
-          if (hasRevenue || hasExpenses) {
-             const r = Number(reportData.revenue || 0);
-             const e = Number(reportData.expenses || 0);
-             reportPayload.revenue = r;
-             reportPayload.expenses = e;
-             reportPayload.result_ytd = r - e; 
-             // Convert P&L Date to ISO
-             if(reportData.pnlDate) reportPayload.pnl_date = toISODate(reportData.pnlDate) || reportData.pnlDate;
-          }
-
-          if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
-             reportPayload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) reportPayload.liquidity_date = reportData.liquidityDate;
-          }
-          
-          if(reportData.receivables !== undefined && reportData.receivables !== '') {
-              reportPayload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) reportPayload.receivables_date = reportData.receivablesDate;
-          }
-          
-          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              reportPayload.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) reportPayload.accounts_payable_date = reportData.accountsPayableDate;
-          }
-
-          if (reportData.id) {
-              await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
-          } else {
-              await postNEON({ table: 'reports', data: reportPayload });
-          }
-
-          // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY
-          const companyUpdate: any = { id: selectedCompany?.id };
-          
-          if (hasRevenue || hasExpenses) {
-             const r = Number(reportData.revenue || 0);
-             const e = Number(reportData.expenses || 0);
-             companyUpdate.revenue = r;
-             companyUpdate.expenses = e;
-             companyUpdate.result_ytd = r - e;
-             // Also update company P&L date
-             if(reportData.pnlDate) companyUpdate.pnl_date = reportData.pnlDate;
-          }
-
-          if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
-             companyUpdate.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) companyUpdate.liquidity_date = reportData.liquidityDate;
-          }
-          
-          if(reportData.receivables !== undefined && reportData.receivables !== '') {
-              companyUpdate.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) companyUpdate.receivables_date = reportData.receivablesDate;
-          }
-          
-          if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              companyUpdate.accounts_payable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) companyUpdate.accounts_payable_date = reportData.accountsPayableDate;
-          }
-
-          companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
-          companyUpdate.last_report_by = userProfile.fullName;
-          companyUpdate.current_comment = reportData.comment;
-
-          await patchNEON({ table: 'companies', data: companyUpdate });
-
-          // 3. Refresh App State
-          await reloadCompanies();
-
-          if (selectedCompany) {
-              const res = await getNEON({ table: 'reports', where: { companyId: selectedCompany.id } });
-              if(res.rows) {
-                 const sortedRows = res.rows.sort((a: any, b: any) => {
-                    const dateA = new Date(a.reportDate || a.report_date).getTime();
-                    const dateB = new Date(b.reportDate || b.report_date).getTime();
-                    return dateB - dateA;
-                 });
-
-                 const mapped = sortedRows.map((r:any) => ({
-                     id: r.id,
-                     date: r.reportDate ? new Date(r.reportDate).toLocaleDateString('no-NO') : '',
-                     author: r.authorName || 'Ukjent',
-                     comment: r.comment,
-                     status: r.status,
-                     result: r.resultYtd != null ? r.resultYtd : (r.result_ytd != null ? r.result_ytd : undefined),
-                     revenue: r.revenue,
-                     expenses: r.expenses,
-                     pnlDate: r.pnlDate || r.pnl_date, 
-                     liquidity: r.liquidity,
-                     receivables: r.receivables,
-                     accountsPayable: r.accountsPayable || r.accounts_payable,
-                     liquidityDate: r.liquidityDate || r.liquidity_date,
-                     receivablesDate: r.receivablesDate || r.receivables_date,
-                     accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date,
-                     source: r.source || 'Manuell',
-                     approvedBy: r.approvedByUserId ? 'Kontroller' : undefined,
-                     approvedAt: r.approvedAt ? new Date(r.approvedAt).toLocaleDateString('no-NO') : undefined
-                 }));
-                 setReports(mapped);
-              }
-          }
-
-      } catch (e) {
-          console.error("Report submit error", e);
-          alert("Feil ved innsending av rapport.");
-      }
-  };
-
-  // Handle Delete Report
-  const handleDeleteReport = async (reportId: number) => {
-      if (!window.confirm("Er du sikker på at du vil slette denne rapporten?")) return;
-      
-      if (isDemo) {
-          setReports(prev => prev.filter(r => r.id !== reportId));
-          return;
-      }
-
-      try {
-          await deleteNEON({ table: 'reports', data: reportId });
-          setReports(prev => prev.filter(r => r.id !== reportId));
-      } catch (e) {
-          console.error("Delete report error", e);
-          alert("Kunne ikke slette rapporten.");
-      }
-  };
-
-  const handleApproveReport = async (reportId: number) => {
-      if (isDemo) {
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Demo Controller' } : r));
-          return;
-      }
-      try {
-          const report = reports.find(r => r.id === reportId);
-          if (!report) return;
-
-          // Use snake_case keys for DB
-          await patchNEON({ 
-              table: 'reports', 
-              data: { 
-                  id: reportId, 
-                  status: 'approved', 
-                  approved_by_user_id: userProfile.id 
-              } 
-          });
-          
-          // Update list immediately
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
-
-      } catch (e) {
-          console.error("Approval error", e);
-          alert("Feil ved godkjenning.");
-      }
-  };
-
-  const handleUnlockReport = async (reportId: number) => {
-      if(isDemo) {
-           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
-           return;
-      }
-      try {
-          await patchNEON({ 
-              table: 'reports', 
-              data: { 
-                  id: reportId, 
-                  status: 'submitted', 
-                  approved_at: null,
-                  approved_by_user_id: null
-              } 
-          });
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
-      } catch (e) {
-          console.error("Unlock error", e);
-      }
-  };
-
-  const handleForecastSubmit = async (submittedForecasts: ForecastItem[]) => {
-      if(isDemo) {
-          setForecasts(submittedForecasts);
-          return;
-      }
-      try {
-          for (const f of submittedForecasts) {
-              const payload = {
-                  company_id: f.companyId,
-                  month: f.month,
-                  estimated_receivables: f.estimatedReceivables,
-                  estimated_payables: f.estimatedPayables
-              };
-              
-              if (f.id) {
-                   await patchNEON({ table: 'forecasts', data: { id: f.id, ...payload } });
-              } else {
-                   await postNEON({ table: 'forecasts', data: payload });
-              }
-          }
-          // Reload forecasts
-          if(selectedCompany) {
-               const res = await getNEON({ table: 'forecasts', where: { company_id: selectedCompany.id } });
-                if(res.rows) {
-                    const mapped = res.rows.map((f: any) => ({
-                        id: f.id,
-                        companyId: f.companyId || f.company_id,
-                        month: f.month,
-                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
-                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
-                    }));
-                    setForecasts(mapped);
-                }
-          }
-      } catch (e) {
-          console.error("Forecast submit error", e);
-      }
-  };
-
-  // --- USER HANDLERS ---
-  const handleAddUser = async (user: Omit<UserData, 'id'>) => {
-      try {
-          const payload = {
-              auth_id: user.authId,
-              email: user.email,
-              full_name: user.fullName,
-              role: user.role,
-              group_id: userProfile.groupId,
-              company_id: user.companyId
-          };
-          await postNEON({ table: 'users', data: payload });
-          
-          const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
-          if(res.rows) setUsers(res.rows.map((u:any) => ({
-              id: u.id, 
-              authId: u.authId || u.auth_id, 
-              email: u.email, 
-              role: u.role, 
-              fullName: u.fullName || u.full_name, 
-              groupId: u.groupId || u.group_id, 
-              companyId: u.companyId || u.company_id
-          })));
-      } catch (e) {
-          console.error("Add user error", e);
-          alert("Kunne ikke legge til bruker");
-      }
-  };
-
-  const handleUpdateUser = async (user: UserData) => {
-      try {
-          const payload = {
-              id: user.id,
-              auth_id: user.authId,
-              email: user.email,
-              full_name: user.fullName,
-              role: user.role,
-              company_id: user.companyId
-          };
-           await patchNEON({ table: 'users', data: payload });
-           
-           const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
-           if(res.rows) setUsers(res.rows.map((u:any) => ({
-               id: u.id, 
-               authId: u.authId || u.auth_id, 
-               email: u.email, 
-               role: u.role, 
-               fullName: u.fullName || u.full_name, 
-               groupId: u.groupId || u.group_id, 
-               companyId: u.companyId || u.company_id
-           })));
-      } catch (e) {
-          console.error("Update user error", e);
-          alert("Kunne ikke oppdatere bruker");
-      }
-  };
-
-  const handleDeleteUser = async (id: number) => {
-       try {
-          await deleteNEON({ table: 'users', data: id });
-          setUsers(users.filter(u => u.id !== id));
-      } catch (e) {
-          console.error("Delete user error", e);
-          alert("Kunne ikke slette bruker");
-      }
-  };
-
-  const handleLogout = () => {
-      localStorage.removeItem('konsern_access');
-      localStorage.removeItem('konsern_mode');
-      if(window.$memberstackDom) window.$memberstackDom.logout();
-      window.initKonsernKontroll();
-  };
-
-  const toggleMode = () => {
-      const newMode = isDemo ? 'live' : 'demo';
-      if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
-          alert("Du må logge inn med demo-passord først.");
-          window.initKonsernKontroll(); 
-          return;
-      }
-      window.initKonsernKontroll(undefined, newMode === 'demo');
-  };
-
-  useEffect(() => {
-    if (isDarkMode) document.documentElement.classList.add('dark');
-    else document.documentElement.classList.remove('dark');
-  }, [isDarkMode]);
-
-  const visibleCompanies = useMemo(() => {
-      if (effectiveRole === 'leader') {
-          if (isDemo) return companies.filter(c => c.name === 'BCC');
-          if (userProfile.companyId) return companies.filter(c => c.id === userProfile.companyId);
-      }
-      // In sort mode, we use the local 'companies' state which is being reordered
-      return companies;
-  }, [companies, effectiveRole, isDemo, userProfile.companyId]);
-
-  const computedData: ComputedCompanyData[] = useMemo(() => {
-    const now = new Date();
-    const currentMonthIndex = now.getMonth(); 
-    const dayOfMonth = now.getDate();
-    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
-    
-    return visibleCompanies.map(company => {
-        let targetBudget = 0;
-        const bMonths = company.budgetMonths && company.budgetMonths.length === 12 ? company.budgetMonths : Array(12).fill(company.budgetTotal / 12);
-
-        if (isTodayMode) {
-            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-            targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * dayOfMonth;
-        } else {
-            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-        }
-
-        const deviation = company.resultYTD - targetBudget;
-        const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-        
-        return { ...company, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent };
-    });
-  }, [isTodayMode, visibleCompanies]);
-
-  const displayedData = useMemo(() => {
-    if (viewMode === ViewMode.CONTROL) return computedData.filter(c => c.calculatedDeviationPercent < 0);
-    return computedData;
-  }, [computedData, viewMode]);
-
-  const sortedData = useMemo(() => {
-    if (isSortMode) return displayedData; 
-
-    const data = [...displayedData];
-    switch (sortField) {
-      case SortField.RESULT: return data.sort((a, b) => b.resultYTD - a.resultYTD);
-      case SortField.DEVIATION: return data.sort((a, b) => a.calculatedDeviationPercent - b.calculatedDeviationPercent);
-      case SortField.LIQUIDITY: return data.sort((a, b) => b.liquidity - a.liquidity);
-      default: return data; 
-    }
-  }, [displayedData, sortField, isSortMode]);
-
-  // Aggregations
-  const totalRevenue = computedData.reduce((acc, curr) => acc + curr.revenue, 0);
-  const totalExpenses = computedData.reduce((acc, curr) => acc + curr.expenses, 0);
-  const totalResult = computedData.reduce((acc, curr) => acc + curr.resultYTD, 0);
-  const totalBudgetYTD = computedData.reduce((acc, curr) => acc + curr.calculatedBudgetYTD, 0);
-  const totalLiquidity = computedData.reduce((acc, curr) => acc + curr.liquidity, 0);
-  const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
-  const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
-  const totalWorkingCapital = (totalReceivables - totalPayables) + totalLiquidity;
-  
-  const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
-  const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
-
-  if (selectedCompany) {
-    return (
-      <CompanyDetailView 
-        company={selectedCompany} 
-        reports={reports}
-        forecasts={forecasts}
-        userRole={effectiveRole}
-        onBack={() => setSelectedCompany(null)} 
-        onReportSubmit={handleSubmitReport}
-        onApproveReport={handleApproveReport}
-        onUnlockReport={handleUnlockReport}
-        onDeleteReport={handleDeleteReport} 
-        onForecastSubmit={handleForecastSubmit}
-        onUpdateCompany={handleUpdateCompany}
-      />
-    );
+// --- ERROR BOUNDARY ---
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: string }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: '' };
   }
 
-  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN;
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error: error.toString() };
+  }
 
-  return (
-    <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
-      {/* Header same as before */}
-      <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-               {/* New App Icon */}
-               <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Logo" className="h-8 w-8 rounded-lg shadow-sm" />
-               
-               <div>
-                  {/* Group Name - Prominent */}
-                  <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                      {userProfile.groupName || 'Konsernoversikt'}
-                  </h1>
-                  
-                  {/* Subtle Attentio link */}
-                  <a href="https://www.attentio.no" target="_blank" rel="noreferrer" className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-sky-600 dark:hover:text-sky-400 transition-colors font-medium flex items-center gap-1">
-                      Powered by Attentio
-                  </a>
-               </div>
-            </div>
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("Uncaught Error:", error, errorInfo);
+  }
 
-            {isAdminMode && (
-                <div className="flex items-center bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full border border-slate-200 dark:border-slate-600 absolute left-1/2 transform -translate-x-1/2">
-                    <button onClick={() => setViewMode(ViewMode.ADMIN)} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}><Building2 size={12} /> Selskaper</button>
-                    <button onClick={() => setViewMode(ViewMode.USER_ADMIN)} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${viewMode === ViewMode.USER_ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}><Users size={12} /> Brukere</button>
-                </div>
-            )}
-            
-            <div className="flex items-center space-x-4 md:space-x-6">
-              {isDemo && (
-                  <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <button onClick={() => setDemoRole('controller')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'controller' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-400'}`}>Controller</button>
-                      <button onClick={() => { setDemoRole('leader'); setViewMode(ViewMode.GRID); }} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'leader' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-300 shadow-sm' : 'text-slate-400'}`}>Leder</button>
-                  </div>
-              )}
-
-              <button onClick={toggleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isDemo ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'}`} title={isDemo ? "Klikk for å koble til Database" : "Klikk for å se demo-data"}>{isDemo ? <MonitorPlay size={14}/> : <Database size={14}/>}<span>{isDemo ? 'DEMO' : 'LIVE'}</span></button>
-
-              <div className="hidden md:flex items-center text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700"><UserCircle className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" /><span className="hidden lg:inline">Velkommen: </span>{userProfile.fullName || 'Bruker'}</div>
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
-              <button onClick={handleLogout} className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors" title="Logg ut / Tilbake"><LogOut className="w-5 h-5" /></button>
-
-              {effectiveRole === 'controller' && (
-                <button onClick={() => setViewMode(isAdminMode ? ViewMode.GRID : ViewMode.ADMIN)} className={`p-2 rounded-full transition-colors ${isAdminMode ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Admin / Innstillinger"><Settings className="w-5 h-5" /></button>
-              )}
-            </div>
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-rose-50 text-rose-900 p-8 font-sans">
+          <div className="max-w-md text-center">
+            <h1 className="text-2xl font-bold mb-4">Noe gikk galt</h1>
+            <p className="mb-4 text-sm">Applikasjonen krasjet under visning.</p>
+            <pre className="bg-rose-100 p-4 rounded text-xs text-left overflow-auto mb-4 border border-rose-200">
+              {this.state.error}
+            </pre>
+            <button onClick={() => window.location.reload()} className="bg-rose-600 hover:bg-rose-700 text-white px-6 py-2 rounded-lg font-bold transition-colors shadow-md">
+                Last inn siden på nytt
+            </button>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
-        {/* Same view rendering */}
-        {isSortMode && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
-                <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">
-                    <span className="text-sm font-bold animate-pulse">Sorteringsmodus</span>
-                    <div className="h-4 w-px bg-slate-600"></div>
-                    <button onClick={saveSort} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold text-sm"><Check size={16}/> Lagre</button>
-                    <button onClick={cancelSort} className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-bold text-sm"><X size={16}/> Avbryt</button>
-                </div>
-            </div>
-        )}
-
-        {viewMode === ViewMode.ADMIN && effectiveRole === 'controller' && (
-           <AdminView companies={companies} onAdd={handleAddCompany} onUpdate={handleUpdateCompany} onDelete={handleDeleteCompany} />
-        )}
-        {viewMode === ViewMode.USER_ADMIN && effectiveRole === 'controller' && (
-            <UserAdminView users={users} companies={companies} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} />
-        )}
-        {!isAdminMode && (
-            <>
-               <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 transition-opacity duration-300 ${isSortMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-                    <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
-                        <button onClick={() => setIsTodayMode(false)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span></button>
-                        <div className="w-2"></div>
-                        <button onClick={() => setIsTodayMode(true)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>I dag <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({currentDateDisplay})</span></button>
-                    </div>
-                    <div className="flex bg-slate-200/60 dark:bg-slate-800 p-1 rounded-lg self-end md:self-auto transition-colors duration-300">
-                        <button onClick={() => setViewMode(ViewMode.GRID)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.GRID ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" />Kort</button>
-                        <button onClick={() => setViewMode(ViewMode.ANALYTICS)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.ANALYTICS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Analyse</button>
-                        <button onClick={() => setViewMode(ViewMode.CONTROL)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.CONTROL ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" />Kontroll</button>
-                        <button onClick={handleSortToggle} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`}><ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />Sort</button>
-                    </div>
-                </div>
-                <div className={`flex items-center justify-center mb-6 text-xs text-slate-400 dark:text-slate-500 gap-2 transition-opacity duration-300 ${isSortMode ? 'opacity-0' : 'opacity-100'}`}><CalendarClock className="w-3.5 h-3.5" /><span>Viser tall beregnet mot: <strong className="text-slate-600 dark:text-slate-300">{isTodayMode ? 'Daglig akkumulert budsjett' : 'Budsjett pr. forrige månedsslutt'}</strong></span></div>
-                
-                {viewMode === ViewMode.ANALYTICS ? (
-                    <AnalyticsView data={sortedData} />
-                ) : (
-                    <>
-                        {viewMode === ViewMode.CONTROL && displayedData.length === 0 && (
-                            <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
-                        )}
-                        
-                        <AnimatedGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6 pb-24">
-                            {sortedData.map((company, index) => (
-                                <MetricCard 
-                                    key={company.id} 
-                                    data={company} 
-                                    onSelect={setSelectedCompany}
-                                    isSortMode={isSortMode}
-                                    onDragStart={onDragStart}
-                                    onDragEnter={onDragEnter}
-                                    onDragEnd={onDragEnd}
-                                    index={index}
-                                />
-                            ))}
-                        </AnimatedGrid>
-                    </>
-                )}
-            </>
-        )}
-      </main>
-      
-      {/* Footer */}
-      {viewMode !== ViewMode.ADMIN && viewMode !== ViewMode.USER_ADMIN && !isSortMode && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 text-center md:text-left overflow-x-auto whitespace-nowrap pb-2">
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Omsetning</span><span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Kostnader</span><span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Resultat YTD</span><span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalResult)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Budsjett YTD</span><span className="text-sm font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Likviditet</span><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(totalLiquidity)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Fordringer</span><span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
-                    <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Gjeld</span><span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
-                    <div className="flex flex-col px-2"><span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-bold mb-1">Arbeidskapital</span><span className="text-sm font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
-                </div>
-            </div>
-        </div>
-      )}
-    </div>
-  );
+      );
+    }
+    return this.props.children;
+  }
 }
 
-export default App;
+// Fallback user ID for testing "Live" mode without Memberstack
+const TEST_USER_ID = "mem_sb_cmi4ny448009m0sr4ew3hdge1";
+const MEMBERSTACK_APP_ID = "app_cmhvzr10a00bq0ss39szp9ozj";
+
+// --- DYNAMIC SCRIPT LOADER ---
+const loadMemberstackScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        if (window.$memberstackDom) {
+            return resolve();
+        }
+        
+        if (document.querySelector(`script[data-memberstack-app="${MEMBERSTACK_APP_ID}"]`)) {
+             const checkInterval = setInterval(() => {
+                 if (window.$memberstackDom) {
+                     clearInterval(checkInterval);
+                     resolve();
+                 }
+             }, 100);
+             setTimeout(() => { clearInterval(checkInterval); resolve(); }, 5000);
+             return;
+        }
+
+        console.log("Loading Memberstack dynamically...");
+        const script = document.createElement('script');
+        script.src = "https://static.memberstack.com/scripts/v2/memberstack.js";
+        script.dataset.memberstackApp = MEMBERSTACK_APP_ID;
+        script.type = "text/javascript";
+        script.async = true;
+
+        script.onload = () => {
+            console.log("Memberstack script loaded.");
+            setTimeout(resolve, 200);
+        };
+        script.onerror = (e) => {
+            console.error("Failed to load Memberstack", e);
+            reject(e);
+        };
+
+        document.head.appendChild(script);
+    });
+};
+
+// --- LOADING LOGGER COMPONENT ---
+interface LogEntry {
+    time: string;
+    message: string;
+    type: 'info' | 'success' | 'error';
+}
+
+interface ActionButton {
+    label: string;
+    onClick: () => void;
+    icon?: React.ElementType;
+    variant?: 'primary' | 'secondary' | 'danger';
+}
+
+interface LoadingLoggerProps {
+    logs: LogEntry[];
+    actions?: ActionButton[];
+}
+
+const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
+    const hasError = logs.some(l => l.type === 'error');
+    
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 font-mono p-4">
+            <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
+                <div className="bg-slate-100 dark:bg-slate-900 px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
+                    <div className="flex items-center gap-2">
+                        {hasError ? <XCircle className="text-rose-500" size={18} /> : <Loader2 className="animate-spin text-sky-600" size={18} />}
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                            {hasError ? 'Systemstopp' : 'Systemstart'}
+                        </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">v1.2.2</div>
+                </div>
+                
+                <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
+                    {logs.map((log, idx) => (
+                        <div key={idx} className={`flex gap-3 p-1.5 rounded border ${
+                            log.type === 'error' ? 'text-rose-700 bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/50 dark:text-rose-300' : 
+                            log.type === 'success' ? 'text-emerald-700 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30 dark:text-emerald-400' : 
+                            'text-slate-600 border-transparent dark:text-slate-400'
+                        }`}>
+                            <span className="opacity-40 shrink-0 select-none">[{log.time}]</span>
+                            <span className="break-all">{log.message}</span>
+                        </div>
+                    ))}
+                    <div id="log-end" />
+                </div>
+
+                {actions && actions.length > 0 && (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 shrink-0 flex flex-wrap justify-center gap-3">
+                        {actions.map((action, idx) => (
+                             <button 
+                                key={idx}
+                                onClick={action.onClick}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all text-sm
+                                    ${action.variant === 'danger' 
+                                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200' 
+                                        : action.variant === 'secondary'
+                                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
+                                            : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                                    }
+                                `}
+                            >
+                                {action.icon && <action.icon size={16} />}
+                                {action.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            {!actions && (
+                <p className="mt-4 text-xs text-slate-400 max-w-xs text-center animate-pulse">
+                    Jobber...
+                </p>
+            )}
+        </div>
+    );
+};
+
+
+// --- LOGIN SCREEN COMPONENT ---
+const LoginScreen = () => {
+    const [pwd, setPwd] = useState('');
+    const [error, setError] = useState(false);
+    const [isLoadingMs, setIsLoadingMs] = useState(false);
+
+    const handleDemoSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (pwd === 'KonsernDemo2025') {
+            localStorage.setItem('konsern_access', 'granted');
+            window.initKonsernKontroll(undefined, true);
+        } else {
+            setError(true);
+        }
+    };
+
+    const handleAttentioLogin = async () => {
+        setIsLoadingMs(true);
+        try {
+            await loadMemberstackScript();
+            
+            if (window.$memberstackDom) {
+                const loginCheckInterval = setInterval(() => {
+                    const token = localStorage.getItem("_ms-mid");
+                    if (token) {
+                        clearInterval(loginCheckInterval);
+                        console.log("Login detected via _ms-mid. Initializing app...");
+                        setTimeout(() => window.initKonsernKontroll(), 500);
+                    }
+                }, 1000); 
+
+                await window.$memberstackDom.openModal('LOGIN');
+            } else {
+                setTimeout(async () => {
+                    if(window.$memberstackDom) {
+                         const loginCheckInterval = setInterval(() => {
+                            if (localStorage.getItem("_ms-mid")) {
+                                clearInterval(loginCheckInterval);
+                                window.initKonsernKontroll();
+                            }
+                        }, 1000);
+                        await window.$memberstackDom.openModal('LOGIN');
+                    }
+                    else alert("Kunne ikke starte innloggingstjenesten. Prøv igjen.");
+                }, 500);
+            }
+        } catch (err) {
+            console.error("Login error:", err);
+            alert("Feil ved lasting av innlogging. Sjekk nettilgang.");
+        } finally {
+            if (!localStorage.getItem("_ms-mid")) {
+                 setIsLoadingMs(false);
+            }
+        }
+    };
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 font-sans">
+            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-300">
+                
+                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center h-full justify-center relative overflow-hidden group">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
+                    
+                    <div className="mb-8">
+                        <img 
+                            src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
+                            alt="Attentio Logo" 
+                            className="h-12 object-contain mx-auto"
+                        />
+                    </div>
+                    
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Attentio Bruker</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">
+                        Logg inn med din Attentio-konto for å få tilgang til live data og rapportering.
+                    </p>
+
+                    <button 
+                        onClick={handleAttentioLogin}
+                        disabled={isLoadingMs}
+                        className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
+                    >
+                        {isLoadingMs ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
+                        {isLoadingMs ? 'Venter på innlogging...' : 'Logg inn med Attentio'}
+                    </button>
+                </div>
+
+                <div className="bg-slate-100 dark:bg-slate-800/50 p-8 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
+                    <div className="text-center mb-6">
+                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 mb-4">
+                            <MonitorPlay size={24} />
+                        </div>
+                        <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">Demo Bruker</h2>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mt-1">Kun for demonstrasjon</p>
+                    </div>
+
+                    <form onSubmit={handleDemoSubmit} className="space-y-4 w-full max-w-xs mx-auto">
+                        <div>
+                            <div className="relative">
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <input 
+                                    type="password" 
+                                    value={pwd}
+                                    onChange={e => {setPwd(e.target.value); setError(false);}}
+                                    className="w-full pl-10 p-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
+                                    placeholder="Skriv inn demo-passord..."
+                                />
+                            </div>
+                        </div>
+                        {error && <p className="text-rose-600 text-xs font-medium text-center animate-pulse">Feil passord</p>}
+                        <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors shadow flex justify-center items-center gap-2 text-sm">
+                            Start Demo
+                        </button>
+                    </form>
+                </div>
+
+            </div>
+            
+            <div className="fixed bottom-4 text-center w-full text-slate-400 text-[10px]">
+                KonsernKontroll 2025 &copy; Powered by Attentio
+            </div>
+        </div>
+    );
+};
+
+// The initialization function
+window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean) => {
+  const rootElement = document.getElementById('root');
+  if (!rootElement) {
+    console.error("Could not find root element to mount to");
+    return;
+  }
+
+  let root = window.konsernRoot;
+  if (!root) {
+      root = ReactDOM.createRoot(rootElement);
+      window.konsernRoot = root;
+  }
+
+  // --- LOGGING MECHANISM ---
+  const logs: LogEntry[] = [];
+  
+  const renderLog = (actions?: ActionButton[]) => {
+       root.render(
+        <React.StrictMode>
+            <LoadingLogger logs={[...logs]} actions={actions} />
+        </React.StrictMode>
+      );
+      setTimeout(() => {
+          const el = document.getElementById('log-end');
+          if(el) el.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+  };
+
+  const addLog = (msg: string, type: LogEntry['type'] = 'info') => {
+      console.log(`[System] ${msg}`);
+      logs.push({
+          time: new Date().toLocaleTimeString('no-NO', { hour12: false, hour: '2-digit', minute: '2-digit', second:'2-digit' }),
+          message: msg,
+          type
+      });
+      renderLog();
+  };
+
+  addLog("Initialiserer applikasjon...");
+
+  // 1. AUTH CHECK
+  let memberstackUser = null;
+  const localToken = localStorage.getItem("_ms-mid");
+  if (localToken) {
+      addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
+  }
+
+  try {
+      addLog("Sjekker Memberstack status...");
+      if (window.$memberstackDom) {
+          const member = await window.$memberstackDom.getCurrentMember();
+          if (member?.data) {
+              memberstackUser = member.data;
+              addLog(`Memberstack bruker funnet: ${memberstackUser.id}`, 'success');
+          } else {
+              addLog("Ingen aktiv Memberstack sesjon funnet.");
+          }
+      } else {
+          addLog("Memberstack DOM ikke tilgjengelig.");
+      }
+  } catch (e: any) { 
+      addLog(`Feil under Memberstack sjekk: ${e.message}`, 'error');
+  }
+
+  // 2. DETERMINE MODE
+  let shouldStartApp = false;
+  let isDemo = false;
+
+  if (demoMode === true) {
+      shouldStartApp = true;
+      isDemo = true;
+      addLog("Modus satt til: DEMO", 'info');
+  } else if (memberstackUser) {
+      shouldStartApp = true;
+      isDemo = false;
+      addLog("Modus satt til: LIVE", 'info');
+  }
+  
+  if (!shouldStartApp) {
+      addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
+      setTimeout(() => {
+          root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
+      }, 800);
+      return;
+  }
+
+  // --- DEMO MODE START ---
+  if (isDemo) {
+    addLog("Klargjør demodata...");
+    localStorage.setItem('konsern_mode', 'demo'); 
+    
+    const mockUserProfile = {
+        id: 999, 
+        fullName: "Demo Controller",
+        role: 'controller' as const,
+        groupId: 1,
+        groupName: "Demo Konsern AS"
+    };
+
+    setTimeout(() => {
+        addLog("Demodata lastet. Starter UI.", 'success');
+        root.render(
+            <React.StrictMode>
+                <ErrorBoundary>
+                    <App userProfile={mockUserProfile} initialCompanies={INITIAL_DATA} isDemo={true} />
+                </ErrorBoundary>
+            </React.StrictMode>
+        );
+    }, 1200);
+    return;
+  }
+
+  // --- REAL MODE START ---
+  let effectiveUserId = userId;
+  
+  if (!effectiveUserId && memberstackUser) {
+      if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
+          effectiveUserId = memberstackUser.customFields['neonid'];
+          addLog(`Bruker Custom Field 'neonid': ${effectiveUserId}`, 'info');
+      } else {
+          effectiveUserId = memberstackUser.id;
+          addLog(`Bruker standard Auth ID: ${effectiveUserId}`, 'info');
+      }
+  }
+
+  if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
+
+  try {
+    addLog("Kobler til Neon database...");
+    
+    let userWhere = {};
+    const userIdStr = String(effectiveUserId);
+    
+    if (userIdStr.startsWith('mem_')) {
+        userWhere = { authId: userIdStr }; 
+        addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
+    } else if (/^\d+$/.test(userIdStr)) {
+        userWhere = { id: userIdStr };
+        addLog(`Søkemetode: id (Intern ID)`, 'info');
+    } else {
+        userWhere = { authId: userIdStr };
+        addLog(`Søkemetode: authId (Generisk)`, 'info');
+    }
+
+    addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
+    
+    const userRes = await getNEON({ table: 'users', where: userWhere });
+    const rawUser = userRes.rows[0];
+
+    if (!rawUser) {
+        addLog("FEIL: Bruker ikke funnet i databasen.", 'error');
+        addLog(`Søkte etter: ${JSON.stringify(userWhere)}`, 'error');
+        addLog("Dette betyr at Memberstack-brukeren ikke er koblet mot en rad i users-tabellen.", 'error');
+        
+        renderLog([
+            {
+                label: "Start Demo Modus",
+                icon: MonitorPlay,
+                variant: 'secondary',
+                onClick: () => window.initKonsernKontroll(undefined, true)
+            },
+            {
+                label: "Logg ut og prøv igjen",
+                icon: LogOut,
+                onClick: () => { 
+                    if(window.$memberstackDom) window.$memberstackDom.logout(); 
+                    window.initKonsernKontroll(); 
+                }
+            }
+        ]);
+        return;
+    }
+
+    const user = {
+        id: rawUser.id,
+        authId: rawUser.authId || rawUser.auth_id,
+        fullName: rawUser.fullName || rawUser.full_name || 'Ukjent Bruker',
+        role: rawUser.role,
+        groupId: rawUser.groupId || rawUser.group_id,
+        companyId: rawUser.companyId || rawUser.company_id
+    };
+
+    addLog(`Bruker verifisert: ${user.fullName} (${user.role})`, 'success');
+    localStorage.setItem('konsern_mode', 'live'); 
+
+    let groupName = "Mitt Konsern";
+    addLog(`Henter konserndata (Group ID: ${user.groupId})...`);
+    
+    if (user.groupId) {
+        const groupRes = await getNEON({ table: 'groups', where: { id: user.groupId } });
+        if(groupRes.rows[0]) {
+            groupName = groupRes.rows[0].name;
+            addLog(`Konsern: ${groupName}`, 'success');
+        }
+    }
+
+    let companyWhere: any = {};
+    if (user.role === 'leader' && user.companyId) {
+        companyWhere = { id: user.companyId };
+        addLog(`Henter selskap for leder (ID: ${user.companyId})...`);
+    } else {
+        companyWhere = { group_id: user.groupId };
+        addLog(`Henter alle selskaper i konsernet...`);
+    }
+    
+    const compRes = await getNEON({ table: 'companies', where: companyWhere });
+    const rawCompanies = compRes.rows || [];
+    addLog(`Fant ${rawCompanies.length} selskaper.`, 'success');
+
+    addLog("Prosesserer finansielle data...");
+    const mappedCompanies = rawCompanies.map((c: any) => {
+        let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+        try {
+            if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
+            else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+        } catch(e) { console.warn("Budget parsing error", e); }
+
+        return {
+            ...c,
+            resultYTD: Number(c.result_ytd || c.resultYTD || 0),
+            budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
+            budgetMode: c.budget_mode || c.budgetMode || 'annual',
+            budgetMonths: bMonths,
+            liquidity: Number(c.liquidity || 0),
+            receivables: Number(c.receivables || 0),
+            accountsPayable: Number(c.accounts_payable || c.accountsPayable || 0),
+            trendHistory: Number(c.trend_history || c.trendHistory || 0),
+            prevLiquidity: Number(c.prev_liquidity || c.prevLiquidity || 0),
+            prevDeviation: Number(c.prev_trend || c.prevTrend || 0),
+            name: c.name || '',
+            fullName: c.full_name || c.fullName || '', 
+            manager: c.manager || '',
+            revenue: Number(c.revenue || 0),
+            expenses: Number(c.expenses || 0),
+            liquidityDate: c.liquidity_date || c.liquidityDate || '',
+            receivablesDate: c.receivables_date || c.receivablesDate || '',
+            accountsPayableDate: c.accounts_payable_date || c.accountsPayableDate || '',
+            lastReportDate: c.last_report_date || c.lastReportDate || '',
+            lastReportBy: c.last_report_by || c.lastReportBy || '',
+            comment: c.current_comment || c.currentComment || '',
+            pnlDate: c.pnl_date || c.pnlDate || ''
+        };
+    });
+
+    const userProfile = {
+        id: user.id,
+        fullName: user.fullName,
+        role: user.role as 'controller' | 'leader',
+        groupId: user.groupId,
+        groupName: groupName,
+        companyId: user.companyId
+    };
+
+    addLog("Alt klart. Starter dashboard.", 'success');
+    
+    setTimeout(() => {
+        root.render(
+        <React.StrictMode>
+            <ErrorBoundary>
+                <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
+            </ErrorBoundary>
+        </React.StrictMode>
+        );
+    }, 800);
+
+  } catch (e: any) {
+    console.error("Init Error:", e);
+    let msg = e.message || String(e);
+    
+    if (msg.includes("Failed to fetch")) {
+        msg = "Kan ikke koble til serveren. Starter Demo-modus automatisk...";
+        addLog(`KRITISK NETTVERKSFEIL: ${msg}`, 'error');
+        addLog("Dette skyldes ofte at serveren er utilgjengelig, CORS-blokkering eller manglende tilgang.", 'error');
+        
+        setTimeout(() => {
+            window.initKonsernKontroll(undefined, true);
+        }, 1500);
+        return;
+    }
+    
+    addLog(`KRITISK FEIL: ${msg}`, 'error');
+    
+    renderLog([
+        {
+            label: "Prøv igjen",
+            icon: RefreshCw,
+            onClick: () => window.initKonsernKontroll()
+        },
+        {
+            label: "Start Demo Modus",
+            icon: MonitorPlay,
+            variant: 'secondary',
+            onClick: () => window.initKonsernKontroll(undefined, true)
+        }
+    ]);
+  }
+};
+
+window.addEventListener('DOMContentLoaded', async () => {
+    const mode = localStorage.getItem('konsern_mode');
+    if (mode === 'live') {
+        try {
+            await loadMemberstackScript();
+        } catch (e) {
+            console.warn("Background MS load failed", e);
+        }
+    }
+    
+    setTimeout(() => {
+        window.initKonsernKontroll();
+    }, 100);
+});
