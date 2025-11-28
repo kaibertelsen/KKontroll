@@ -126,7 +126,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.0</div>
+                    <div className="text-[10px] text-slate-400">v1.3.1</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -181,8 +181,7 @@ const LoginScreen = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [isForgotPassword, setIsForgotPassword] = useState(false);
-    const [resetSent, setResetSent] = useState(false);
+    const [loginSuccess, setLoginSuccess] = useState(false); // NEW STATE
 
     // Demo Mode State
     const [demoPwd, setDemoPwd] = useState('');
@@ -197,10 +196,19 @@ const LoginScreen = () => {
             await loadMemberstackScript();
             if (window.$memberstackDom) {
                 await window.$memberstackDom.loginMember({ email, password });
-                // Memberstack handles redirect/session storage automatically.
-                // We rely on the interval in the main loader to detect the session.
+                
+                // LOGIN SUCCESSFUL
+                setLoginSuccess(true);
+                setIsLoading(false);
+                
+                // Force reload after delay to ensure token is written and state is clean
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2500);
+
             } else {
                 setError("Innloggingstjenesten er ikke tilgjengelig.");
+                setIsLoading(false);
             }
         } catch (err: any) {
             console.error("Login Error:", err);
@@ -212,22 +220,14 @@ const LoginScreen = () => {
     const handleForgotPassword = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setIsLoading(true);
-
+        
         try {
             await loadMemberstackScript();
-            // Note: Memberstack DOM doesn't have a direct sendResetPasswordEmail without modal usually, 
-            // but often openModal('RESET_PASSWORD') is used. 
-            // Or we can redirect to their hosted reset page if configured.
-            // Here we assume openModal works for simplicity as per request "sett deg inn i beskrivelsen".
             if (window.$memberstackDom) {
                  await window.$memberstackDom.openModal("FORGOT_PASSWORD");
-                 setResetSent(true);
             }
         } catch (err: any) {
              setError("Kunne ikke åpne tilbakestilling.");
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -256,78 +256,91 @@ const LoginScreen = () => {
                         <span className="text-2xl font-bold text-white tracking-tighter">A-KK</span>
                     </div>
                     <h1 className="text-2xl font-bold text-white">Attentio Konsern Kontroll</h1>
-                    <p className="text-slate-400 text-sm mt-2">Logg inn for å få tilgang til dashboard</p>
+                    {loginSuccess ? (
+                        <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl animate-in fade-in">
+                             <p className="text-emerald-300 font-bold text-lg mb-1">Innlogging Vellykket!</p>
+                             <p className="text-emerald-200 text-sm flex items-center justify-center gap-2">
+                                <Loader2 className="animate-spin" size={14}/> Laster systemet...
+                             </p>
+                        </div>
+                    ) : (
+                        <p className="text-slate-400 text-sm mt-2">Logg inn for å få tilgang til dashboard</p>
+                    )}
                 </div>
 
-                {!showDemo ? (
-                    <form onSubmit={handleLogin} className="space-y-5">
-                        <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                <input 
-                                    type="email" 
-                                    required
-                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
-                                    placeholder="navn@selskap.no"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                />
+                {!loginSuccess && (
+                    <>
+                    {!showDemo ? (
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <div className="space-y-1">
+                                <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input 
+                                        type="email" 
+                                        required
+                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                                        placeholder="navn@selskap.no"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="space-y-1">
-                             <div className="flex justify-between ml-1">
-                                <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
-                                <button type="button" onClick={handleForgotPassword} className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</button>
+                            <div className="space-y-1">
+                                <div className="flex justify-between ml-1">
+                                    <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
+                                    <button type="button" onClick={handleForgotPassword} className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</button>
+                                </div>
+                                <div className="relative">
+                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                    <input 
+                                        type="password" 
+                                        required
+                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                    />
+                                </div>
                             </div>
+
+                            {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
+
+                            <button 
+                                type="submit" 
+                                disabled={isLoading}
+                                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
+                            >
+                                {isLoading && <Loader2 className="animate-spin" size={20} />}
+                                {isLoading ? 'Sjekker bruker...' : 'Logg inn'}
+                            </button>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleDemoSubmit} className="space-y-5">
+                            <div className="text-center text-amber-400 text-sm font-medium mb-2">Demomodus</div>
                             <div className="relative">
-                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                                 <input 
                                     type="password" 
                                     required
-                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={e => setPassword(e.target.value)}
+                                    className="w-full bg-slate-800/50 border border-amber-900/50 focus:ring-amber-500/50 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 outline-none transition-all"
+                                    placeholder="Demo Passord"
+                                    value={demoPwd}
+                                    onChange={e => setDemoPwd(e.target.value)}
                                 />
                             </div>
-                        </div>
+                            {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
+                            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
+                        </form>
+                    )}
 
-                        {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
-
-                        <button 
-                            type="submit" 
-                            disabled={isLoading}
-                            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
-                        >
-                            {isLoading && <Loader2 className="animate-spin" size={20} />}
-                            {isLoading ? 'Logger inn...' : 'Logg inn'}
+                    <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                        <button onClick={() => {setShowDemo(!showDemo); setError('');}} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                            {showDemo ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
                         </button>
-                    </form>
-                ) : (
-                     <form onSubmit={handleDemoSubmit} className="space-y-5">
-                        <div className="text-center text-amber-400 text-sm font-medium mb-2">Demomodus</div>
-                        <div className="relative">
-                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                            <input 
-                                type="password" 
-                                required
-                                className="w-full bg-slate-800/50 border border-amber-900/50 focus:ring-amber-500/50 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 outline-none transition-all"
-                                placeholder="Demo Passord"
-                                value={demoPwd}
-                                onChange={e => setDemoPwd(e.target.value)}
-                            />
-                        </div>
-                        {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
-                        <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
-                     </form>
+                    </div>
+                    </>
                 )}
-
-                <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                    <button onClick={() => {setShowDemo(!showDemo); setError('');}} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                        {showDemo ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
-                    </button>
-                </div>
             </div>
             
             <div className="absolute bottom-4 text-slate-600 text-[10px]">
@@ -418,15 +431,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   
   if (!shouldStartApp) {
       addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
-      // WAIT FOR LOGIN LOOP
-      const checkLogin = setInterval(async () => {
-           if (localStorage.getItem("_ms-mid")) {
-               clearInterval(checkLogin);
-               console.log("Login token detected, initializing...");
-               window.initKonsernKontroll();
-           }
-      }, 1000);
-      
       setTimeout(() => {
           root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
       }, 800);
@@ -584,13 +588,13 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             manager: c.manager || '',
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
-            liquidityDate: c.liquidityDate || c.liquidity_date || '',
-            receivablesDate: c.receivablesDate || c.receivables_date || '',
-            accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
-            lastReportDate: c.lastReportDate || c.last_report_date || '',
-            lastReportBy: c.lastReportBy || c.last_report_by || '',
-            comment: c.currentComment || c.current_comment || '',
-            pnlDate: c.pnlDate || c.pnl_date || ''
+            liquidityDate: c.liquidity_date || c.liquidityDate || '',
+            receivablesDate: c.receivables_date || c.receivablesDate || '',
+            accountsPayableDate: c.accountsPayable_date || c.accountsPayableDate || '',
+            lastReportDate: c.last_report_date || c.lastReportDate || '',
+            lastReportBy: c.last_report_by || c.lastReportBy || '',
+            comment: c.current_comment || c.currentComment || '',
+            pnlDate: c.pnl_date || c.pnlDate || ''
         };
     });
 
