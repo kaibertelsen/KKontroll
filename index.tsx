@@ -127,7 +127,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.6</div>
+                    <div className="text-[10px] text-slate-400">v1.3.7</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -205,13 +205,25 @@ const LoginScreen = () => {
             if (window.$memberstackDom && typeof window.$memberstackDom.loginMember === 'function') {
                 await window.$memberstackDom.loginMember({ email, password });
                 
-                setLoginSuccess(true);
-                setIsLoading(false);
+                // Login API call finished. Check if token is present immediately.
+                const token = localStorage.getItem("_ms-mid");
                 
-                // Force reload after delay to ensure token is written and state is clean
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2500);
+                if (token) {
+                    setLoginSuccess(true);
+                    setIsLoading(false);
+                    
+                    // Start the app immediately
+                    setTimeout(() => {
+                        console.log("Token detected, initializing system...");
+                        window.initKonsernKontroll();
+                    }, 500);
+                } else {
+                    // Fallback if token is delayed (rare)
+                    setLoginSuccess(true);
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                }
 
             } else {
                 console.error("Memberstack DOM exists but loginMember is missing:", window.$memberstackDom);
@@ -267,7 +279,7 @@ const LoginScreen = () => {
                         <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl animate-in fade-in">
                              <p className="text-emerald-300 font-bold text-lg mb-1">Innlogging Vellykket!</p>
                              <p className="text-emerald-200 text-sm flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin" size={14}/> Laster systemet...
+                                <Loader2 className="animate-spin" size={14}/> Starter systemet...
                              </p>
                         </div>
                     ) : (
