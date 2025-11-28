@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, UploadCloud, FileText, Search, Filter, Building2 } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2 } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
@@ -9,11 +9,11 @@ interface AdminViewProps {
   onAdd: (company: Omit<CompanyData, 'id'>) => void;
   onUpdate: (company: CompanyData) => void;
   onDelete: (id: number) => void;
-  onLogoUpload: (url: string) => void; // New prop
+  onLogoUpload?: (url: string) => void; // Keep as optional or remove usage if strictly cleaning up. The prompt asked to remove uploadcare, so I'll remove the prop usage primarily.
   onViewReport: (report: ReportLogItem) => void; // New prop
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd, onUpdate, onDelete, onLogoUpload, onViewReport }) => {
+const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd, onUpdate, onDelete, onViewReport }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   const [activeTab, setActiveTab] = useState<'companies' | 'reports'>('companies');
@@ -24,19 +24,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
   // Reports Filter State
   const [reportFilter, setReportFilter] = useState('');
   const [reportSort, setReportSort] = useState<'date' | 'status'>('date');
-
-  // Uploadcare Widget Integration
-  useEffect(() => {
-      // Initialize widget if script is loaded
-      // @ts-ignore
-      if (window.uploadcare) {
-          // @ts-ignore
-          const widget = uploadcare.Widget('[role=uploadcare-uploader]');
-          widget.onUploadComplete((info: any) => {
-              onLogoUpload(info.cdnUrl);
-          });
-      }
-  }, []);
 
   // Budget Editing State
   const [budgetInputMode, setBudgetInputMode] = useState<'annual' | 'quarterly' | 'monthly'>('annual');
@@ -206,17 +193,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
         </div>
         
         <div className="flex gap-3">
-            <div className="relative">
-                <input type="hidden" role="uploadcare-uploader" data-public-key="04325c3f0a897db7a85b" data-tabs="file url" />
-                <button className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-4 py-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-2 text-sm font-bold transition-colors pointer-events-none absolute inset-0 z-10">
-                    <UploadCloud className="w-4 h-4" /> Last opp Logo
-                </button>
-                {/* Hack to make UC button clickable but styled */}
-                <div className="opacity-0 absolute inset-0 z-20 cursor-pointer overflow-hidden">
-                    <input type="hidden" role="uploadcare-uploader" />
-                </div>
-            </div>
-
             <button 
             onClick={openAddModal}
             className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition-colors"
@@ -348,7 +324,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
            </div>
       )}
 
-      {/* Add/Edit Company Modal - (Existing Code, wrapped in activeTab logic check if needed, but modal is global) */}
+      {/* Add/Edit Company Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 flex flex-col">
@@ -359,8 +335,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                 </h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-6 h-6" /></button>
             </div>
-            {/* ... rest of modal code identical to previous ... */}
-            {/* Simplified for brevity as logic is unchanged from previous valid version */}
+            
              <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
                 <button onClick={() => setActiveTab('companies')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${true ? 'border-sky-600 text-sky-600 dark:text-sky-400' : ''}`}>Generelt & Status</button>
             </div>
@@ -371,7 +346,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                             <label className="text-xs font-bold uppercase text-slate-500">Navn (Initialer)</label>
                             <input name="name" type="text" required className="w-full border rounded px-3 py-2" value={formData.name} onChange={handleInputChange} />
                         </div>
-                        {/* ... other fields ... */}
                          <div className="space-y-2">
                             <label className="text-xs font-bold uppercase text-slate-500">Fullt Navn</label>
                             <input name="fullName" type="text" className="w-full border rounded px-3 py-2" value={formData.fullName || ''} onChange={handleInputChange} />

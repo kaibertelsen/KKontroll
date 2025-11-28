@@ -43,6 +43,7 @@ export interface UserData {
 
 export interface ReportLogItem {
   id: number;
+  companyId?: number;
   date: string;
   author: string;
   comment: string;

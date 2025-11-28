@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -15,8 +16,7 @@ import {
   UserCircle, 
   Moon,
   Sun,
-  Building2,
-  CalendarClock,
+  Building2, 
   ShieldAlert,
   Settings,
   Database,
@@ -245,8 +245,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             .catch(err => console.error("Error fetching forecasts", err));
       } else {
           setReports([
-              { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023' },
-              { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex', pnlDate: '31.08.2023' }
+              { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023', companyId: 1 },
+              { id: 2, date: '15.09.2023', author: 'System', comment: 'Stabil drift.', status: 'approved', result: 1100000, liquidity: 500000, source: 'Tripletex', pnlDate: '31.08.2023', companyId: 1 }
           ]);
           setForecasts([
               { companyId: 1, month: '2023-12', estimatedReceivables: 150000, estimatedPayables: 100000 },
@@ -440,6 +440,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                    author: userProfile.fullName,
                    comment: reportData.comment,
                    status: 'submitted',
+                   companyId: selectedCompany?.id,
                    result: reportData.resultYTD,
                    liquidity: reportData.liquidity,
                    revenue: reportData.revenue,
@@ -884,7 +885,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                onAdd={handleAddCompany} 
                onUpdate={handleUpdateCompany} 
                onDelete={handleDeleteCompany}
-               onLogoUpload={handleUpdateGroupLogo} 
+               // Removed onLogoUpload
                onViewReport={(r) => alert("Vis rapportfunksjon kommer her")} // Simple handler for now
            />
         )}
