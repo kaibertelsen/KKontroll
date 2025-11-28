@@ -33,7 +33,7 @@ interface UserProfile {
     role: 'controller' | 'leader';
     groupId: number;
     groupName: string;
-    logoUrl?: string; // New
+    logoUrl?: string;
     companyId?: number;
 }
 
@@ -86,7 +86,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       const interval = setInterval(async () => {
           console.log("Polling data...");
           await reloadCompanies();
-          // Also reload reports if we are in admin view or detail view
           if (viewMode === ViewMode.ADMIN) {
               fetchAllReports();
           }
@@ -171,15 +170,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- HELPER FETCHERS ---
   const fetchAllReports = async () => {
       try {
-           // Note: In a real app we might need to join tables or filter by group_id on backend. 
-           // Here we fetch 'reports' but we assume RLS or backend filters by group if multitenant.
-           // Or we fetch all and filter by matching company IDs we have access to.
-           // Since we have 'companies' loaded for this group:
            const companyIds = companies.map(c => c.id);
            if (companyIds.length === 0) return;
 
-           // Cannot pass array to getNEON where currently easily, so fetching all and filtering in JS for prototype
-           // Ideally backend supports "where company_id in (...)"
            const res = await getNEON({ table: 'reports' });
            if (res.rows) {
                const groupReports = res.rows.filter((r:any) => companyIds.includes(r.companyId || r.company_id));
@@ -565,7 +558,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       try {
           await deleteNEON({ table: 'reports', data: reportId });
-          // Remove locally for instant feedback
           setReports(prev => prev.filter(r => r.id !== reportId));
       } catch (e) {
           console.error("Delete report error", e);
@@ -625,10 +617,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
        if (isDemo) return;
        try {
            await patchNEON({ table: 'groups', data: { id: userProfile.groupId, logoUrl: newLogoUrl } });
-           // Update local profile state effectively via reload or just direct mutate? 
-           // Since UserProfile prop is fixed, we can't mutate it easily without parent reload. 
-           // But we can force a reload of the page or use state for logo.
-           // For now, alert user.
            alert("Logo oppdatert! Last inn siden på nytt for å se endringene.");
        } catch (e) {
            console.error("Logo update failed", e);
@@ -636,7 +624,108 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
        }
   };
 
-  // ... (Existing Handlers for User, Logout, etc) ...
+  const handleLogout = () => {
+      localStorage.removeItem('konsern_access');
+      localStorage.removeItem('konsern_mode');
+      if(window.$memberstackDom) window.$memberstackDom.logout();
+      window.initKonsernKontroll();
+  };
+
+  // NEW: Restored missing function
+  const toggleMode = () => {
+      const newMode = isDemo ? 'live' : 'demo';
+      if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
+          alert("Du må logge inn med demo-passord først.");
+          window.initKonsernKontroll(); 
+          return;
+      }
+      window.initKonsernKontroll(undefined, newMode === 'demo');
+  };
+
+  useEffect(() => {
+    if (isDarkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [isDarkMode]);
+
+  const visibleCompanies = useMemo(() => {
+      if (effectiveRole === 'leader') {
+          if (isDemo) return companies.filter(c => c.name === 'BCC');
+          if (userProfile.companyId) return companies.filter(c => c.id === userProfile.companyId);
+      }
+      return companies;
+  }, [companies, effectiveRole, isDemo, userProfile.companyId]);
+
+  const computedData: ComputedCompanyData[] = useMemo(() => {
+    const now = new Date();
+    const currentMonthIndex = now.getMonth(); 
+    const dayOfMonth = now.getDate();
+    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+    
+    return visibleCompanies.map(company => {
+        let targetBudget = 0;
+        const bMonths = company.budgetMonths && company.budgetMonths.length === 12 ? company.budgetMonths : Array(12).fill(company.budgetTotal / 12);
+
+        if (isTodayMode) {
+            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+            targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * dayOfMonth;
+        } else {
+            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+        }
+
+        const deviation = company.resultYTD - targetBudget;
+        const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
+        
+        return { ...company, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent };
+    });
+  }, [isTodayMode, visibleCompanies]);
+
+  const displayedData = useMemo(() => {
+    if (viewMode === ViewMode.CONTROL) return computedData.filter(c => c.calculatedDeviationPercent < 0);
+    return computedData;
+  }, [computedData, viewMode]);
+
+  const sortedData = useMemo(() => {
+    if (isSortMode) return displayedData; 
+
+    const data = [...displayedData];
+    switch (sortField) {
+      case SortField.RESULT: return data.sort((a, b) => b.resultYTD - a.resultYTD);
+      case SortField.DEVIATION: return data.sort((a, b) => a.calculatedDeviationPercent - b.calculatedDeviationPercent);
+      case SortField.LIQUIDITY: return data.sort((a, b) => b.liquidity - a.liquidity);
+      default: return data; 
+    }
+  }, [displayedData, sortField, isSortMode]);
+
+  // Aggregations
+  const totalRevenue = computedData.reduce((acc, curr) => acc + curr.revenue, 0);
+  const totalExpenses = computedData.reduce((acc, curr) => acc + curr.expenses, 0);
+  const totalResult = computedData.reduce((acc, curr) => acc + curr.resultYTD, 0);
+  const totalBudgetYTD = computedData.reduce((acc, curr) => acc + curr.calculatedBudgetYTD, 0);
+  const totalLiquidity = computedData.reduce((acc, curr) => acc + curr.liquidity, 0);
+  const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
+  const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
+  const totalWorkingCapital = (totalReceivables - totalPayables) + totalLiquidity;
+  
+  const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
+  const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
+
+  if (selectedCompany) {
+    return (
+      <CompanyDetailView 
+        company={selectedCompany} 
+        reports={reports}
+        forecasts={forecasts}
+        userRole={effectiveRole}
+        onBack={() => setSelectedCompany(null)} 
+        onReportSubmit={handleSubmitReport}
+        onApproveReport={handleApproveReport}
+        onUnlockReport={handleUnlockReport}
+        onDeleteReport={handleDeleteReport} 
+        onForecastSubmit={handleForecastSubmit}
+        onUpdateCompany={handleUpdateCompany}
+      />
+    );
+  }
 
   const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN;
 
@@ -691,6 +780,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
         {/* ... (Sort overlay logic remains) ... */}
+        {isSortMode && (
+            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
+                <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">
+                    <span className="text-sm font-bold animate-pulse">Sorteringsmodus</span>
+                    <div className="h-4 w-px bg-slate-600"></div>
+                    <button onClick={saveSort} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold text-sm"><Check size={16}/> Lagre</button>
+                    <button onClick={cancelSort} className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-bold text-sm"><X size={16}/> Avbryt</button>
+                </div>
+            </div>
+        )}
 
         {viewMode === ViewMode.ADMIN && effectiveRole === 'controller' && (
            <AdminView 
@@ -704,12 +803,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
            />
         )}
         {/* ... (UserAdminView logic remains) ... */}
+        {viewMode === ViewMode.USER_ADMIN && effectiveRole === 'controller' && (
+            <UserAdminView users={users} companies={companies} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} />
+        )}
         
         {!isAdminMode && (
             <>
                 {/* ... (Dashboard buttons / filters logic remains) ... */}
-                {/* ... (Analytics / MetricGrid logic remains) ... */}
-                {/* ... (Use existing code for dashboard body) ... */}
                 <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 transition-opacity duration-300 ${isSortMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                     <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
                         <button onClick={() => setIsTodayMode(false)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span></button>
@@ -723,11 +823,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         <button onClick={handleSortToggle} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`}><ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />Sort</button>
                     </div>
                 </div>
+                <div className={`flex items-center justify-center mb-6 text-xs text-slate-400 dark:text-slate-500 gap-2 transition-opacity duration-300 ${isSortMode ? 'opacity-0' : 'opacity-100'}`}><CalendarClock className="w-3.5 h-3.5" /><span>Viser tall beregnet mot: <strong className="text-slate-600 dark:text-slate-300">{isTodayMode ? 'Daglig akkumulert budsjett' : 'Budsjett pr. forrige månedsslutt'}</strong></span></div>
                 
                 {viewMode === ViewMode.ANALYTICS ? (
                     <AnalyticsView data={sortedData} />
                 ) : (
                     <>
+                        {viewMode === ViewMode.CONTROL && displayedData.length === 0 && (
+                            <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
+                        )}
+                        
                         <AnimatedGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6 pb-24">
                             {sortedData.map((company, index) => (
                                 <MetricCard 
