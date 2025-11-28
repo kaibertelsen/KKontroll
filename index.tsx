@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -199,7 +200,9 @@ const LoginScreen = () => {
 
         try {
             await loadMemberstackScript();
-            if (window.$memberstackDom) {
+            
+            // Robust check to ensure function exists before calling
+            if (window.$memberstackDom && typeof window.$memberstackDom.loginMember === 'function') {
                 await window.$memberstackDom.loginMember({ email, password });
                 
                 setLoginSuccess(true);
@@ -211,8 +214,8 @@ const LoginScreen = () => {
                 }, 2500);
 
             } else {
-                setError("Innloggingstjenesten er ikke tilgjengelig.");
-                setIsLoading(false);
+                console.error("Memberstack DOM exists but loginMember is missing:", window.$memberstackDom);
+                throw new Error("Innloggingstjenesten er ikke klar (API-feil).");
             }
         } catch (err: any) {
             console.error("Login Error:", err);
