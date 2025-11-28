@@ -283,30 +283,24 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
-                    
-                    revenue: Number(c.revenue || 0),
-                    expenses: Number(c.expenses || 0),
-                    
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-                    
-                    pnlDate: c.pnlDate || c.pnl_date || '', 
-                    liquidityDate: c.liquidityDate || c.liquidity_date || '',
-                    receivablesDate: c.receivablesDate || c.receivables_date || '',
-                    accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
-                    
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
-                    
                     name: c.name || '',
                     fullName: c.fullName || c.full_name || '', 
                     manager: c.manager || '',
-                    
+                    revenue: Number(c.revenue || 0),
+                    expenses: Number(c.expenses || 0),
+                    liquidityDate: c.liquidityDate || c.liquidity_date || '',
+                    receivablesDate: c.receivablesDate || c.receivables_date || '',
+                    accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
                     lastReportDate: c.lastReportDate || c.last_report_date || '',
                     lastReportBy: c.lastReportBy || c.last_report_by || '',
                     comment: c.currentComment || c.current_comment || '',
+                    pnlDate: c.pnlDate || c.pnl_date || ''
                 };
             });
             setCompanies(mapped);
@@ -631,7 +625,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       window.initKonsernKontroll();
   };
 
-  // NEW: Restored missing function
   const toggleMode = () => {
       const newMode = isDemo ? 'live' : 'demo';
       if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
@@ -823,7 +816,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         <button onClick={handleSortToggle} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`}><ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />Sort</button>
                     </div>
                 </div>
-                <div className={`flex items-center justify-center mb-6 text-xs text-slate-400 dark:text-slate-500 gap-2 transition-opacity duration-300 ${isSortMode ? 'opacity-0' : 'opacity-100'}`}><CalendarClock className="w-3.5 h-3.5" /><span>Viser tall beregnet mot: <strong className="text-slate-600 dark:text-slate-300">{isTodayMode ? 'Daglig akkumulert budsjett' : 'Budsjett pr. forrige månedsslutt'}</strong></span></div>
                 
                 {viewMode === ViewMode.ANALYTICS ? (
                     <AnalyticsView data={sortedData} />
