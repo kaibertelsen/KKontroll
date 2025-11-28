@@ -126,7 +126,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.5</div>
+                    <div className="text-[10px] text-slate-400">v1.3.6</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -498,8 +498,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const userIdStr = String(effectiveUserId);
     
     if (userIdStr.startsWith('mem_')) {
-        // IMPORTANT: ADD QUOTES FOR STRING ID
-        userWhere = { authId: `"${userIdStr}"` }; 
+        // CORRECTION: DO NOT ADD QUOTES MANUALLY. URLSearchParams handles encoding.
+        userWhere = { authId: userIdStr }; 
         addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
     } else if (/^\d+$/.test(userIdStr)) {
         userWhere = { id: userIdStr };

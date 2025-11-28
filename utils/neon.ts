@@ -86,7 +86,8 @@ export async function getNEON({
 
   const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
-  console.log(`[NEON] GET Request: ${url}`);
+  console.log(`[NEON] GET Construction:`, { table, where, url });
+  console.log(`[NEON] GET Options:`, options);
 
   // ROBUST RETRY LOGIC (5 attempts, 1000ms delay)
   let lastError;
