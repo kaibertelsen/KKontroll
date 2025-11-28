@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, UploadCloud, FileText, Search, Filter } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, UploadCloud, FileText, Search, Filter, Building2 } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
