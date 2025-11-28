@@ -332,7 +332,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // THIS is the function we are using in the form below. It must be defined here.
+  // RENAMED FUNCTION TO MATCH JSX
   const onForecastFormSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       onForecastSubmit(forecastForm);
@@ -456,7 +456,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
         {/* Top Stats Grid */}
         <div className="space-y-4 mb-8">
             {/* Row 1: P&L */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
@@ -470,7 +470,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
 
             {/* Row 2: Liquidity & Balance */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
@@ -903,7 +903,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={onProcessForecastForm} className="p-6">
+                    <form onSubmit={onForecastFormSubmit} className="p-6">
                         <div className="space-y-4">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
                                 Legg inn forventede innbetalinger (fordringer/salg) og utbetalinger (gjeld/kostnader) for de neste månedene.
