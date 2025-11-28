@@ -783,20 +783,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     />
                                 </div>
                             </div>
-                            
-                            {/* NEW: P&L Date Field */}
-                            <div className="mt-3 flex justify-end">
-                                <div className="w-1/2">
-                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1 justify-end"><Calendar size={10}/> Dato for tallene</label>
-                                    <input 
-                                        type="date" 
-                                        disabled={isReadOnly}
-                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm text-right disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
-                                        value={toInputDate(formData.pnlDate)} 
-                                        onChange={e => setFormData({...formData, pnlDate: fromInputDate(e.target.value)})} 
-                                    />
-                                </div>
-                            </div>
                         </div>
 
                         {/* SECTION 2: BALANCE */}

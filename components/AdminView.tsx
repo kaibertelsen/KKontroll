@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2 } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
@@ -9,7 +10,7 @@ interface AdminViewProps {
   onAdd: (company: Omit<CompanyData, 'id'>) => void;
   onUpdate: (company: CompanyData) => void;
   onDelete: (id: number) => void;
-  onLogoUpload?: (url: string) => void; // Keep as optional or remove usage if strictly cleaning up. The prompt asked to remove uploadcare, so I'll remove the prop usage primarily.
+  onLogoUpload?: (url: string) => void; 
   onViewReport: (report: ReportLogItem) => void; // New prop
 }
 
@@ -155,6 +156,31 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
   
   const getCompanyName = (id: number) => companies.find(c => c.id === id)?.name || 'Ukjent';
 
+  // Helper to render report values (Same as CompanyDetailView)
+  const renderReportValues = (report: ReportLogItem) => {
+      const items = [];
+      if (report.result != null) items.push({ label: 'Resultat', value: report.result });
+      if (report.liquidity != null) items.push({ label: 'Likviditet', value: report.liquidity });
+      if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
+      
+      // Secondary items (optional, maybe skip for admin view if too crowded)
+      // if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
+      // if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
+
+      if (items.length === 0) return <span className="text-xs text-slate-400 italic">Ingen tall</span>;
+
+      return (
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+              {items.map((item, idx) => (
+                  <div key={idx} className="text-xs whitespace-nowrap">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider mr-1">{item.label}:</span>
+                      <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{formatCurrency(item.value)}</span>
+                  </div>
+              ))}
+          </div>
+      );
+  };
+
   // Filter Reports
   const filteredReports = allReports.filter(r => {
       const cName = getCompanyName(r.companyId || 0).toLowerCase();
@@ -168,9 +194,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
       const dB = new Date(b.date.split('.').reverse().join('-')).getTime();
       return dB - dA;
   });
-
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"];
-  const budgetModes: Array<'annual' | 'quarterly' | 'monthly'> = ['annual', 'quarterly', 'monthly'];
 
   const ReadOnlyInput = ({ label, value }: { label: string, value: any }) => (
     <div className="space-y-1 opacity-75">
@@ -291,10 +314,11 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                        <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-50 dark:text-slate-400 font-semibold">
                             <th className="p-4">Dato</th>
                             <th className="p-4">Selskap</th>
                             <th className="p-4">Innsender</th>
+                            <th className="p-4">Tall</th> {/* NEW COLUMN */}
                             <th className="p-4">Kommentar</th>
                             <th className="p-4 text-center">Status</th>
                         </tr>
@@ -302,9 +326,12 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                         {filteredReports.map((report) => (
                             <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                <td className="p-4 text-slate-600 dark:text-slate-300 font-mono">{report.date}</td>
+                                <td className="p-4 text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">{report.date}</td>
                                 <td className="p-4 font-bold text-slate-900 dark:text-white">{getCompanyName(report.companyId!)}</td>
                                 <td className="p-4 text-slate-600 dark:text-slate-300">{report.author}</td>
+                                <td className="p-4">
+                                    {renderReportValues(report)}
+                                </td>
                                 <td className="p-4 text-slate-500 italic truncate max-w-xs">{report.comment}</td>
                                 <td className="p-4 text-center">
                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
