@@ -512,7 +512,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
                             <Legend />
                             <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
-                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#64748b" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#334155" strokeDasharray="6 6" strokeWidth={2} dot={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>

@@ -249,7 +249,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
                         <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
-                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#64748b" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#334155" strokeDasharray="6 6" strokeWidth={2} dot={false} />
                     </AreaChart>
                 </ResponsiveContainer>
               </div>
