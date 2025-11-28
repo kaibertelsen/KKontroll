@@ -433,6 +433,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- REPORT HANDLERS ---
   const handleSubmitReport = async (reportData: any) => {
       try {
+          // Identify target company ID (handle both CompanyDetail view and Admin view)
+          const targetCompanyId = selectedCompany?.id || reportData.companyId;
+
+          if (!targetCompanyId) {
+             console.error("No company ID found for report submission");
+             return;
+          }
+
           if (isDemo) {
                const newReport: ReportLogItem = {
                    id: Math.random(),
@@ -440,7 +448,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                    author: userProfile.fullName,
                    comment: reportData.comment,
                    status: 'submitted',
-                   companyId: selectedCompany?.id,
+                   companyId: targetCompanyId,
                    result: reportData.resultYTD,
                    liquidity: reportData.liquidity,
                    revenue: reportData.revenue,
@@ -451,11 +459,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                    source: reportData.source || 'Manuell'
                };
                setReports([newReport, ...reports]);
+               
+               // Also update allReports if in Admin view
+               setAllReports(prev => [newReport, ...prev]);
                return;
           }
 
           const reportPayload: any = {
-              companyId: selectedCompany?.id,
+              companyId: targetCompanyId,
               submittedByUserId: userProfile.id, 
               authorName: userProfile.fullName,
               comment: reportData.comment,
@@ -497,7 +508,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
 
           // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY
-          const companyUpdate: any = { id: selectedCompany?.id };
+          const companyUpdate: any = { id: targetCompanyId };
           
           if (hasRevenue || hasExpenses) {
              const r = Number(reportData.revenue || 0);
@@ -535,6 +546,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if (selectedCompany) {
               fetchCompanyReports(selectedCompany.id);
           }
+          // Refresh Admin List
+          fetchAllReports();
 
       } catch (e) {
           console.error("Report submit error", e);
@@ -548,12 +561,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       
       if (isDemo) {
           setReports(prev => prev.filter(r => r.id !== reportId));
+          setAllReports(prev => prev.filter(r => r.id !== reportId));
           return;
       }
 
       try {
           await deleteNEON({ table: 'reports', data: reportId });
           setReports(prev => prev.filter(r => r.id !== reportId));
+          setAllReports(prev => prev.filter(r => r.id !== reportId));
       } catch (e) {
           console.error("Delete report error", e);
           alert("Kunne ikke slette rapporten.");
@@ -562,13 +577,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleApproveReport = async (reportId: number) => {
       if (isDemo) {
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Demo Controller' } : r));
+          const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'approved' as const, approvedBy: 'Demo Controller' } : r;
+          setReports(prev => prev.map(updater));
+          setAllReports(prev => prev.map(updater));
           return;
       }
       try {
-          const report = reports.find(r => r.id === reportId);
-          if (!report) return;
-
           await patchNEON({ 
               table: 'reports', 
               data: { 
@@ -578,8 +592,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               } 
           });
           
-          // Update list immediately
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'approved', approvedBy: 'Kontroller' } : r));
+          // Update lists immediately
+          const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'approved' as const, approvedBy: 'Kontroller' } : r;
+          setReports(prev => prev.map(updater));
+          setAllReports(prev => prev.map(updater));
 
       } catch (e) {
           console.error("Approval error", e);
@@ -589,7 +605,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUnlockReport = async (reportId: number) => {
       if(isDemo) {
-           setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
+           const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'submitted' as const, approvedBy: undefined } : r;
+           setReports(prev => prev.map(updater));
+           setAllReports(prev => prev.map(updater));
            return;
       }
       try {
@@ -602,7 +620,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   approvedByUserId: null
               } 
           });
-          setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: 'submitted', approvedBy: undefined } : r));
+          const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'submitted' as const, approvedBy: undefined } : r;
+          setReports(prev => prev.map(updater));
+          setAllReports(prev => prev.map(updater));
       } catch (e) {
           console.error("Unlock error", e);
       }
@@ -886,7 +906,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                onUpdate={handleUpdateCompany} 
                onDelete={handleDeleteCompany}
                // Removed onLogoUpload
-               onViewReport={(r) => alert("Vis rapportfunksjon kommer her")} // Simple handler for now
+               onViewReport={(r) => {}} 
+               onReportSubmit={handleSubmitReport}
+               onApproveReport={handleApproveReport}
+               onUnlockReport={handleUnlockReport}
+               onDeleteReport={handleDeleteReport}
            />
         )}
         {/* ... (UserAdminView logic remains) ... */}

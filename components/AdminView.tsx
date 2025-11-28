@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock, CheckCircle, Clock, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
@@ -11,10 +11,30 @@ interface AdminViewProps {
   onUpdate: (company: CompanyData) => void;
   onDelete: (id: number) => void;
   onLogoUpload?: (url: string) => void; 
-  onViewReport: (report: ReportLogItem) => void; // New prop
+  onViewReport: (report: ReportLogItem) => void; 
+  onReportSubmit: (report: any) => void;
+  onApproveReport: (reportId: number) => void;
+  onUnlockReport: (reportId: number) => void;
+  onDeleteReport: (reportId: number) => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd, onUpdate, onDelete, onViewReport }) => {
+// Helpers for Date Conversion (Same as CompanyDetailView)
+const toInputDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    if (dateStr.includes('-')) return dateStr;
+    const parts = dateStr.split('.');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return '';
+};
+
+const fromInputDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   const [activeTab, setActiveTab] = useState<'companies' | 'reports'>('companies');
@@ -25,6 +45,13 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
   // Reports Filter State
   const [reportFilter, setReportFilter] = useState('');
   const [reportSort, setReportSort] = useState<'date' | 'status'>('date');
+
+  // Report Modal State (Added for Admin Editing)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [editingReport, setEditingReport] = useState<ReportLogItem | null>(null);
+  const [reportFormData, setReportFormData] = useState<any>({});
+  const [reportingMode, setReportingMode] = useState<'ytd' | 'monthly'>('ytd');
+  const [monthlyInputs, setMonthlyInputs] = useState({ revenue: '', expenses: '' });
 
   // Budget Editing State
   const [budgetInputMode, setBudgetInputMode] = useState<'annual' | 'quarterly' | 'monthly'>('annual');
@@ -73,6 +100,89 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
       setMonthlyBudget(Array(12).fill(0));
     }
   }, [editingCompany, isModalOpen]);
+
+  // --- REPORT MODAL LOGIC ---
+  useEffect(() => {
+      if (editingReport) {
+          setReportingMode('ytd');
+          setReportFormData({
+              revenue: editingReport.revenue ?? '',
+              expenses: editingReport.expenses ?? '',
+              resultYTD: editingReport.result ?? '',
+              pnlDate: editingReport.pnlDate || new Date().toLocaleDateString('no-NO'),
+
+              liquidity: editingReport.liquidity ?? '',
+              receivables: editingReport.receivables ?? '',
+              accountsPayable: editingReport.accountsPayable ?? '',
+              
+              liquidityDate: editingReport.liquidityDate || new Date().toLocaleDateString('no-NO'),
+              receivablesDate: editingReport.receivablesDate || new Date().toLocaleDateString('no-NO'),
+              accountsPayableDate: editingReport.accountsPayableDate || new Date().toLocaleDateString('no-NO'),
+              
+              comment: editingReport.comment,
+              source: editingReport.source,
+              reportDate: editingReport.date,
+              companyId: editingReport.companyId
+          });
+      }
+  }, [editingReport, isReportModalOpen]);
+
+  // Auto-calculate Result YTD in Report Modal
+  useEffect(() => {
+      if (reportingMode === 'ytd') {
+          const rev = Number(reportFormData.revenue) || 0;
+          const exp = Number(reportFormData.expenses) || 0;
+          if (reportFormData.revenue === '' && reportFormData.expenses === '') {
+             // keep empty/0
+          } else {
+              setReportFormData((prev: any) => ({ ...prev, resultYTD: rev - exp }));
+          }
+      } else {
+           // Monthly mode logic requires company context which might be hard in Admin
+           // We'll try to find the company
+           const targetCompany = companies.find(c => c.id === editingReport?.companyId);
+           if (targetCompany) {
+                const mRev = Number(monthlyInputs.revenue) || 0;
+                const mExp = Number(monthlyInputs.expenses) || 0;
+                
+                const newTotalRevenue = targetCompany.revenue + mRev;
+                const newTotalExpenses = targetCompany.expenses + mExp;
+                
+                setReportFormData((prev: any) => ({
+                    ...prev,
+                    revenue: newTotalRevenue,
+                    expenses: newTotalExpenses,
+                    resultYTD: newTotalRevenue - newTotalExpenses
+                }));
+           }
+      }
+  }, [reportFormData.revenue, reportFormData.expenses, monthlyInputs, reportingMode, editingReport, companies]);
+
+
+  const handleReportSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      const payload = {
+          ...reportFormData,
+          revenue: reportFormData.revenue === '' ? undefined : Number(reportFormData.revenue),
+          expenses: reportFormData.expenses === '' ? undefined : Number(reportFormData.expenses),
+          resultYTD: reportFormData.resultYTD === '' ? undefined : Number(reportFormData.resultYTD),
+          liquidity: reportFormData.liquidity === '' ? undefined : Number(reportFormData.liquidity),
+          receivables: reportFormData.receivables === '' ? undefined : Number(reportFormData.receivables),
+          accountsPayable: reportFormData.accountsPayable === '' ? undefined : Number(reportFormData.accountsPayable),
+          id: editingReport ? editingReport.id : undefined,
+          companyId: editingReport ? editingReport.companyId : undefined // Ensure ID is passed
+      };
+      
+      onReportSubmit(payload);
+      setIsReportModalOpen(false);
+      setEditingReport(null);
+  };
+
+  const openReportModal = (report: ReportLogItem) => {
+      setEditingReport(report);
+      setIsReportModalOpen(true);
+  };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,18 +251,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
       [name]: type === 'number' ? parseFloat(value) || 0 : value
     }));
   };
-
-  const handleAnnualChange = (val: number) => setAnnualBudget(val);
-  const handleQuarterlyChange = (index: number, val: number) => {
-      const newQ = [...quarterlyBudget];
-      newQ[index] = val;
-      setQuarterlyBudget(newQ);
-  };
-  const handleMonthlyChange = (index: number, val: number) => {
-      const newM = [...monthlyBudget];
-      newM[index] = val;
-      setMonthlyBudget(newM);
-  };
   
   const getCompanyName = (id: number) => companies.find(c => c.id === id)?.name || 'Ukjent';
 
@@ -163,10 +261,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
       if (report.liquidity != null) items.push({ label: 'Likviditet', value: report.liquidity });
       if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
       
-      // Secondary items (optional, maybe skip for admin view if too crowded)
-      // if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
-      // if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
-
       if (items.length === 0) return <span className="text-xs text-slate-400 italic">Ingen tall</span>;
 
       return (
@@ -321,6 +415,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                             <th className="p-4">Tall</th> {/* NEW COLUMN */}
                             <th className="p-4">Kommentar</th>
                             <th className="p-4 text-center">Status</th>
+                            <th className="p-4 text-center">Handlinger</th>
                         </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
@@ -342,13 +437,255 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                                         {report.status === 'approved' ? 'Godkjent' : 'Til godkjenning'}
                                     </span>
                                 </td>
+                                <td className="p-4 text-center flex justify-center gap-2">
+                                     {report.status === 'approved' ? (
+                                        <>
+                                            <button 
+                                                onClick={() => openReportModal(report)}
+                                                className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                                title="Se rapport"
+                                            >
+                                                <Eye size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => onUnlockReport(report.id)}
+                                                className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
+                                                title="Lås opp rapport"
+                                            >
+                                                <Unlock size={16} />
+                                            </button>
+                                        </>
+                                     ) : (
+                                        <>
+                                            <button 
+                                                onClick={() => onApproveReport(report.id)}
+                                                className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                                                title="Godkjenn"
+                                            >
+                                                <CheckCircle size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => openReportModal(report)}
+                                                className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                                title="Rediger"
+                                            >
+                                                <Edit size={16} />
+                                            </button>
+                                            <button 
+                                                onClick={() => onDeleteReport(report.id)}
+                                                className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                                                title="Slett"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </>
+                                     )}
+                                </td>
                             </tr>
                         ))}
-                        {filteredReports.length === 0 && (<tr><td colSpan={6} className="p-8 text-center text-slate-400">Ingen rapporter funnet.</td></tr>)}
+                        {filteredReports.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400">Ingen rapporter funnet.</td></tr>)}
                         </tbody>
                     </table>
                </div>
            </div>
+      )}
+
+      {/* Report Edit Modal (Admin) */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
+                    <div>
+                        <h3 className="text-xl font-bold text-slate-900 dark:text-white">Rediger Rapport</h3>
+                        <p className="text-sm text-slate-500">{editingReport ? getCompanyName(editingReport.companyId || 0) : ''}</p>
+                    </div>
+                    <button onClick={() => setIsReportModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                
+                {/* Only Show Monthly Toggle if editingReport is present */}
+                {editingReport && (
+                    <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-200 dark:border-slate-700 flex justify-center">
+                        <div className="bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-600 flex shadow-sm">
+                            <button 
+                                type="button" 
+                                onClick={() => setReportingMode('ytd')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportingMode === 'ytd' ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                            >
+                                Akkumulert (YTD)
+                            </button>
+                            <button 
+                                type="button" 
+                                onClick={() => setReportingMode('monthly')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-colors ${reportingMode === 'monthly' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}
+                            >
+                                Legg til Månedstall
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <form onSubmit={handleReportSubmit} className="p-6 space-y-6">
+                    
+                    {/* SECTION 1: P&L */}
+                    <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 transition-all">
+                        <div className="flex justify-between items-center mb-3">
+                            <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                                <TrendingUp size={14}/> Drift & Resultat
+                            </h4>
+                            
+                            {/* P&L Date Field */}
+                            <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500"><Calendar size={10} className="inline mr-0.5"/> Dato tall:</span>
+                                    <input 
+                                    type="date" 
+                                    className="bg-transparent text-right text-xs font-bold text-slate-700 dark:text-slate-300 border-b border-slate-300 dark:border-slate-600 focus:border-sky-500 outline-none w-24"
+                                    value={toInputDate(reportFormData.pnlDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, pnlDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+                        
+                        {reportingMode === 'monthly' && (
+                            <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-xs text-blue-700 dark:text-blue-300">
+                                <p className="font-bold mb-1">Månedlig Modus:</p>
+                                <p>Legg til tall som summeres med nåværende tall.</p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-3">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                                    {reportingMode === 'monthly' ? 'Mnd. Omsetning' : 'Omsetning YTD'}
+                                </label>
+                                <input 
+                                    type="number" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
+                                    value={reportingMode === 'ytd' ? reportFormData.revenue : monthlyInputs.revenue} 
+                                    onChange={e => reportingMode === 'ytd' ? setReportFormData({...reportFormData, revenue: e.target.value}) : setMonthlyInputs({...monthlyInputs, revenue: e.target.value})} 
+                                    placeholder="0" 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                                    {reportingMode === 'monthly' ? 'Mnd. Kostnader' : 'Kostnader YTD'}
+                                </label>
+                                <input 
+                                    type="number" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm transition-all focus:ring-2 focus:ring-sky-500 outline-none" 
+                                    value={reportingMode === 'ytd' ? reportFormData.expenses : monthlyInputs.expenses} 
+                                    onChange={e => reportingMode === 'ytd' ? setReportFormData({...reportFormData, expenses: e.target.value}) : setMonthlyInputs({...monthlyInputs, expenses: e.target.value})} 
+                                    placeholder="0" 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">
+                                    Resultat YTD
+                                </label>
+                                <input 
+                                    type="number" 
+                                    readOnly
+                                    className="w-full bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-slate-500 dark:text-slate-400 text-sm font-bold cursor-not-allowed" 
+                                    value={reportFormData.resultYTD} 
+                                    title="Resultat beregnes automatisk"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* SECTION 2: BALANCE */}
+                    <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-4">
+                        <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
+                            <Wallet size={14}/> Likviditet & Balanse
+                        </h4>
+                        
+                        {/* Liquidity Row */}
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet (Bankinnskudd)</label>
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    value={reportFormData.liquidity} onChange={e => setReportFormData({...reportFormData, liquidity: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={toInputDate(reportFormData.liquidityDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, liquidityDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+
+                        {/* Receivables Row */}
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kundefordringer</label>
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    value={reportFormData.receivables} onChange={e => setReportFormData({...reportFormData, receivables: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={toInputDate(reportFormData.receivablesDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, receivablesDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+
+                        {/* Payables Row */}
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leverandørgjeld</label>
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    value={reportFormData.accountsPayable} onChange={e => setReportFormData({...reportFormData, accountsPayable: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={toInputDate(reportFormData.accountsPayableDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, accountsPayableDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Meta Data */}
+                    <div className="grid grid-cols-1 gap-4">
+                        <div>
+                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
+                            <select 
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
+                                value={reportFormData.source}
+                                onChange={e => setReportFormData({...reportFormData, source: e.target.value})}
+                            >
+                                <option value="Manuell">Manuell registrering</option>
+                                <option value="Tripletex">Tripletex Eksport</option>
+                                <option value="PowerOffice">PowerOffice Eksport</option>
+                                <option value="Visma">Visma eAccounting</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kommentar / Status</label>
+                            <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                value={reportFormData.comment} onChange={e => setReportFormData({...reportFormData, comment: e.target.value})} placeholder="Kort beskrivelse..." />
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
+                        <button type="submit" className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2 transition-transform active:scale-95">
+                            <Save size={18} /> 
+                            Lagre endringer
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
       )}
 
       {/* Add/Edit Company Modal */}
