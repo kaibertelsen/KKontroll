@@ -124,16 +124,21 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   // --- HISTORY CHART DATA GENERATION ---
   const historyData = useMemo(() => {
       const data = [];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov'];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      const monthlyBudget = company.budgetTotal / 12;
-      const currentMonthIndex = 10; // Nov
-      const avgResultPerMonth = company.resultYTD / currentMonthIndex;
+      const bMonths = company.budgetMonths && company.budgetMonths.length === 12 
+        ? company.budgetMonths 
+        : Array(12).fill(company.budgetTotal / 12);
+
+      const now = new Date();
+      const currentMonthIndex = now.getMonth(); 
+      
+      const avgResultPerMonth = company.resultYTD / (currentMonthIndex + 1);
       
       for (let i = 0; i <= currentMonthIndex; i++) {
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(monthlyBudget);
+        const budget = Math.round(bMonths[i]); // Use specific month budget
         
         const prevResult = i > 0 ? data[i-1].cumResult : 0;
         const prevBudget = i > 0 ? data[i-1].cumBudget : 0;
@@ -151,8 +156,10 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
         });
       }
       // Force last point to match actuals
-      data[data.length - 1].cumResult = company.resultYTD;
-      data[data.length - 1].liquidity = company.liquidity;
+      if(data.length > 0) {
+          data[data.length - 1].cumResult = company.resultYTD;
+          data[data.length - 1].liquidity = company.liquidity;
+      }
       return data;
   }, [company]);
 
@@ -505,7 +512,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
                             <Legend />
                             <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
-                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="5 5" strokeWidth={2} dot={false} />
+                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#64748b" strokeDasharray="4 4" strokeWidth={2} dot={false} />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>

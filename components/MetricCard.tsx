@@ -44,31 +44,46 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   // --- CHART DATA GENERATION ---
   const chartData = useMemo(() => {
-      const chartData = [];
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov'];
+      const items = [];
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      const monthlyBudget = data.budgetTotal / 12;
-      const currentMonthIndex = 10; // Nov
-      const avgResultPerMonth = data.resultYTD / currentMonthIndex;
+      // Use actual budget distribution if available, otherwise flat average
+      const bMonths = data.budgetMonths && data.budgetMonths.length === 12 
+        ? data.budgetMonths 
+        : Array(12).fill(data.budgetTotal / 12);
+
+      const now = new Date();
+      const currentMonthIndex = now.getMonth(); 
+      
+      // Calculate a rough monthly average result to simulate history curve
+      const avgResultPerMonth = data.resultYTD / (currentMonthIndex + 1);
       
       for (let i = 0; i <= currentMonthIndex; i++) {
+        // Simulate result variance
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(monthlyBudget);
         
-        const prevResult = i > 0 ? chartData[i-1].cumResult : 0;
-        const prevBudget = i > 0 ? chartData[i-1].cumBudget : 0;
+        // Use specific month budget
+        const budget = bMonths[i];
+        
+        const prevResult = i > 0 ? items[i-1].cumResult : 0;
+        const prevBudget = i > 0 ? items[i-1].cumBudget : 0;
 
-        chartData.push({
+        items.push({
           month: months[i],
           cumResult: prevResult + result,
           cumBudget: prevBudget + budget,
         });
       }
-      if(chartData.length > 0) {
-          chartData[chartData.length - 1].cumResult = data.resultYTD;
+
+      // Force last point to match actual YTD totals exactly
+      if(items.length > 0) {
+          items[items.length - 1].cumResult = data.resultYTD;
+          // Note: Chart shows cumulative full months. 
+          // calculatedBudgetYTD might be partial based on days, but for chart visualization 
+          // we stick to the cumulative monthly budget sum for the line.
       }
-      return chartData;
+      return items;
   }, [data]);
 
   // Trend Logic
@@ -234,7 +249,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
                         <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
-                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#94a3b8" strokeDasharray="3 3" strokeWidth={1} dot={false} />
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#64748b" strokeDasharray="4 4" strokeWidth={2} dot={false} />
                     </AreaChart>
                 </ResponsiveContainer>
               </div>
