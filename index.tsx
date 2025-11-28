@@ -2,9 +2,10 @@
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import LoginScreen from './components/LoginScreen';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
-import { Lock, LogIn, MonitorPlay, Loader2, Terminal, CheckCircle2, XCircle, RefreshCw, LogOut, Mail, KeyRound } from 'lucide-react';
+import { MonitorPlay, Loader2, XCircle, RefreshCw, LogOut } from 'lucide-react';
 
 console.log("KonsernKontroll Script Loaded");
 
@@ -55,45 +56,6 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 
 // Fallback user ID for testing "Live" mode without Memberstack
 const TEST_USER_ID = "mem_sb_cmi4ny448009m0sr4ew3hdge1";
-const MEMBERSTACK_APP_ID = "app_cmhvzr10a00bq0ss39szp9ozj";
-
-// --- DYNAMIC SCRIPT LOADER ---
-const loadMemberstackScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        if (window.$memberstackDom) {
-            return resolve();
-        }
-        
-        if (document.querySelector(`script[data-memberstack-app="${MEMBERSTACK_APP_ID}"]`)) {
-             const checkInterval = setInterval(() => {
-                 if (window.$memberstackDom) {
-                     clearInterval(checkInterval);
-                     resolve();
-                 }
-             }, 100);
-             setTimeout(() => { clearInterval(checkInterval); resolve(); }, 5000);
-             return;
-        }
-
-        console.log("Loading Memberstack dynamically...");
-        const script = document.createElement('script');
-        script.src = "https://static.memberstack.com/scripts/v2/memberstack.js";
-        script.dataset.memberstackApp = MEMBERSTACK_APP_ID;
-        script.type = "text/javascript";
-        script.async = true;
-
-        script.onload = () => {
-            console.log("Memberstack script loaded.");
-            setTimeout(resolve, 200);
-        };
-        script.onerror = (e) => {
-            console.error("Failed to load Memberstack", e);
-            reject(e);
-        };
-
-        document.head.appendChild(script);
-    });
-};
 
 // --- LOADING LOGGER COMPONENT ---
 interface LogEntry {
@@ -127,7 +89,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.8</div>
+                    <div className="text-[10px] text-slate-400">v1.3.9</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -171,183 +133,6 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                     Jobber...
                 </p>
             )}
-        </div>
-    );
-};
-
-
-// --- CUSTOM LOGIN SCREEN COMPONENT (A-KK BRANDED) ---
-const LoginScreen = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [loginSuccess, setLoginSuccess] = useState(false);
-
-    // Demo Mode State
-    const [demoPwd, setDemoPwd] = useState('');
-    const [showDemo, setShowDemo] = useState(false);
-
-    // Initialize Memberstack on mount
-    useEffect(() => {
-        loadMemberstackScript().catch(console.error);
-    }, []);
-
-    const handleLogin = (e: React.FormEvent) => {
-        // We do NOT call preventDefault() here if we want Memberstack to potentially handle a native submit, 
-        // BUT Memberstack usually intercepts the submit event on the DOM element.
-        // We add this listener to track loading state and start polling.
-        
-        setError('');
-        setIsLoading(true);
-
-        // Start polling for token immediately
-        const pollTimer = setInterval(() => {
-            const token = localStorage.getItem("_ms-mid");
-            if (token) {
-                clearInterval(pollTimer);
-                setLoginSuccess(true);
-                setIsLoading(false);
-                
-                // Start the app immediately
-                setTimeout(() => {
-                    console.log("Token detected, initializing system...");
-                    window.initKonsernKontroll();
-                }, 500);
-            }
-        }, 200);
-
-        // Stop polling after 15 seconds
-        setTimeout(() => {
-            clearInterval(pollTimer);
-            if (!localStorage.getItem("_ms-mid")) {
-                 setIsLoading(false);
-                 // Optional: Show timeout error, but usually Memberstack UI handles errors
-            }
-        }, 15000);
-    };
-
-    const handleDemoSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (demoPwd === 'KonsernDemo2025') {
-            localStorage.setItem('konsern_access', 'granted');
-            window.initKonsernKontroll(undefined, true);
-        } else {
-            setError("Feil demo-passord");
-        }
-    };
-
-    return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden">
-            {/* Background Elements */}
-            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20">
-                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-sky-900 blur-[100px]"></div>
-                <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-slate-800 blur-[100px]"></div>
-            </div>
-
-            <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl p-8 z-10 relative animate-in zoom-in-95 duration-500">
-                
-                <div className="text-center mb-8">
-                    <div className="flex justify-center mb-6">
-                        <img 
-                            src="https://ucarecdn.com/b3e83749-8c8a-4382-b28b-fe1d988eff42/Attentioshlogo.png" 
-                            alt="Attentio KK" 
-                            className="h-20 w-auto object-contain"
-                        />
-                    </div>
-                    <h1 className="text-2xl font-bold text-white">Attentio KK</h1>
-                    {loginSuccess ? (
-                        <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl animate-in fade-in">
-                             <p className="text-emerald-300 font-bold text-lg mb-1">Innlogging Vellykket!</p>
-                             <p className="text-emerald-200 text-sm flex items-center justify-center gap-2">
-                                <Loader2 className="animate-spin" size={14}/> Starter systemet...
-                             </p>
-                        </div>
-                    ) : (
-                        <p className="text-slate-400 text-sm mt-2">Logg inn for å få tilgang til dashboard</p>
-                    )}
-                </div>
-
-                {!loginSuccess && (
-                    <>
-                    {!showDemo ? (
-                        <form data-ms-form="login" onSubmit={handleLogin} className="space-y-5">
-                            <div className="space-y-1">
-                                <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                    <input 
-                                        type="email" 
-                                        required
-                                        data-ms-member="email"
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
-                                        placeholder="navn@selskap.no"
-                                        value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between ml-1">
-                                    <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
-                                    <a href="#" data-ms-modal="forgot-password" className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</a>
-                                </div>
-                                <div className="relative">
-                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                    <input 
-                                        type="password" 
-                                        required
-                                        data-ms-member="password"
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
-
-                            <button 
-                                type="submit" 
-                                disabled={isLoading}
-                                className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
-                            >
-                                {isLoading && <Loader2 className="animate-spin" size={20} />}
-                                {isLoading ? 'Logger inn...' : 'Logg inn'}
-                            </button>
-                        </form>
-                    ) : (
-                        <form onSubmit={handleDemoSubmit} className="space-y-5">
-                            <div className="text-center text-amber-400 text-sm font-medium mb-2">Demomodus</div>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                                <input 
-                                    type="password" 
-                                    required
-                                    className="w-full bg-slate-800/50 border border-amber-900/50 focus:ring-amber-500/50 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 outline-none transition-all"
-                                    placeholder="Demo Passord"
-                                    value={demoPwd}
-                                    onChange={e => setDemoPwd(e.target.value)}
-                                />
-                            </div>
-                            {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
-                            <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
-                        </form>
-                    )}
-
-                    <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                        <button onClick={() => {setShowDemo(!showDemo); setError('');}} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                            {showDemo ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
-                        </button>
-                    </div>
-                    </>
-                )}
-            </div>
-            
-            <div className="absolute bottom-4 text-slate-600 text-[10px]">
-                Powered by Attentio
-            </div>
         </div>
     );
 };
@@ -396,36 +181,45 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   // 1. AUTH CHECK
   let memberstackUser = null;
   const localToken = localStorage.getItem("_ms-mid");
-  if (localToken) {
-      addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
-  }
+  const forceDemo = demoMode || localStorage.getItem('konsern_mode') === 'demo';
 
-  try {
-      addLog("Sjekker Memberstack status...");
-      if (window.$memberstackDom) {
-          const member = await window.$memberstackDom.getCurrentMember();
-          if (member?.data) {
-              memberstackUser = member.data;
-              addLog(`Memberstack bruker funnet: ${memberstackUser.id}`, 'success');
-          } else {
-              addLog("Ingen aktiv Memberstack sesjon funnet.");
-          }
-      } else {
-          addLog("Memberstack DOM ikke tilgjengelig.");
+  if (!forceDemo) {
+      if (localToken) {
+          addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
       }
-  } catch (e: any) { 
-      addLog(`Feil under Memberstack sjekk: ${e.message}`, 'error');
+
+      try {
+          addLog("Sjekker Memberstack status...");
+          if (window.$memberstackDom) {
+              const member = await window.$memberstackDom.getCurrentMember();
+              if (member?.data) {
+                  memberstackUser = member.data;
+                  addLog(`Memberstack bruker funnet: ${memberstackUser.id}`, 'success');
+              } else {
+                  addLog("Ingen aktiv Memberstack sesjon funnet.");
+              }
+          } else {
+              addLog("Memberstack DOM ikke klar - men token finnes. Prøver auto-login...");
+              // We trust the token if MS dom isn't ready yet, it will verify against API later
+              if (localToken) {
+                   // Minimal mock user for "Assume logged in" state until verified by DB
+                   memberstackUser = { id: "mem_temp", customFields: {} }; 
+              }
+          }
+      } catch (e: any) { 
+          addLog(`Feil under Memberstack sjekk: ${e.message}`, 'error');
+      }
   }
 
   // 2. DETERMINE MODE
   let shouldStartApp = false;
   let isDemo = false;
 
-  if (demoMode === true) {
+  if (forceDemo) {
       shouldStartApp = true;
       isDemo = true;
       addLog("Modus satt til: DEMO", 'info');
-  } else if (memberstackUser) {
+  } else if (localToken || memberstackUser) {
       shouldStartApp = true;
       isDemo = false;
       addLog("Modus satt til: LIVE", 'info');
@@ -433,18 +227,16 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   
   if (!shouldStartApp) {
       addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
-      // WAIT FOR LOGIN LOOP - Checks if user has logged in via form
-      const checkLogin = setInterval(async () => {
-           if (localStorage.getItem("_ms-mid")) {
-               clearInterval(checkLogin);
-               console.log("Login token detected, initializing...");
-               window.initKonsernKontroll();
-           }
-      }, 1000);
       
-      setTimeout(() => {
-          root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
-      }, 800);
+      // RENDER LOGIN SCREEN
+      root.render(
+        <React.StrictMode>
+            <LoginScreen 
+                onLoginSuccess={() => window.initKonsernKontroll()} 
+                onDemoStart={() => window.initKonsernKontroll(undefined, true)}
+            />
+        </React.StrictMode>
+      );
       return;
   }
 
@@ -477,7 +269,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   // --- REAL MODE START ---
   let effectiveUserId = userId;
   
-  if (!effectiveUserId && memberstackUser) {
+  // Try to use the Memberstack ID if we have the real object, otherwise rely on the DB lookup via token logic (Neon handles AuthID)
+  if (!effectiveUserId && memberstackUser && memberstackUser.id !== "mem_temp") {
       if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
           effectiveUserId = memberstackUser.customFields['neonid'];
           addLog(`Bruker Custom Field 'neonid': ${effectiveUserId}`, 'info');
@@ -487,7 +280,50 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       }
   }
 
-  if (!effectiveUserId) effectiveUserId = TEST_USER_ID;
+  // If we still only have the token (mem_temp), we need to rely on the neon.ts to pick up the token from localStorage
+  // But for the DB query below, we need an ID. 
+  // HACK: If we have a token but no ID, we fetch /users/me endpoint? No, Neon API expects a WHERE clause.
+  // Actually, getNEON with `authId` usually expects the Memberstack ID.
+  // If we assume the user is logged in, we can try to find them by the token? No.
+  
+  // FIX: If we don't have the user object yet (e.g. script wasn't loaded), wait or retry?
+  if (!effectiveUserId && localToken) {
+       // We can try to decode the token but MS tokens are opaque.
+       // Let's assume we need to wait for MS script or just use the TEST_ID if debugging?
+       // For now, if we have a token, we might need to rely on the Memberstack script to give us the ID.
+       if (window.$memberstackDom) {
+            try {
+                const member = await window.$memberstackDom.getCurrentMember();
+                if(member?.data) effectiveUserId = member.data.id;
+            } catch(e) {}
+       }
+  }
+
+  if (!effectiveUserId) {
+       // Last resort fallback if we have a token but couldn't get ID -> Maybe invalid session?
+       addLog("Fant token, men kunne ikke hente Member ID. Prøver å laste på nytt...");
+       if (!window.$memberstackDom) {
+           // Reload page to force script load if missing
+           // window.location.reload();
+           // OR just fail gracefully
+       }
+  }
+
+  // Fallback for dev/testing if absolutely nothing else works
+  // if (!effectiveUserId) effectiveUserId = TEST_USER_ID; 
+
+  if (!effectiveUserId) {
+      addLog("Kunne ikke identifisere bruker. Logger ut...", 'error');
+      localStorage.removeItem("_ms-mid");
+      renderLog([
+            {
+                label: "Prøv igjen",
+                icon: RefreshCw,
+                onClick: () => window.location.reload()
+            }
+        ]);
+      return;
+  }
 
   try {
     addLog("Kobler til Neon database...");
@@ -496,7 +332,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const userIdStr = String(effectiveUserId);
     
     if (userIdStr.startsWith('mem_')) {
-        // CORRECTION: DO NOT ADD QUOTES MANUALLY. URLSearchParams handles encoding.
         userWhere = { authId: userIdStr }; 
         addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
     } else if (/^\d+$/.test(userIdStr)) {
@@ -528,8 +363,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
                 label: "Logg ut og prøv igjen",
                 icon: LogOut,
                 onClick: () => { 
+                    localStorage.removeItem("_ms-mid");
                     if(window.$memberstackDom) window.$memberstackDom.logout(); 
-                    window.initKonsernKontroll(); 
+                    window.location.reload(); 
                 }
             }
         ]);
@@ -666,15 +502,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 };
 
 window.addEventListener('DOMContentLoaded', async () => {
-    const mode = localStorage.getItem('konsern_mode');
-    if (mode === 'live') {
-        try {
-            await loadMemberstackScript();
-        } catch (e) {
-            console.warn("Background MS load failed", e);
-        }
-    }
-    
+    // Start app on load
     setTimeout(() => {
         window.initKonsernKontroll();
     }, 100);
