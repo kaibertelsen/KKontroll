@@ -193,70 +193,38 @@ const LoginScreen = () => {
         loadMemberstackScript().catch(console.error);
     }, []);
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleLogin = (e: React.FormEvent) => {
+        // We do NOT call preventDefault() here if we want Memberstack to potentially handle a native submit, 
+        // BUT Memberstack usually intercepts the submit event on the DOM element.
+        // We add this listener to track loading state and start polling.
+        
         setError('');
         setIsLoading(true);
 
-        try {
-            await loadMemberstackScript();
-            
-            // Robust check to ensure function exists before calling
-            if (window.$memberstackDom && typeof window.$memberstackDom.loginMember === 'function') {
-                await window.$memberstackDom.loginMember({ email, password });
+        // Start polling for token immediately
+        const pollTimer = setInterval(() => {
+            const token = localStorage.getItem("_ms-mid");
+            if (token) {
+                clearInterval(pollTimer);
+                setLoginSuccess(true);
+                setIsLoading(false);
                 
-                // --- ROBUST TOKEN CHECK ---
-                // Wait briefly and poll for token to ensure it's written to localStorage
-                let token = localStorage.getItem("_ms-mid");
-                let attempts = 0;
-                
-                while (!token && attempts < 10) {
-                    await new Promise(r => setTimeout(r, 200));
-                    token = localStorage.getItem("_ms-mid");
-                    attempts++;
-                }
-
-                if (token) {
-                    setLoginSuccess(true);
-                    setIsLoading(false);
-                    
-                    // Start the app immediately
-                    setTimeout(() => {
-                        console.log("Token detected, initializing system...");
-                        window.initKonsernKontroll();
-                    }, 500);
-                } else {
-                    console.warn("Token not found after polling.");
-                    // Last resort: Reload to force Memberstack to re-hydrate from session
-                    setLoginSuccess(true);
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
-                }
-
-            } else {
-                console.error("Memberstack DOM exists but loginMember is missing:", window.$memberstackDom);
-                throw new Error("Innloggingstjenesten er ikke klar (API-feil).");
+                // Start the app immediately
+                setTimeout(() => {
+                    console.log("Token detected, initializing system...");
+                    window.initKonsernKontroll();
+                }, 500);
             }
-        } catch (err: any) {
-            console.error("Login Error:", err);
-            setError(err.message || "Feil brukernavn eller passord.");
-            setIsLoading(false);
-        }
-    };
+        }, 200);
 
-    const handleForgotPassword = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        
-        try {
-            await loadMemberstackScript();
-            if (window.$memberstackDom) {
-                 await window.$memberstackDom.openModal("FORGOT_PASSWORD");
+        // Stop polling after 15 seconds
+        setTimeout(() => {
+            clearInterval(pollTimer);
+            if (!localStorage.getItem("_ms-mid")) {
+                 setIsLoading(false);
+                 // Optional: Show timeout error, but usually Memberstack UI handles errors
             }
-        } catch (err: any) {
-             setError("Kunne ikke åpne tilbakestilling.");
-        }
+        }, 15000);
     };
 
     const handleDemoSubmit = (e: React.FormEvent) => {
@@ -303,7 +271,7 @@ const LoginScreen = () => {
                 {!loginSuccess && (
                     <>
                     {!showDemo ? (
-                        <form onSubmit={handleLogin} className="space-y-5">
+                        <form data-ms-form="login" onSubmit={handleLogin} className="space-y-5">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
                                 <div className="relative">
@@ -311,6 +279,7 @@ const LoginScreen = () => {
                                     <input 
                                         type="email" 
                                         required
+                                        data-ms-member="email"
                                         className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
                                         placeholder="navn@selskap.no"
                                         value={email}
@@ -321,13 +290,14 @@ const LoginScreen = () => {
                             <div className="space-y-1">
                                 <div className="flex justify-between ml-1">
                                     <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
-                                    <button type="button" onClick={handleForgotPassword} className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</button>
+                                    <a href="#" data-ms-modal="forgot-password" className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</a>
                                 </div>
                                 <div className="relative">
                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                                     <input 
                                         type="password" 
                                         required
+                                        data-ms-member="password"
                                         className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
                                         placeholder="••••••••"
                                         value={password}
@@ -344,7 +314,7 @@ const LoginScreen = () => {
                                 className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
                             >
                                 {isLoading && <Loader2 className="animate-spin" size={20} />}
-                                {isLoading ? 'Sjekker bruker...' : 'Logg inn'}
+                                {isLoading ? 'Logger inn...' : 'Logg inn'}
                             </button>
                         </form>
                     ) : (
