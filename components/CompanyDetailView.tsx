@@ -40,7 +40,7 @@ const fromInputDate = (dateStr: string) => {
 const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany }) => {
   
   // DEBUG LOGGING
-  console.log("CompanyDetailView Loaded for:", company.name);
+  console.log("CompanyDetailView rendering for:", company.name);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<ReportLogItem | null>(null);
@@ -336,10 +336,10 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // THIS IS THE FUNCTION WE USE IN FORM
-  const handleForecastSubmit = (e: React.FormEvent) => {
+  // FIXED: Renamed local function to eliminate naming conflict
+  const onSaveForecast = (e: React.FormEvent) => {
       e.preventDefault();
-      console.log("Submitting forecast...", forecastForm);
+      console.log("Submitting forecast:", forecastForm);
       onForecastSubmit(forecastForm);
       setIsForecastModalOpen(false);
   };
@@ -908,7 +908,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={handleForecastSubmit} className="p-6">
+                    <form onSubmit={onSaveForecast} className="p-6">
                         <div className="space-y-4">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
                                 Legg inn forventede innbetalinger (fordringer/salg) og utbetalinger (gjeld/kostnader) for de neste månedene.

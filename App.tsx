@@ -607,15 +607,111 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       }
   };
 
-  const handleUpdateGroupLogo = async (newLogoUrl: string) => {
-       if (isDemo) return;
+  const handleForecastSubmit = async (submittedForecasts: ForecastItem[]) => {
+      console.log("App.tsx: handleForecastSubmit called with", submittedForecasts);
+      if(isDemo) {
+          setForecasts(submittedForecasts);
+          return;
+      }
+      try {
+          for (const f of submittedForecasts) {
+              const payload = {
+                  companyId: f.companyId,
+                  month: f.month,
+                  estimatedReceivables: f.estimatedReceivables,
+                  estimatedPayables: f.estimatedPayables
+              };
+              
+              if (f.id) {
+                   await patchNEON({ table: 'forecasts', data: { id: f.id, ...payload } });
+              } else {
+                   await postNEON({ table: 'forecasts', data: payload });
+              }
+          }
+          // Reload forecasts
+          if(selectedCompany) {
+               const res = await getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } });
+                if(res.rows) {
+                    const mapped = res.rows.map((f: any) => ({
+                        id: f.id,
+                        companyId: f.companyId || f.company_id,
+                        month: f.month,
+                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
+                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
+                    }));
+                    setForecasts(mapped);
+                }
+          }
+      } catch (e) {
+          console.error("Forecast submit error", e);
+      }
+  };
+
+  // --- USER HANDLERS ---
+  const handleAddUser = async (user: Omit<UserData, 'id'>) => {
+      try {
+          const payload = {
+              authId: user.authId,
+              email: user.email,
+              fullName: user.fullName,
+              role: user.role,
+              groupId: userProfile.groupId,
+              companyId: user.companyId
+          };
+          await postNEON({ table: 'users', data: payload });
+          
+          const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
+          if(res.rows) setUsers(res.rows.map((u:any) => ({
+              id: u.id, 
+              authId: u.authId || u.auth_id, 
+              email: u.email, 
+              role: u.role, 
+              fullName: u.fullName || u.full_name, 
+              groupId: u.groupId || u.group_id, 
+              companyId: u.companyId || u.company_id
+          })));
+      } catch (e) {
+          console.error("Add user error", e);
+          alert("Kunne ikke legge til bruker");
+      }
+  };
+
+  const handleUpdateUser = async (user: UserData) => {
+      try {
+          const payload = {
+              id: user.id,
+              authId: user.authId,
+              email: user.email,
+              fullName: user.fullName,
+              role: user.role,
+              companyId: user.companyId
+          };
+           await patchNEON({ table: 'users', data: payload });
+           
+           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
+           if(res.rows) setUsers(res.rows.map((u:any) => ({
+               id: u.id, 
+               authId: u.authId || u.auth_id, 
+               email: u.email, 
+               role: u.role, 
+               fullName: u.fullName || u.full_name, 
+               groupId: u.groupId || u.group_id, 
+               companyId: u.companyId || u.company_id
+           })));
+      } catch (e) {
+          console.error("Update user error", e);
+          alert("Kunne ikke oppdatere bruker");
+      }
+  };
+
+  const handleDeleteUser = async (id: number) => {
        try {
-           await patchNEON({ table: 'groups', data: { id: userProfile.groupId, logoUrl: newLogoUrl } });
-           alert("Logo oppdatert! Last inn siden på nytt for å se endringene.");
-       } catch (e) {
-           console.error("Logo update failed", e);
-           alert("Kunne ikke lagre logo.");
-       }
+          await deleteNEON({ table: 'users', data: id });
+          setUsers(users.filter(u => u.id !== id));
+      } catch (e) {
+          console.error("Delete user error", e);
+          alert("Kunne ikke slette bruker");
+      }
   };
 
   const handleLogout = () => {
@@ -728,18 +824,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
-               {userProfile.logoUrl ? (
-                   <img src={userProfile.logoUrl} alt="Logo" className="h-8 w-auto max-w-[150px] object-contain" />
-               ) : (
-                   <div className="bg-slate-900 dark:bg-slate-700 text-white p-2 rounded-lg shadow-md"><Building2 size={20} /></div>
-               )}
-               <div>
-                  <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                      {userProfile.groupName || 'Konsernoversikt'}
-                  </h1>
+            <a href="https://www.attentio.no" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+               <div className="bg-white/10 p-1.5 rounded-lg">
+                  <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Attentio" className="h-8 w-8 rounded-lg shadow-sm" />
                </div>
-            </div>
+               <div className="hidden sm:block">
+                  <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{userProfile.groupName || 'Konsernoversikt'}</h1>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Powered by Attentio</p>
+               </div>
+            </a>
 
             {isAdminMode && (
                 <div className="flex items-center bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full border border-slate-200 dark:border-slate-600 absolute left-1/2 transform -translate-x-1/2 hidden md:flex">
