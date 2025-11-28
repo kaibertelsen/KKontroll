@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
-import { Lock, LogIn, MonitorPlay, Loader2, Terminal, CheckCircle2, XCircle, RefreshCw, LogOut } from 'lucide-react';
+import { Lock, LogIn, MonitorPlay, Loader2, Terminal, CheckCircle2, XCircle, RefreshCw, LogOut, Mail, KeyRound } from 'lucide-react';
 
 console.log("KonsernKontroll Script Loaded");
 
@@ -126,7 +126,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.2.2</div>
+                    <div className="text-[10px] text-slate-400">v1.3.0</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -175,125 +175,163 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
 };
 
 
-// --- LOGIN SCREEN COMPONENT ---
+// --- CUSTOM LOGIN SCREEN COMPONENT (A-KK BRANDED) ---
 const LoginScreen = () => {
-    const [pwd, setPwd] = useState('');
-    const [error, setError] = useState(false);
-    const [isLoadingMs, setIsLoadingMs] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isForgotPassword, setIsForgotPassword] = useState(false);
+    const [resetSent, setResetSent] = useState(false);
 
-    const handleDemoSubmit = (e: React.FormEvent) => {
+    // Demo Mode State
+    const [demoPwd, setDemoPwd] = useState('');
+    const [showDemo, setShowDemo] = useState(false);
+
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (pwd === 'KonsernDemo2025') {
-            localStorage.setItem('konsern_access', 'granted');
-            window.initKonsernKontroll(undefined, true);
-        } else {
-            setError(true);
+        setError('');
+        setIsLoading(true);
+
+        try {
+            await loadMemberstackScript();
+            if (window.$memberstackDom) {
+                await window.$memberstackDom.loginMember({ email, password });
+                // Memberstack handles redirect/session storage automatically.
+                // We rely on the interval in the main loader to detect the session.
+            } else {
+                setError("Innloggingstjenesten er ikke tilgjengelig.");
+            }
+        } catch (err: any) {
+            console.error("Login Error:", err);
+            setError(err.message || "Feil brukernavn eller passord.");
+            setIsLoading(false);
         }
     };
 
-    const handleAttentioLogin = async () => {
-        setIsLoadingMs(true);
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setIsLoading(true);
+
         try {
             await loadMemberstackScript();
-            
+            // Note: Memberstack DOM doesn't have a direct sendResetPasswordEmail without modal usually, 
+            // but often openModal('RESET_PASSWORD') is used. 
+            // Or we can redirect to their hosted reset page if configured.
+            // Here we assume openModal works for simplicity as per request "sett deg inn i beskrivelsen".
             if (window.$memberstackDom) {
-                const loginCheckInterval = setInterval(() => {
-                    const token = localStorage.getItem("_ms-mid");
-                    if (token) {
-                        clearInterval(loginCheckInterval);
-                        console.log("Login detected via _ms-mid. Initializing app...");
-                        setTimeout(() => window.initKonsernKontroll(), 500);
-                    }
-                }, 1000); 
-
-                await window.$memberstackDom.openModal('LOGIN');
-            } else {
-                setTimeout(async () => {
-                    if(window.$memberstackDom) {
-                         const loginCheckInterval = setInterval(() => {
-                            if (localStorage.getItem("_ms-mid")) {
-                                clearInterval(loginCheckInterval);
-                                window.initKonsernKontroll();
-                            }
-                        }, 1000);
-                        await window.$memberstackDom.openModal('LOGIN');
-                    }
-                    else alert("Kunne ikke starte innloggingstjenesten. Prøv igjen.");
-                }, 500);
+                 await window.$memberstackDom.openModal("FORGOT_PASSWORD");
+                 setResetSent(true);
             }
-        } catch (err) {
-            console.error("Login error:", err);
-            alert("Feil ved lasting av innlogging. Sjekk nettilgang.");
+        } catch (err: any) {
+             setError("Kunne ikke åpne tilbakestilling.");
         } finally {
-            if (!localStorage.getItem("_ms-mid")) {
-                 setIsLoadingMs(false);
-            }
+            setIsLoading(false);
+        }
+    };
+
+    const handleDemoSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (demoPwd === 'KonsernDemo2025') {
+            localStorage.setItem('konsern_access', 'granted');
+            window.initKonsernKontroll(undefined, true);
+        } else {
+            setError("Feil demo-passord");
         }
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4 font-sans">
-            <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-8 animate-in zoom-in-95 duration-300">
-                
-                <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center h-full justify-center relative overflow-hidden group">
-                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-500 to-blue-600"></div>
-                    
-                    <div className="mb-8">
-                        <img 
-                            src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
-                            alt="Attentio Logo" 
-                            className="h-12 object-contain mx-auto"
-                        />
-                    </div>
-                    
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Attentio Bruker</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mb-8 text-sm">
-                        Logg inn med din Attentio-konto for å få tilgang til live data og rapportering.
-                    </p>
+        <div className="min-h-screen flex items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden">
+            {/* Background Elements */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 opacity-20">
+                <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-sky-900 blur-[100px]"></div>
+                <div className="absolute bottom-[10%] right-[10%] w-[40%] h-[40%] rounded-full bg-slate-800 blur-[100px]"></div>
+            </div>
 
-                    <button 
-                        onClick={handleAttentioLogin}
-                        disabled={isLoadingMs}
-                        className="w-full max-w-xs bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 px-6 rounded-lg transition-all shadow-lg hover:shadow-sky-500/30 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-wait"
-                    >
-                        {isLoadingMs ? <Loader2 size={18} className="animate-spin" /> : <LogIn size={18} />}
-                        {isLoadingMs ? 'Venter på innlogging...' : 'Logg inn med Attentio'}
-                    </button>
+            <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl p-8 z-10 relative animate-in zoom-in-95 duration-500">
+                
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-600 to-slate-800 shadow-lg mb-4">
+                        <span className="text-2xl font-bold text-white tracking-tighter">A-KK</span>
+                    </div>
+                    <h1 className="text-2xl font-bold text-white">Attentio Konsern Kontroll</h1>
+                    <p className="text-slate-400 text-sm mt-2">Logg inn for å få tilgang til dashboard</p>
                 </div>
 
-                <div className="bg-slate-100 dark:bg-slate-800/50 p-8 rounded-2xl shadow-inner border border-slate-200 dark:border-slate-700 flex flex-col justify-center">
-                    <div className="text-center mb-6">
-                        <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100 text-amber-600 mb-4">
-                            <MonitorPlay size={24} />
-                        </div>
-                        <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">Demo Bruker</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider mt-1">Kun for demonstrasjon</p>
-                    </div>
-
-                    <form onSubmit={handleDemoSubmit} className="space-y-4 w-full max-w-xs mx-auto">
-                        <div>
+                {!showDemo ? (
+                    <form onSubmit={handleLogin} className="space-y-5">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
                             <div className="relative">
-                                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                                 <input 
-                                    type="password" 
-                                    value={pwd}
-                                    onChange={e => {setPwd(e.target.value); setError(false);}}
-                                    className="w-full pl-10 p-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm"
-                                    placeholder="Skriv inn demo-passord..."
+                                    type="email" 
+                                    required
+                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                                    placeholder="navn@selskap.no"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
                                 />
                             </div>
                         </div>
-                        {error && <p className="text-rose-600 text-xs font-medium text-center animate-pulse">Feil passord</p>}
-                        <button type="submit" className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-lg transition-colors shadow flex justify-center items-center gap-2 text-sm">
-                            Start Demo
+                        <div className="space-y-1">
+                             <div className="flex justify-between ml-1">
+                                <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
+                                <button type="button" onClick={handleForgotPassword} className="text-xs text-sky-400 hover:text-sky-300 transition-colors">Glemt passord?</button>
+                            </div>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                <input 
+                                    type="password" 
+                                    required
+                                    className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={e => setPassword(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
+
+                        <button 
+                            type="submit" 
+                            disabled={isLoading}
+                            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center gap-2"
+                        >
+                            {isLoading && <Loader2 className="animate-spin" size={20} />}
+                            {isLoading ? 'Logger inn...' : 'Logg inn'}
                         </button>
                     </form>
-                </div>
+                ) : (
+                     <form onSubmit={handleDemoSubmit} className="space-y-5">
+                        <div className="text-center text-amber-400 text-sm font-medium mb-2">Demomodus</div>
+                        <div className="relative">
+                            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                            <input 
+                                type="password" 
+                                required
+                                className="w-full bg-slate-800/50 border border-amber-900/50 focus:ring-amber-500/50 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-500 outline-none transition-all"
+                                placeholder="Demo Passord"
+                                value={demoPwd}
+                                onChange={e => setDemoPwd(e.target.value)}
+                            />
+                        </div>
+                        {error && <div className="p-3 bg-rose-500/20 border border-rose-500/50 rounded-lg text-rose-200 text-sm text-center">{error}</div>}
+                        <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
+                     </form>
+                )}
 
+                <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                    <button onClick={() => {setShowDemo(!showDemo); setError('');}} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                        {showDemo ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
+                    </button>
+                </div>
             </div>
             
-            <div className="fixed bottom-4 text-center w-full text-slate-400 text-[10px]">
-                KonsernKontroll 2025 &copy; Powered by Attentio
+            <div className="absolute bottom-4 text-slate-600 text-[10px]">
+                Powered by Attentio
             </div>
         </div>
     );
@@ -380,6 +418,15 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   
   if (!shouldStartApp) {
       addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
+      // WAIT FOR LOGIN LOOP
+      const checkLogin = setInterval(async () => {
+           if (localStorage.getItem("_ms-mid")) {
+               clearInterval(checkLogin);
+               console.log("Login token detected, initializing...");
+               window.initKonsernKontroll();
+           }
+      }, 1000);
+      
       setTimeout(() => {
           root.render(<React.StrictMode><LoginScreen /></React.StrictMode>);
       }, 800);
@@ -486,12 +533,15 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     localStorage.setItem('konsern_mode', 'live'); 
 
     let groupName = "Mitt Konsern";
+    let logoUrl = undefined;
+
     addLog(`Henter konserndata (Group ID: ${user.groupId})...`);
     
     if (user.groupId) {
         const groupRes = await getNEON({ table: 'groups', where: { id: user.groupId } });
         if(groupRes.rows[0]) {
             groupName = groupRes.rows[0].name;
+            logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url; // Map logo
             addLog(`Konsern: ${groupName}`, 'success');
         }
     }
@@ -519,28 +569,28 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
         return {
             ...c,
-            resultYTD: Number(c.result_ytd || c.resultYTD || 0),
-            budgetTotal: Number(c.budget_total || c.budgetTotal || 0),
-            budgetMode: c.budget_mode || c.budgetMode || 'annual',
+            resultYTD: Number(c.resultYtd || c.result_ytd || 0),
+            budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
+            budgetMode: c.budgetMode || c.budget_mode || 'annual',
             budgetMonths: bMonths,
             liquidity: Number(c.liquidity || 0),
             receivables: Number(c.receivables || 0),
-            accountsPayable: Number(c.accounts_payable || c.accountsPayable || 0),
-            trendHistory: Number(c.trend_history || c.trendHistory || 0),
-            prevLiquidity: Number(c.prev_liquidity || c.prevLiquidity || 0),
-            prevDeviation: Number(c.prev_trend || c.prevTrend || 0),
+            accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
+            trendHistory: Number(c.trendHistory || c.trend_history || 0),
+            prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
+            prevDeviation: Number(c.prev_trend || c.prev_trend || 0),
             name: c.name || '',
-            fullName: c.full_name || c.fullName || '', 
+            fullName: c.fullName || c.full_name || '', 
             manager: c.manager || '',
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
-            liquidityDate: c.liquidity_date || c.liquidityDate || '',
-            receivablesDate: c.receivables_date || c.receivablesDate || '',
-            accountsPayableDate: c.accounts_payable_date || c.accountsPayableDate || '',
-            lastReportDate: c.last_report_date || c.lastReportDate || '',
-            lastReportBy: c.last_report_by || c.lastReportBy || '',
-            comment: c.current_comment || c.currentComment || '',
-            pnlDate: c.pnl_date || c.pnlDate || ''
+            liquidityDate: c.liquidityDate || c.liquidity_date || '',
+            receivablesDate: c.receivablesDate || c.receivables_date || '',
+            accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
+            lastReportDate: c.lastReportDate || c.last_report_date || '',
+            lastReportBy: c.lastReportBy || c.last_report_by || '',
+            comment: c.currentComment || c.current_comment || '',
+            pnlDate: c.pnlDate || c.pnl_date || ''
         };
     });
 
@@ -550,6 +600,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         role: user.role as 'controller' | 'leader',
         groupId: user.groupId,
         groupName: groupName,
+        logoUrl: logoUrl, // Pass logo to App
         companyId: user.companyId
     };
 

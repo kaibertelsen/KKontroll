@@ -11,6 +11,14 @@
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Uploadcare Widget -->
+    <script>
+      UPLOADCARE_PUBLIC_KEY = "04325c3f0a897db7a85b";
+      UPLOADCARE_LOCALE = "no";
+      UPLOADCARE_TABS = "file,url";
+    </script>
+    <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
+    
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -42,6 +50,14 @@
       }
       .sort-mode-active .metric-card:active {
         cursor: grabbing;
+      }
+      /* Uploadcare Customization */
+      .uploadcare--widget__button_type_open {
+        background-color: #0ea5e9 !important;
+        color: white !important;
+        border-radius: 0.5rem !important;
+        font-weight: 600 !important;
+        font-family: 'Inter', sans-serif !important;
       }
     </style>
 <script type="importmap">
