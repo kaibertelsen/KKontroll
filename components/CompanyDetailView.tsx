@@ -332,8 +332,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // RENAMED FUNCTION TO MATCH JSX
-  const onForecastFormSubmit = (e: React.FormEvent) => {
+  // FIXED: Defined function with correct name used in form onSubmit
+  const onSaveForecast = (e: React.FormEvent) => {
       e.preventDefault();
       onForecastSubmit(forecastForm);
       setIsForecastModalOpen(false);
