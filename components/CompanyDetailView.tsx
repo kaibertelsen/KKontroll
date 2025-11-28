@@ -332,7 +332,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // THIS FUNCTION WAS MISSING/MISNAMED, NOW FIXED
+  // FIXED FUNCTION NAME
   const handleForecastSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       onForecastSubmit(forecastForm);
@@ -341,7 +341,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (isReadOnly) return; 
+      if (isReadOnly) return; // Prevent submit in read-only mode
       
       const payload = {
           ...formData,
@@ -460,13 +460,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
-                <StatCard 
-                    icon={Target} 
-                    label="Budsjett YTD" 
-                    value={Math.round(company.calculatedBudgetYTD)} 
-                    subText={`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}
-                    onEdit={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
-                />
+                <StatCard icon={Target} label="Budsjett YTD" value={Math.round(company.calculatedBudgetYTD)} subText={`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`} />
             </div>
 
             {/* Row 2: Liquidity & Balance */}
