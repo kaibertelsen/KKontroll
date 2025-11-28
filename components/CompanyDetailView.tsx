@@ -332,13 +332,12 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // DEFINED FUNCTION HERE TO FIX REFERENCE ERROR
+  // RENAMED FUNCTION TO MATCH USAGE
   const handleForecastSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       onForecastSubmit(forecastForm);
       setIsForecastModalOpen(false);
   };
-
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
