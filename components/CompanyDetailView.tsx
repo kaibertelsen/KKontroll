@@ -332,7 +332,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  const submitForecast = (e: React.FormEvent) => {
+  // FIXED: Renamed local handler to match JSX usage
+  const handleForecastSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       onForecastSubmit(forecastForm);
       setIsForecastModalOpen(false);
@@ -903,7 +904,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    <form onSubmit={submitForecast} className="p-6">
+                    <form onSubmit={handleForecastSubmit} className="p-6">
                         <div className="space-y-4">
                             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
                                 Legg inn forventede innbetalinger (fordringer/salg) og utbetalinger (gjeld/kostnader) for de neste månedene.
