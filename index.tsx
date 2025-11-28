@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -89,7 +88,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.9</div>
+                    <div className="text-[10px] text-slate-400">v1.3.10</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -186,6 +185,15 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   if (!forceDemo) {
       if (localToken) {
           addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
+          
+          // WAIT for Memberstack DOM if not ready yet
+          if (!window.$memberstackDom) {
+              addLog("Venter på at Memberstack skal laste...");
+              for (let i = 0; i < 30; i++) { // Wait up to 3 seconds (30 * 100ms)
+                  if (window.$memberstackDom) break;
+                  await new Promise(resolve => setTimeout(resolve, 100));
+              }
+          }
       }
 
       try {
@@ -282,15 +290,10 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   // If we still only have the token (mem_temp), we need to rely on the neon.ts to pick up the token from localStorage
   // But for the DB query below, we need an ID. 
-  // HACK: If we have a token but no ID, we fetch /users/me endpoint? No, Neon API expects a WHERE clause.
-  // Actually, getNEON with `authId` usually expects the Memberstack ID.
-  // If we assume the user is logged in, we can try to find them by the token? No.
   
-  // FIX: If we don't have the user object yet (e.g. script wasn't loaded), wait or retry?
   if (!effectiveUserId && localToken) {
        // We can try to decode the token but MS tokens are opaque.
-       // Let's assume we need to wait for MS script or just use the TEST_ID if debugging?
-       // For now, if we have a token, we might need to rely on the Memberstack script to give us the ID.
+       // Rely on the Memberstack script to give us the ID after it loaded.
        if (window.$memberstackDom) {
             try {
                 const member = await window.$memberstackDom.getCurrentMember();
@@ -301,25 +304,21 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   if (!effectiveUserId) {
        // Last resort fallback if we have a token but couldn't get ID -> Maybe invalid session?
-       addLog("Fant token, men kunne ikke hente Member ID. Prøver å laste på nytt...");
-       if (!window.$memberstackDom) {
-           // Reload page to force script load if missing
-           // window.location.reload();
-           // OR just fail gracefully
-       }
-  }
-
-  // Fallback for dev/testing if absolutely nothing else works
-  // if (!effectiveUserId) effectiveUserId = TEST_USER_ID; 
-
-  if (!effectiveUserId) {
-      addLog("Kunne ikke identifisere bruker. Logger ut...", 'error');
-      localStorage.removeItem("_ms-mid");
-      renderLog([
+       addLog("Fant token, men kunne ikke hente Member ID. Prøver å laste på nytt...", 'error');
+       
+       renderLog([
             {
                 label: "Prøv igjen",
                 icon: RefreshCw,
                 onClick: () => window.location.reload()
+            },
+            {
+                label: "Logg ut",
+                icon: LogOut,
+                onClick: () => {
+                    localStorage.removeItem("_ms-mid");
+                    window.location.reload();
+                }
             }
         ]);
       return;

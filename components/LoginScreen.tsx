@@ -1,8 +1,5 @@
-
 import React, { useEffect, useState } from 'react';
-import { Loader2, Lock, Bug } from 'lucide-react';
-
-const MEMBERSTACK_APP_ID = "app_cmhvzr10a00bq0ss39szp9ozj";
+import { Lock, Bug } from 'lucide-react';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -13,39 +10,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
     const [showDemoInput, setShowDemoInput] = useState(false);
     const [demoPwd, setDemoPwd] = useState('');
     const [statusMsg, setStatusMsg] = useState('Venter på input...');
-    const [scriptLoaded, setScriptLoaded] = useState(false);
 
-    // --- 1. Load Memberstack Script on Mount ---
-    useEffect(() => {
-        // Check if already loaded
-        if (window.$memberstackDom) {
-            setScriptLoaded(true);
-            return;
-        }
-
-        const scriptId = 'ms-script-loader';
-        if (!document.getElementById(scriptId)) {
-            const script = document.createElement('script');
-            script.id = scriptId;
-            script.src = "https://static.memberstack.com/scripts/v2/memberstack.js";
-            script.dataset.memberstackApp = MEMBERSTACK_APP_ID;
-            script.async = true;
-            
-            script.onload = () => {
-                console.log("Memberstack script loaded from LoginScreen.");
-                setScriptLoaded(true);
-                setStatusMsg("Systemet er klart.");
-            };
-            
-            script.onerror = () => {
-                setStatusMsg("Feil: Kunne ikke laste innloggingssystemet.");
-            };
-
-            document.body.appendChild(script);
-        }
-    }, []);
-
-    // --- 2. Poll for Token (The "Check if I'm logged in" loop) ---
+    // --- Poll for Token (The "Check if I'm logged in" loop) ---
     useEffect(() => {
         const interval = setInterval(() => {
             const token = localStorage.getItem("_ms-mid");
@@ -57,7 +23,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                     onLoginSuccess();
                 }, 500);
             }
-        }, 1000); // Check every second
+        }, 500); // Check every 500ms
 
         return () => clearInterval(interval);
     }, [onLoginSuccess]);
