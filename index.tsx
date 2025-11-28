@@ -127,7 +127,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.7</div>
+                    <div className="text-[10px] text-slate-400">v1.3.8</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -205,9 +205,17 @@ const LoginScreen = () => {
             if (window.$memberstackDom && typeof window.$memberstackDom.loginMember === 'function') {
                 await window.$memberstackDom.loginMember({ email, password });
                 
-                // Login API call finished. Check if token is present immediately.
-                const token = localStorage.getItem("_ms-mid");
+                // --- ROBUST TOKEN CHECK ---
+                // Wait briefly and poll for token to ensure it's written to localStorage
+                let token = localStorage.getItem("_ms-mid");
+                let attempts = 0;
                 
+                while (!token && attempts < 10) {
+                    await new Promise(r => setTimeout(r, 200));
+                    token = localStorage.getItem("_ms-mid");
+                    attempts++;
+                }
+
                 if (token) {
                     setLoginSuccess(true);
                     setIsLoading(false);
@@ -218,11 +226,12 @@ const LoginScreen = () => {
                         window.initKonsernKontroll();
                     }, 500);
                 } else {
-                    // Fallback if token is delayed (rare)
+                    console.warn("Token not found after polling.");
+                    // Last resort: Reload to force Memberstack to re-hydrate from session
                     setLoginSuccess(true);
                     setTimeout(() => {
                         window.location.reload();
-                    }, 2000);
+                    }, 1000);
                 }
 
             } else {
@@ -271,10 +280,14 @@ const LoginScreen = () => {
             <div className="w-full max-w-md bg-white/5 backdrop-blur-lg border border-white/10 rounded-2xl shadow-2xl p-8 z-10 relative animate-in zoom-in-95 duration-500">
                 
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-sky-600 to-slate-800 shadow-lg mb-4">
-                        <span className="text-2xl font-bold text-white tracking-tighter">A-KK</span>
+                    <div className="flex justify-center mb-6">
+                        <img 
+                            src="https://ucarecdn.com/b3e83749-8c8a-4382-b28b-fe1d988eff42/Attentioshlogo.png" 
+                            alt="Attentio KK" 
+                            className="h-20 w-auto object-contain"
+                        />
                     </div>
-                    <h1 className="text-2xl font-bold text-white">Attentio Konsern Kontroll</h1>
+                    <h1 className="text-2xl font-bold text-white">Attentio KK</h1>
                     {loginSuccess ? (
                         <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/50 rounded-xl animate-in fade-in">
                              <p className="text-emerald-300 font-bold text-lg mb-1">Innlogging Vellykket!</p>
@@ -596,8 +609,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const mappedCompanies = rawCompanies.map((c: any) => {
         let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
         try {
-            if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
-            else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+            if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
+            else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
         } catch(e) { console.warn("Budget parsing error", e); }
 
         return {
