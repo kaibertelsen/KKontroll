@@ -46,10 +46,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
       const items = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      // Use actual budget distribution if available, otherwise flat average
-      const bMonths = data.budgetMonths && data.budgetMonths.length === 12 
-        ? data.budgetMonths 
-        : Array(12).fill(data.budgetTotal / 12);
+      // LOGIC FIX: Check if budgetMonths actually has values. If sum is 0 but Total > 0, fallback to average.
+      const bMonthsRaw = data.budgetMonths && data.budgetMonths.length === 12 ? data.budgetMonths : [];
+      const sumBudgetMonths = bMonthsRaw.reduce((acc, val) => acc + (Number(val) || 0), 0);
+      
+      const bMonths = sumBudgetMonths > 0 
+        ? bMonthsRaw 
+        : (data.budgetTotal > 0 ? Array(12).fill(data.budgetTotal / 12) : Array(12).fill(0));
 
       const now = new Date();
       const currentMonthIndex = now.getMonth(); 
@@ -79,8 +82,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
       if(items.length > 0) {
           items[items.length - 1].cumResult = data.resultYTD;
           // Note: Chart shows cumulative full months. 
-          // calculatedBudgetYTD might be partial based on days, but for chart visualization 
-          // we stick to the cumulative monthly budget sum for the line.
       }
       return items;
   }, [data]);

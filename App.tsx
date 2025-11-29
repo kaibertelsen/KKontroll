@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -362,8 +363,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               expenses: newCompany.expenses,
               resultYtd: newCompany.resultYTD, 
               budgetTotal: newCompany.budgetTotal,
+              budget_total: newCompany.budgetTotal, // Backup snake_case
               budgetMode: newCompany.budgetMode,
+              budget_mode: newCompany.budgetMode, // Backup snake_case
               budgetMonths: newCompany.budgetMonths,
+              budget_months: newCompany.budgetMonths, // Backup snake_case
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
               accountsPayable: newCompany.accountsPayable,
@@ -398,8 +402,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               expenses: updatedCompany.expenses,
               resultYtd: updatedCompany.resultYTD,
               budgetTotal: updatedCompany.budgetTotal,
+              budget_total: updatedCompany.budgetTotal, // Backup snake_case
               budgetMode: updatedCompany.budgetMode,
+              budget_mode: updatedCompany.budgetMode, // Backup snake_case
               budgetMonths: updatedCompany.budgetMonths,
+              budget_months: updatedCompany.budgetMonths, // Backup snake_case
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
               accountsPayable: updatedCompany.accountsPayable,

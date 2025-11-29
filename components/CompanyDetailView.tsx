@@ -125,9 +125,13 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       const data = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      const bMonths = company.budgetMonths && company.budgetMonths.length === 12 
-        ? company.budgetMonths 
-        : Array(12).fill(company.budgetTotal / 12);
+      // LOGIC FIX: Explicitly handle zero-sum arrays fallback to total
+      const bMonthsRaw = company.budgetMonths && company.budgetMonths.length === 12 ? company.budgetMonths : [];
+      const sumBudgetMonths = bMonthsRaw.reduce((acc, val) => acc + (Number(val) || 0), 0);
+      
+      const bMonths = sumBudgetMonths > 0 
+        ? bMonthsRaw 
+        : (company.budgetTotal > 0 ? Array(12).fill(company.budgetTotal / 12) : Array(12).fill(0));
 
       const now = new Date();
       const currentMonthIndex = now.getMonth(); 

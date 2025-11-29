@@ -1,3 +1,4 @@
+
 // API Client for Neon / AttentioCloud
 
 const API_BASE = "https://attentiocloud-api.vercel.app";
@@ -65,6 +66,9 @@ export async function getNEON({
   let url = `${API_BASE}/api/${table}`;
   const params = new URLSearchParams();
 
+  // Add cache buster timestamp to FORCE fresh data from server
+  params.set("_t", Date.now().toString());
+
   if (fields?.length) params.set("fields", fields.join(","));
 
   if (where) {
@@ -87,8 +91,7 @@ export async function getNEON({
   const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
 
   console.log(`[NEON] GET Construction:`, { table, where, url });
-  console.log(`[NEON] GET Options:`, options);
-
+  
   // ROBUST RETRY LOGIC (5 attempts, 1000ms delay)
   let lastError;
   for (let i = 0; i < 5; i++) {
