@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -275,6 +274,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
                     else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
                     else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
+                    
+                    // STRICTLY CAST TO NUMBERS
+                    bMonths = bMonths.map((m: any) => Number(m) || 0);
+
                 } catch(e) { console.warn("Budget parsing error", e); }
 
                 // Determine Budget Total and Distribution

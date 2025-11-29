@@ -88,7 +88,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.10</div>
+                    <div className="text-[10px] text-slate-400">v1.3.11</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -416,6 +416,10 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         try {
             if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
             else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
+            
+            // STRICTLY CAST TO NUMBERS
+            bMonths = bMonths.map((m: any) => Number(m) || 0);
+
         } catch(e) { console.warn("Budget parsing error", e); }
 
         return {

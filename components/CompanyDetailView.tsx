@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -70,7 +69,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           const total = company.budgetTotal || 0;
           
           const q = [0,0,0,0];
-          for(let i=0; i<12; i++) q[Math.floor(i/3)] += bMonths[i];
+          for(let i=0; i<12; i++) q[Math.floor(i/3)] += Number(bMonths[i]) || 0;
 
           setBudgetFormData({
               mode: company.budgetMode || 'annual',
@@ -138,7 +137,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       for (let i = 0; i <= currentMonthIndex; i++) {
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(bMonths[i]); // Use specific month budget
+        const budget = Math.round(Number(bMonths[i]) || 0); // Use specific month budget
         
         const prevResult = i > 0 ? data[i-1].cumResult : 0;
         const prevBudget = i > 0 ? data[i-1].cumBudget : 0;

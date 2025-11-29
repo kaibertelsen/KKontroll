@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -63,8 +62,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
         
-        // Use specific month budget
-        const budget = bMonths[i];
+        // Use specific month budget, ensure number
+        const budget = Number(bMonths[i]) || 0;
         
         const prevResult = i > 0 ? items[i-1].cumResult : 0;
         const prevBudget = i > 0 ? items[i-1].cumBudget : 0;
