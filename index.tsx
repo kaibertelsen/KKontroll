@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LoginScreen from './components/LoginScreen';
@@ -27,7 +27,7 @@ interface ErrorBoundaryState {
   error: string;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: '' };
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
@@ -94,7 +94,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.12</div>
+                    <div className="text-[10px] text-slate-400">v1.3.13</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -414,7 +414,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     addLog("Prosesserer finansielle data...");
     
     const mappedCompanies = rawCompanies.map((c: any) => {
-        // AGGRESSIVE BUDGET EXTRACTION
+        // AGGRESSIVE BUDGET EXTRACTION & PARSING
         let bMonths: number[] = [];
         const rawMonths = c.budgetMonths ?? c.budget_months; // Try both keys
         
@@ -422,8 +422,24 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             if (Array.isArray(rawMonths)) {
                 bMonths = rawMonths.map(Number);
             } else if (typeof rawMonths === 'string') {
-                const parsed = JSON.parse(rawMonths);
-                if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+                // Handle JSON format "[1,2,3]" OR Postgres Array format "{1,2,3}"
+                let cleanStr = rawMonths.trim();
+                // If it looks like Postgres array { ... }, convert to JSON [ ... ]
+                if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
+                    cleanStr = cleanStr.replace('{', '[').replace('}', ']');
+                }
+                
+                try {
+                    const parsed = JSON.parse(cleanStr);
+                    if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+                } catch (jsonErr) {
+                    console.warn("JSON parse failed, trying comma split", cleanStr);
+                    // Fallback: Split by comma if strictly numbers
+                    const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
+                    if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
+                        bMonths = parts.map(Number);
+                    }
+                }
             }
         } catch(e) {
             console.warn("Budget parse fail", e);

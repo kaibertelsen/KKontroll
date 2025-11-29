@@ -119,8 +119,40 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       const data = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      // RELY ON APP.TSX TO PROVIDE CLEAN DATA (Array(12))
-      const bMonths = company.budgetMonths || Array(12).fill(0);
+      // SAFE PARSING OF BUDGET DATA
+      let bMonths: number[] = [];
+      // @ts-ignore
+      const raw = company.budgetMonths || company.budget_months;
+
+      if (Array.isArray(raw)) {
+          bMonths = raw.map(x => Number(x) || 0);
+      } else if (typeof raw === 'string') {
+          // Handle Postgres Array string "{100,200}" or JSON "[100,200]"
+          let cleanStr = raw.trim();
+          if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
+              cleanStr = cleanStr.replace('{', '[').replace('}', ']');
+          }
+          try {
+              const parsed = JSON.parse(cleanStr);
+              if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+          } catch(e) {
+              // Fallback split
+              const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
+              if (parts.length > 0) bMonths = parts.map(Number);
+          }
+      }
+
+      if (bMonths.length !== 12) bMonths = Array(12).fill(0);
+
+      // Force distribute total if months are empty
+      const total = Number(company.budgetTotal || 0);
+      const sum = bMonths.reduce((a, b) => a + b, 0);
+
+      if (sum === 0 && total > 0) {
+          const perMonth = Math.round(total / 12);
+          bMonths = Array(12).fill(perMonth);
+          bMonths[11] += (total - (perMonth * 12));
+      }
 
       const now = new Date();
       const currentMonthIndex = now.getMonth(); 

@@ -268,7 +268,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
         if(compRes.rows) {
             const mapped = compRes.rows.map((c: any) => {
-                // AGGRESSIVE BUDGET PARSING
+                // AGGRESSIVE BUDGET EXTRACTION & PARSING
                 let bMonths: number[] = [];
                 const rawMonths = c.budgetMonths ?? c.budget_months; // Try both
                 
@@ -276,8 +276,24 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     if (Array.isArray(rawMonths)) {
                         bMonths = rawMonths.map(Number);
                     } else if (typeof rawMonths === 'string') {
-                        const parsed = JSON.parse(rawMonths);
-                        if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+                        // Handle JSON format "[1,2,3]" OR Postgres Array format "{1,2,3}"
+                        let cleanStr = rawMonths.trim();
+                        // If it looks like Postgres array { ... }, convert to JSON [ ... ]
+                        if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
+                            cleanStr = cleanStr.replace('{', '[').replace('}', ']');
+                        }
+                        
+                        try {
+                            const parsed = JSON.parse(cleanStr);
+                            if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+                        } catch (jsonErr) {
+                            console.warn("JSON parse failed in reload, trying comma split", cleanStr);
+                            // Fallback: Split by comma if strictly numbers
+                            const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
+                            if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
+                                bMonths = parts.map(Number);
+                            }
+                        }
                     }
                 } catch(e) {
                     console.warn("Budget parsing error in reload", e);
