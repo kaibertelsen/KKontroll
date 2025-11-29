@@ -277,10 +277,22 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
                 } catch(e) { console.warn("Budget parsing error", e); }
 
+                // Determine Budget Total and Distribution
+                const bTotal = Number(c.budgetTotal || c.budget_total || 0);
+                const sumMonths = bMonths.reduce((a: number, b: number) => a + b, 0);
+
+                // Fallback: If total budget exists but month distribution is empty/zero, distribute flat
+                if (bTotal > 0 && sumMonths === 0) {
+                     const perMonth = Math.round(bTotal / 12);
+                     bMonths = Array(12).fill(perMonth);
+                     // Adjust last month for remainder
+                     bMonths[11] += (bTotal - (perMonth * 12));
+                }
+
                 return {
                     ...c,
                     resultYTD: Number(c.resultYtd || c.result_ytd || 0),
-                    budgetTotal: Number(c.budgetTotal || c.budget_total || 0),
+                    budgetTotal: bTotal,
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
                     liquidity: Number(c.liquidity || 0),
