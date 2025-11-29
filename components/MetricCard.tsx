@@ -46,26 +46,18 @@ const MetricCard: React.FC<MetricCardProps> = ({
       const items = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      // LOGIC FIX: Check if budgetMonths actually has values. If sum is 0 but Total > 0, fallback to average.
-      const bMonthsRaw = data.budgetMonths && data.budgetMonths.length === 12 ? data.budgetMonths : [];
-      const sumBudgetMonths = bMonthsRaw.reduce((acc, val) => acc + (Number(val) || 0), 0);
-      
-      const bMonths = sumBudgetMonths > 0 
-        ? bMonthsRaw 
-        : (data.budgetTotal > 0 ? Array(12).fill(data.budgetTotal / 12) : Array(12).fill(0));
+      // RELY ON APP.TSX TO PROVIDE CLEAN DATA (Array(12))
+      const bMonths = data.budgetMonths || Array(12).fill(0);
 
       const now = new Date();
       const currentMonthIndex = now.getMonth(); 
       
-      // Calculate a rough monthly average result to simulate history curve
       const avgResultPerMonth = data.resultYTD / (currentMonthIndex + 1);
       
       for (let i = 0; i <= currentMonthIndex; i++) {
-        // Simulate result variance
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
         
-        // Use specific month budget, ensure number
         const budget = Number(bMonths[i]) || 0;
         
         const prevResult = i > 0 ? items[i-1].cumResult : 0;
@@ -81,7 +73,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
       // Force last point to match actual YTD totals exactly
       if(items.length > 0) {
           items[items.length - 1].cumResult = data.resultYTD;
-          // Note: Chart shows cumulative full months. 
       }
       return items;
   }, [data]);
@@ -100,7 +91,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
         e.preventDefault(); 
         return;
     }
-    // Don't flip if clicking buttons that stop propagation
     setIsFlipped(!isFlipped);
   };
 
@@ -126,8 +116,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
     <div 
       className={`h-[420px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
-      
-      // Drag Events
       draggable={isSortMode}
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
       onDragEnter={(e) => onDragEnter && onDragEnter(e, index)}
@@ -148,7 +136,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
             ${isSortMode ? 'shadow-lg ring-2 ring-amber-400 ring-opacity-50' : ''}
         `}
       >
-        
         {/* LAYER 2: FLIP ROTATION */}
         <div className={`relative w-full h-full transition-transform duration-700 [transform-style:preserve-3d] ${isFlipped && !isSortMode ? '[transform:rotateY(180deg)]' : ''}`}>
           
@@ -159,7 +146,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
           >
             <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
-              {/* Header */}
               <div className="flex justify-between items-start mb-3 shrink-0">
                 <div className="overflow-hidden w-full">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate pr-1" title={data.fullName || data.name}>
@@ -169,14 +155,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
                 </div>
               </div>
 
-              {/* Main List - Strict Order */}
               <div className="flex flex-col gap-0.5 flex-grow">
-                  
                   <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />
                   <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />
-                  
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-                  
                   <RowItem 
                     icon={BarChart3} 
                     label="Resultat YTD" 
@@ -190,20 +172,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
                     }
                   />
                   <RowItem icon={Target} label="Budsjett YTD" value={data.calculatedBudgetYTD} valueColor="text-slate-500 dark:text-slate-400" />
-
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
                   <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
-                  
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-
                   <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />
-
               </div>
 
-              {/* Footer */}
               <div className="mt-2 shrink-0">
                 <div className="flex justify-end mb-1">
                     <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
@@ -222,7 +198,6 @@ const MetricCard: React.FC<MetricCardProps> = ({
             style={{ pointerEvents: isFlipped ? 'auto' : 'none' }}
           >
             <div className="bg-slate-800 rounded-xl shadow-xl border border-slate-700 p-4 flex flex-col h-full text-slate-50 relative overflow-hidden">
-              
               <div className="flex justify-between items-center mb-2 border-b border-slate-700 pb-2">
                 <div className="overflow-hidden">
                     <h3 className="text-sm font-bold text-white truncate leading-tight" title={data.fullName || data.name}>
@@ -258,16 +233,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
                 className="mt-3 w-full py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 shadow-lg cursor-pointer relative z-20"
                 onClick={(e) => { 
                     e.stopPropagation(); 
-                    e.preventDefault(); // Prevent double firing
+                    e.preventDefault(); 
                     onSelect(data); 
                 }}
               >
                 Gå til Firmaside <ArrowRight className="w-4 h-4" />
               </button>
-
             </div>
           </div>
-
         </div>
       </div>
     </div>

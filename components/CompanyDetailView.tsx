@@ -20,7 +20,6 @@ interface CompanyDetailViewProps {
   onUpdateCompany: (company: CompanyData) => void; 
 }
 
-// Helper to convert DD.MM.YYYY to YYYY-MM-DD for input[type="date"]
 const toInputDate = (dateStr: string) => {
     if (!dateStr) return '';
     if (dateStr.includes('-')) return dateStr; 
@@ -29,7 +28,6 @@ const toInputDate = (dateStr: string) => {
     return '';
 };
 
-// Helper to convert YYYY-MM-DD back to DD.MM.YYYY for display/storage
 const fromInputDate = (dateStr: string) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
@@ -39,7 +37,6 @@ const fromInputDate = (dateStr: string) => {
 
 const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany }) => {
   
-  // DEBUG LOGGING
   console.log("CompanyDetailView rendering for:", company.name);
 
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -62,7 +59,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       monthly: Array(12).fill(0)
   });
 
-  // Initialize Budget Form Data when opening modal
+  // Initialize Budget Form Data
   useEffect(() => {
       if (isBudgetModalOpen) {
           const bMonths = company.budgetMonths || Array(12).fill(0);
@@ -80,7 +77,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       }
   }, [isBudgetModalOpen, company]);
 
-  // --- BUDGET HANDLERS ---
   const handleBudgetSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       
@@ -91,7 +87,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           finalTotal = budgetFormData.annual;
           const perMonth = Math.round(budgetFormData.annual / 12);
           finalMonths = Array(12).fill(perMonth);
-          // Adjust remainder to last month
           const sum = perMonth * 12;
           finalMonths[11] += (budgetFormData.annual - sum);
       } else if (budgetFormData.mode === 'quarterly') {
@@ -108,7 +103,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           finalTotal = finalMonths.reduce((a,b) => a+b, 0);
       }
 
-      // Construct updated company object
       const updatedCompany: CompanyData = {
           ...company,
           budgetTotal: finalTotal,
@@ -125,13 +119,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       const data = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
       
-      // LOGIC FIX: Explicitly handle zero-sum arrays fallback to total
-      const bMonthsRaw = company.budgetMonths && company.budgetMonths.length === 12 ? company.budgetMonths : [];
-      const sumBudgetMonths = bMonthsRaw.reduce((acc, val) => acc + (Number(val) || 0), 0);
-      
-      const bMonths = sumBudgetMonths > 0 
-        ? bMonthsRaw 
-        : (company.budgetTotal > 0 ? Array(12).fill(company.budgetTotal / 12) : Array(12).fill(0));
+      // RELY ON APP.TSX TO PROVIDE CLEAN DATA (Array(12))
+      const bMonths = company.budgetMonths || Array(12).fill(0);
 
       const now = new Date();
       const currentMonthIndex = now.getMonth(); 
@@ -141,7 +130,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       for (let i = 0; i <= currentMonthIndex; i++) {
         const variance = 0.8 + Math.random() * 0.4; 
         const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(Number(bMonths[i]) || 0); // Use specific month budget
+        const budget = Math.round(Number(bMonths[i]) || 0); 
         
         const prevResult = i > 0 ? data[i-1].cumResult : 0;
         const prevBudget = i > 0 ? data[i-1].cumBudget : 0;
@@ -158,7 +147,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           type: 'history'
         });
       }
-      // Force last point to match actuals
+      
       if(data.length > 0) {
           data[data.length - 1].cumResult = company.resultYTD;
           data[data.length - 1].liquidity = company.liquidity;
@@ -206,7 +195,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       return [...combinedData, ...futureData];
   }, [historyData, company.liquidity, forecasts]);
 
-
   const statusValue = (company.receivables - company.accountsPayable) + company.liquidity;
 
   // --- REPORTING FORM LOGIC ---
@@ -247,7 +235,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       expenses: ''
   });
 
-  // READ-ONLY MODE CHECK
   const isReadOnly = editingReport?.status === 'approved';
 
   useEffect(() => {
@@ -262,10 +249,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       } else {
           const mRev = Number(monthlyInputs.revenue) || 0;
           const mExp = Number(monthlyInputs.expenses) || 0;
-          
           const newTotalRevenue = company.revenue + mRev;
           const newTotalExpenses = company.expenses + mExp;
-          
           setFormData(prev => ({
               ...prev,
               revenue: newTotalRevenue,
@@ -283,15 +268,12 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               expenses: editingReport.expenses ?? '',
               resultYTD: editingReport.result ?? '',
               pnlDate: editingReport.pnlDate || new Date().toLocaleDateString('no-NO'),
-
               liquidity: editingReport.liquidity ?? '',
               receivables: editingReport.receivables ?? '',
               accountsPayable: editingReport.accountsPayable ?? '',
-              
               liquidityDate: editingReport.liquidityDate || new Date().toLocaleDateString('no-NO'),
               receivablesDate: editingReport.receivablesDate || new Date().toLocaleDateString('no-NO'),
               accountsPayableDate: editingReport.accountsPayableDate || new Date().toLocaleDateString('no-NO'),
-              
               comment: editingReport.comment,
               source: editingReport.source,
               reportDate: editingReport.date 
@@ -317,7 +299,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       }
   }, [editingReport, isReportModalOpen]);
 
-  // --- FORECAST MODAL LOGIC ---
   useEffect(() => {
       if(isForecastModalOpen) {
           const next6Months = [];
@@ -347,17 +328,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setForecastForm(updated);
   };
 
-  // FIXED: Renamed local function to eliminate naming conflict
   const onSaveForecast = (e: React.FormEvent) => {
       e.preventDefault();
-      console.log("Submitting forecast:", forecastForm);
       onForecastSubmit(forecastForm);
       setIsForecastModalOpen(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      if (isReadOnly) return; // Prevent submit in read-only mode
+      if (isReadOnly) return;
       
       const payload = {
           ...formData,
@@ -469,9 +448,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Top Stats Grid */}
         <div className="space-y-4 mb-8">
-            {/* Row 1: P&L */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
@@ -485,7 +462,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 />
             </div>
 
-            {/* Row 2: Liquidity & Balance */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
@@ -494,10 +470,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         </div>
 
-        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            
-            {/* Resultat Graf */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Resultatutvikling (Akkumulert)</h3>
                 <div className="h-[350px]">
@@ -521,7 +494,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 </div>
             </div>
 
-             {/* Likviditet Prognose Graf */}
              <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Likviditetsprognose</h3>
@@ -544,9 +516,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 formatter={(value: number) => formatCurrency(value)}
                             />
                             <Legend />
-                            {/* History Area */}
                             <Area type="monotone" dataKey="liquidity" name="Historisk" fill="#10b981" stroke="#10b981" fillOpacity={0.3} />
-                            {/* Forecast Line */}
                             <Line type="monotone" dataKey="forecast" name="Prognose" stroke="#f59e0b" strokeDasharray="5 5" strokeWidth={2} dot={{r: 4}} />
                         </ComposedChart>
                     </ResponsiveContainer>
@@ -554,7 +524,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         </div>
 
-        {/* Reporting History List */}
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-700/30 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -622,7 +591,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                             <CheckCircle size={12} className="mr-1" /> Godkjent
                                         </span>
                                         
-                                        {/* VIEW BUTTON for Approved Reports */}
                                         <button 
                                             onClick={() => handleEditReport(report)}
                                             className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
@@ -663,7 +631,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                             <Edit size={14} />
                                         </button>
                                         
-                                        {/* DELETE BUTTON FOR UNAPPROVED REPORTS */}
                                         <button 
                                             onClick={() => onDeleteReport(report.id)}
                                             className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
@@ -684,7 +651,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         </div>
 
-        {/* Report Modal */}
         {isReportModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -697,7 +663,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                         </button>
                     </div>
                     
-                    {/* Reporting Mode Toggle (Only for New Reports and NOT ReadOnly) */}
                     {!editingReport && !isReadOnly && (
                         <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-200 dark:border-slate-700 flex justify-center">
                             <div className="bg-white dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-600 flex shadow-sm">
@@ -721,14 +686,12 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
                     <form onSubmit={handleSubmit} className="p-6 space-y-6">
                         
-                        {/* SECTION 1: P&L */}
                         <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 transition-all">
                             <div className="flex justify-between items-center mb-3">
                                 <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 flex items-center gap-2">
                                     <TrendingUp size={14}/> Drift & Resultat {reportingMode === 'monthly' ? '(Denne Måned)' : '(Hittil i år)'}
                                 </h4>
                                 
-                                {/* P&L Date Field INTEGRATED IN HEADER */}
                                 <div className="flex items-center gap-2">
                                      <span className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500"><Calendar size={10} className="inline mr-0.5"/> Dato tall:</span>
                                      <input 
@@ -783,7 +746,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     <label className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 mb-1 block">
                                         {reportingMode === 'monthly' && !isReadOnly ? 'Ny Resultat YTD' : 'Resultat YTD'}
                                     </label>
-                                    {/* READ-ONLY FIELD, AUTO-CALCULATED */}
                                     <input 
                                         type="number" 
                                         readOnly
@@ -795,13 +757,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             </div>
                         </div>
 
-                        {/* SECTION 2: BALANCE */}
                         <div className="bg-slate-50 dark:bg-slate-700/30 p-4 rounded-xl border border-slate-200 dark:border-slate-600 space-y-4">
                             <h4 className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 flex items-center gap-2">
                                 <Wallet size={14}/> Likviditet & Balanse (Nå-situasjon)
                             </h4>
                             
-                            {/* Liquidity Row */}
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Likviditet (Bankinnskudd)</label>
@@ -820,7 +780,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 </div>
                             </div>
 
-                            {/* Receivables Row */}
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kundefordringer</label>
@@ -839,7 +798,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 </div>
                             </div>
 
-                            {/* Payables Row */}
                             <div className="grid grid-cols-2 gap-4 items-end">
                                 <div>
                                     <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leverandørgjeld</label>
@@ -859,7 +817,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             </div>
                         </div>
 
-                        {/* Meta Data */}
                         <div className="grid grid-cols-1 gap-4">
                             <div>
                                 <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
@@ -895,7 +852,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         )}
 
-        {/* Forecast Modal */}
         {isForecastModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -950,7 +906,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         )}
 
-        {/* Budget Modal - ADDING THIS */}
         {isBudgetModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
@@ -962,7 +917,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     </div>
                     
                     <form onSubmit={handleBudgetSubmit} className="p-6 space-y-6">
-                        {/* Mode Selector */}
                         <div className="bg-slate-50 dark:bg-slate-700/30 p-1 rounded-lg flex justify-center border border-slate-200 dark:border-slate-600">
                              <button
                                 type="button"
@@ -987,7 +941,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                              </button>
                         </div>
 
-                        {/* Inputs */}
                         <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
                             {budgetFormData.mode === 'annual' && (
                                 <div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LoginScreen from './components/LoginScreen';
@@ -19,7 +19,7 @@ declare global {
 
 // --- ERROR BOUNDARY ---
 interface ErrorBoundaryProps {
-  children: ReactNode;
+  children?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -27,11 +27,8 @@ interface ErrorBoundaryState {
   error: string;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: '' };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { hasError: false, error: '' };
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true, error: error.toString() };
@@ -97,7 +94,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.11</div>
+                    <div className="text-[10px] text-slate-400">v1.3.12</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -298,11 +295,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
 
   // If we still only have the token (mem_temp), we need to rely on the neon.ts to pick up the token from localStorage
-  // But for the DB query below, we need an ID. 
-  
   if (!effectiveUserId && localToken) {
-       // We can try to decode the token but MS tokens are opaque.
-       // Rely on the Memberstack script to give us the ID after it loaded.
        if (window.$memberstackDom) {
             try {
                 const member = await window.$memberstackDom.getCurrentMember();
@@ -312,7 +305,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
 
   if (!effectiveUserId) {
-       // Last resort fallback if we have a token but couldn't get ID -> Maybe invalid session?
        addLog("Fant token, men kunne ikke hente Member ID. Prøver å laste på nytt...", 'error');
        
        renderLog([
@@ -401,7 +393,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         const groupRes = await getNEON({ table: 'groups', where: { id: user.groupId } });
         if(groupRes.rows[0]) {
             groupName = groupRes.rows[0].name;
-            logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url; // Map logo
+            logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url;
             addLog(`Konsern: ${groupName}`, 'success');
         }
     }
@@ -420,28 +412,36 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     addLog(`Fant ${rawCompanies.length} selskaper.`, 'success');
 
     addLog("Prosesserer finansielle data...");
+    
     const mappedCompanies = rawCompanies.map((c: any) => {
-        let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+        // AGGRESSIVE BUDGET EXTRACTION
+        let bMonths: number[] = [];
+        const rawMonths = c.budgetMonths ?? c.budget_months; // Try both keys
+        
         try {
-            if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
-            else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
-            else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
-            else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
-            
-            // STRICTLY CAST TO NUMBERS
-            bMonths = bMonths.map((m: any) => Number(m) || 0);
+            if (Array.isArray(rawMonths)) {
+                bMonths = rawMonths.map(Number);
+            } else if (typeof rawMonths === 'string') {
+                const parsed = JSON.parse(rawMonths);
+                if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+            }
+        } catch(e) {
+            console.warn("Budget parse fail", e);
+        }
 
-        } catch(e) { console.warn("Budget parsing error", e); }
+        // Validate length and numbers
+        if (!bMonths || bMonths.length !== 12 || bMonths.some(isNaN)) {
+             bMonths = Array(12).fill(0);
+        }
 
-        // Determine Budget Total and Distribution
+        // Determine Total
         const bTotal = Number(c.budgetTotal || c.budget_total || 0);
-        const sumMonths = bMonths.reduce((a: number, b: number) => a + b, 0);
+        const sumMonths = bMonths.reduce((a, b) => a + b, 0);
 
-        // Fallback: If total budget exists but month distribution is empty/zero, distribute flat
+        // Fallback: If total > 0 but sum of months is 0, distribute flat
         if (bTotal > 0 && sumMonths === 0) {
                 const perMonth = Math.round(bTotal / 12);
                 bMonths = Array(12).fill(perMonth);
-                // Adjust last month for remainder
                 bMonths[11] += (bTotal - (perMonth * 12));
         }
 

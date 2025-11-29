@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -269,27 +268,33 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
         if(compRes.rows) {
             const mapped = compRes.rows.map((c: any) => {
-                let bMonths = [0,0,0,0,0,0,0,0,0,0,0,0];
+                // AGGRESSIVE BUDGET PARSING
+                let bMonths: number[] = [];
+                const rawMonths = c.budgetMonths ?? c.budget_months; // Try both
+                
                 try {
-                    if (Array.isArray(c.budgetMonths)) bMonths = c.budgetMonths;
-                    else if (typeof c.budgetMonths === 'string') bMonths = JSON.parse(c.budgetMonths);
-                    else if (Array.isArray(c.budget_months)) bMonths = c.budget_months;
-                    else if (typeof c.budget_months === 'string') bMonths = JSON.parse(c.budget_months);
-                    
-                    // STRICTLY CAST TO NUMBERS
-                    bMonths = bMonths.map((m: any) => Number(m) || 0);
+                    if (Array.isArray(rawMonths)) {
+                        bMonths = rawMonths.map(Number);
+                    } else if (typeof rawMonths === 'string') {
+                        const parsed = JSON.parse(rawMonths);
+                        if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+                    }
+                } catch(e) {
+                    console.warn("Budget parsing error in reload", e);
+                }
 
-                } catch(e) { console.warn("Budget parsing error", e); }
+                if (!bMonths || bMonths.length !== 12 || bMonths.some(isNaN)) {
+                    bMonths = Array(12).fill(0);
+                }
 
-                // Determine Budget Total and Distribution
+                // Determine Budget Total
                 const bTotal = Number(c.budgetTotal || c.budget_total || 0);
-                const sumMonths = bMonths.reduce((a: number, b: number) => a + b, 0);
+                const sumMonths = bMonths.reduce((a, b) => a + b, 0);
 
                 // Fallback: If total budget exists but month distribution is empty/zero, distribute flat
                 if (bTotal > 0 && sumMonths === 0) {
                      const perMonth = Math.round(bTotal / 12);
                      bMonths = Array(12).fill(perMonth);
-                     // Adjust last month for remainder
                      bMonths[11] += (bTotal - (perMonth * 12));
                 }
 
@@ -795,7 +800,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     
     return visibleCompanies.map(company => {
         let targetBudget = 0;
-        const bMonths = company.budgetMonths && company.budgetMonths.length === 12 ? company.budgetMonths : Array(12).fill(company.budgetTotal / 12);
+        // Rely on pre-processed budgetMonths from reloadCompanies/initKonsernKontroll
+        const bMonths = company.budgetMonths;
 
         if (isTodayMode) {
             for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
