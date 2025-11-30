@@ -53,6 +53,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
       if (Array.isArray(raw)) {
           bMonths = raw.map(x => Number(x) || 0);
+      } else if (typeof raw === 'object' && raw !== null) {
+          // Handle object case {0: 100, 1: 200}
+          bMonths = Object.values(raw).map(Number);
       } else if (typeof raw === 'string') {
           // Handle Postgres Array string "{100,200}" or JSON "[100,200]"
           let cleanStr = raw.trim();
@@ -71,11 +74,11 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
       if (bMonths.length !== 12) bMonths = Array(12).fill(0);
 
-      // Force distribute total if months are empty
+      // Force distribute total if months are empty or invalid
       const total = Number(data.budgetTotal || 0);
       const sum = bMonths.reduce((a, b) => a + b, 0);
 
-      if (sum === 0 && total > 0) {
+      if ((sum === 0 || isNaN(sum)) && total > 0) {
           const perMonth = Math.round(total / 12);
           bMonths = Array(12).fill(perMonth);
           bMonths[11] += (total - (perMonth * 12));
@@ -256,7 +259,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
                         <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
-                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#64748b" strokeDasharray="6 6" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#64748b" strokeDasharray="6 6" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
                     </AreaChart>
                 </ResponsiveContainer>
               </div>

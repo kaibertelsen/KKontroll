@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode } from 'react';
+import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LoginScreen from './components/LoginScreen';
@@ -27,8 +27,11 @@ interface ErrorBoundaryState {
   error: string;
 }
 
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false, error: '' };
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
     return { hasError: true, error: error.toString() };
@@ -421,6 +424,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         try {
             if (Array.isArray(rawMonths)) {
                 bMonths = rawMonths.map(Number);
+            } else if (typeof rawMonths === 'object' && rawMonths !== null) {
+                // Handle object case {0: 100, 1: 200}
+                bMonths = Object.values(rawMonths).map(Number);
             } else if (typeof rawMonths === 'string') {
                 // Handle JSON format "[1,2,3]" OR Postgres Array format "{1,2,3}"
                 let cleanStr = rawMonths.trim();
@@ -454,8 +460,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         const bTotal = Number(c.budgetTotal || c.budget_total || 0);
         const sumMonths = bMonths.reduce((a, b) => a + b, 0);
 
-        // Fallback: If total > 0 but sum of months is 0, distribute flat
-        if (bTotal > 0 && sumMonths === 0) {
+        // Fallback: If total > 0 but sum of months is 0 or NaN, distribute flat
+        if ((sumMonths === 0 || isNaN(sumMonths)) && bTotal > 0) {
                 const perMonth = Math.round(bTotal / 12);
                 bMonths = Array(12).fill(perMonth);
                 bMonths[11] += (bTotal - (perMonth * 12));

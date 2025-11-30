@@ -275,6 +275,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 try {
                     if (Array.isArray(rawMonths)) {
                         bMonths = rawMonths.map(Number);
+                    } else if (typeof rawMonths === 'object' && rawMonths !== null) {
+                        // Handle generic object case {0: 100, 1: 200}
+                        bMonths = Object.values(rawMonths).map(Number);
                     } else if (typeof rawMonths === 'string') {
                         // Handle JSON format "[1,2,3]" OR Postgres Array format "{1,2,3}"
                         let cleanStr = rawMonths.trim();
@@ -307,8 +310,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 const bTotal = Number(c.budgetTotal || c.budget_total || 0);
                 const sumMonths = bMonths.reduce((a, b) => a + b, 0);
 
-                // Fallback: If total budget exists but month distribution is empty/zero, distribute flat
-                if (bTotal > 0 && sumMonths === 0) {
+                // Fallback: If total budget exists but month distribution is empty/zero/NaN, distribute flat
+                if ((sumMonths === 0 || isNaN(sumMonths)) && bTotal > 0) {
                      const perMonth = Math.round(bTotal / 12);
                      bMonths = Array(12).fill(perMonth);
                      bMonths[11] += (bTotal - (perMonth * 12));
