@@ -47,7 +47,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
 
                 {/* MAIN LOGIN FORM (Memberstack Declarative) */}
                 {!showDemoInput ? (
-                    <form data-ms-form="login" className="space-y-4">
+                    <form 
+                        id="wf-form-Sign-In-Form" 
+                        name="wf-form-Sign-In-Form" 
+                        data-name="Sign In Form" 
+                        method="post" 
+                        data-ms-form="login" 
+                        className="space-y-4"
+                    >
                         <div className="space-y-1">
                             <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
                             <input 
@@ -73,6 +80,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                         <input 
                             type="submit" 
                             value="Logg inn"
+                            data-wait="Vennligst vent..."
                             className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] mt-4 cursor-pointer"
                         />
                     </form>
