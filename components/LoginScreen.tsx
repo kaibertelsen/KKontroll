@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Lock, Bug } from 'lucide-react';
 
 interface LoginScreenProps {
@@ -12,6 +12,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
     // Demo State
     const [demoPwd, setDemoPwd] = useState('');
     const [demoError, setDemoError] = useState('');
+
+    useEffect(() => {
+        // Ensure Memberstack scans the DOM when the form appears
+        if (window.$memberstackDom && window.$memberstackDom.command) {
+             try {
+                window.$memberstackDom.command.scan();
+             } catch(e) { console.log("MS Scan error", e); }
+        }
+    }, [showDemoInput]);
 
     const handleDemoSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,29 +60,38 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                         id="wf-form-Sign-In-Form" 
                         name="wf-form-Sign-In-Form" 
                         data-name="Sign In Form" 
-                        method="post" 
+                        method="get" 
                         data-ms-form="login" 
                         className="space-y-4"
+                        aria-label="Sign In Form"
                     >
                         <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
+                            <label htmlFor="email-2" className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
                             <input 
+                                id="email-2"
                                 className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all" 
                                 type="email" 
                                 placeholder="navn@selskap.no" 
                                 required 
                                 data-ms-member="email"
+                                autoComplete="email"
+                                name="email-2"
+                                data-name="Email 2"
                             />
                         </div>
                         
                         <div className="space-y-1">
-                            <label className="text-xs font-bold uppercase text-slate-400 ml-1">Passord</label>
+                            <label htmlFor="Password-2" className="text-xs font-bold uppercase text-slate-400 ml-1">Passord</label>
                             <input 
+                                id="Password-2"
                                 className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all" 
                                 type="password" 
                                 placeholder="••••••••" 
                                 required 
                                 data-ms-member="password"
+                                autoComplete="current-password"
+                                name="Password-2"
+                                data-name="Password 2"
                             />
                         </div>
 
