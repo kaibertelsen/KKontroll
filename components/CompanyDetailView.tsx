@@ -510,7 +510,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Resultatutvikling (Akkumulert)</h3>
                 <div className="h-[350px]">
                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={historyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <ComposedChart data={historyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorResult" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
@@ -523,8 +523,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
                             <Legend />
                             <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
-                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#64748b" strokeDasharray="6 6" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
-                        </AreaChart>
+                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                        </ComposedChart>
                     </ResponsiveContainer>
                 </div>
             </div>

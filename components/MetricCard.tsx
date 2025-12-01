@@ -15,7 +15,7 @@ import {
   GripHorizontal
 } from 'lucide-react';
 import { 
-  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
+  AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart 
 } from 'recharts';
 
 interface MetricCardProps {
@@ -247,7 +247,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
               <div className="flex-grow w-full min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                    <ComposedChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                         <defs>
                             <linearGradient id={`colorResult-${data.id}`} x1="0" y1="0" x2="0" y2="1">
                                 <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
@@ -259,8 +259,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
                         <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
-                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#64748b" strokeDasharray="6 6" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
-                    </AreaChart>
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                    </ComposedChart>
                 </ResponsiveContainer>
               </div>
 
