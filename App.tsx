@@ -605,16 +605,209 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const handleDeleteReport = async (reportId: number) => {
       if (!window.confirm("Er du sikker på at du vil slette denne rapporten?")) return;
       
+      let companyIdToUpdate: number | undefined;
+
       if (isDemo) {
-          setReports(prev => prev.filter(r => r.id !== reportId));
+          // Identify company from local state
+          const report = reports.find(r => r.id === reportId) || allReports.find(r => r.id === reportId);
+          companyIdToUpdate = report?.companyId;
+
+          const newReports = reports.filter(r => r.id !== reportId);
+          setReports(newReports);
           setAllReports(prev => prev.filter(r => r.id !== reportId));
+          
+          if (companyIdToUpdate) {
+              // In demo, simplistic update: if we have reports left, assume the latest one dictates state
+              const relevantReports = newReports.filter(r => r.companyId === companyIdToUpdate);
+              relevantReports.sort((a, b) => {
+                   // Quick parse DD.MM.YYYY
+                   const da = a.date.split('.').reverse().join('-');
+                   const db = b.date.split('.').reverse().join('-');
+                   return new Date(db).getTime() - new Date(da).getTime();
+              });
+
+              const latest = relevantReports[0];
+              
+              // We need to update the `companies` state
+              setCompanies(prev => prev.map(c => {
+                   if (c.id !== companyIdToUpdate) return c;
+                   
+                   if (latest) {
+                       return {
+                           ...c,
+                           revenue: latest.revenue || 0,
+                           expenses: latest.expenses || 0,
+                           resultYTD: latest.result || ((latest.revenue || 0) - (latest.expenses || 0)),
+                           liquidity: latest.liquidity || 0,
+                           receivables: latest.receivables || 0,
+                           accountsPayable: latest.accountsPayable || 0,
+                           currentComment: latest.comment
+                           // Note: dates are strings in demo mock, simple copy if present
+                       };
+                   } else {
+                       // Reset to 0
+                       return {
+                           ...c,
+                           revenue: 0,
+                           expenses: 0,
+                           resultYTD: 0,
+                           liquidity: 0,
+                           receivables: 0,
+                           accountsPayable: 0,
+                           currentComment: ''
+                       };
+                   }
+              }));
+              
+              // If selected company is the one updated, we need to force update it from the new companies list
+              // But setCompanies is async. We can do a quick hack or just let the user re-select.
+              // For better UX, we'll try to update selectedCompany too if it matches.
+              if (selectedCompany && selectedCompany.id === companyIdToUpdate) {
+                   setSelectedCompany(prev => {
+                       if (!prev) return null;
+                       if (latest) {
+                            return {
+                                ...prev,
+                                revenue: latest.revenue || 0,
+                                expenses: latest.expenses || 0,
+                                resultYTD: latest.result || ((latest.revenue || 0) - (latest.expenses || 0)),
+                                liquidity: latest.liquidity || 0,
+                                receivables: latest.receivables || 0,
+                                accountsPayable: latest.accountsPayable || 0
+                            };
+                       } else {
+                            return {
+                                ...prev,
+                                revenue: 0, expenses: 0, resultYTD: 0, liquidity: 0, receivables: 0, accountsPayable: 0
+                            };
+                       }
+                   });
+              }
+          }
           return;
       }
 
       try {
+          // 1. Identify Company ID
+          const localReport = reports.find(r => r.id === reportId) || allReports.find(r => r.id === reportId);
+          if (localReport) {
+              companyIdToUpdate = localReport.companyId;
+          } else {
+               const res = await getNEON({ table: 'reports', where: { id: reportId } });
+               if (res.rows && res.rows.length > 0) {
+                   companyIdToUpdate = res.rows[0].companyId || res.rows[0].company_id;
+               }
+          }
+
+          // 2. Delete the Report
           await deleteNEON({ table: 'reports', data: reportId });
+          
+          // Update local UI lists
           setReports(prev => prev.filter(r => r.id !== reportId));
           setAllReports(prev => prev.filter(r => r.id !== reportId));
+
+          // 3. Recalculate Company State
+          if (companyIdToUpdate) {
+              const res = await getNEON({ table: 'reports', where: { companyId: companyIdToUpdate } });
+              const remaining = res.rows || [];
+              
+              // Sort by date/created desc
+              remaining.sort((a: any, b: any) => {
+                  const dateA = new Date(a.reportDate || a.report_date).getTime();
+                  const dateB = new Date(b.reportDate || b.report_date).getTime();
+                  return dateB - dateA;
+              });
+              
+              const latest = remaining[0];
+              const companyUpdate: any = { id: companyIdToUpdate };
+              
+              // Helper to safely access row props (camel or snake)
+              const getVal = (row: any, ...keys: string[]) => {
+                  for (const k of keys) {
+                      if (row[k] !== undefined && row[k] !== null) return row[k];
+                  }
+                  return null;
+              };
+
+              if (latest) {
+                 const l_revenue = Number(getVal(latest, 'revenue') ?? 0);
+                 const l_expenses = Number(getVal(latest, 'expenses') ?? 0);
+                 const l_result = Number(getVal(latest, 'resultYtd', 'result_ytd') ?? (l_revenue - l_expenses));
+                 
+                 companyUpdate.revenue = l_revenue;
+                 companyUpdate.expenses = l_expenses;
+                 companyUpdate.resultYtd = l_result;
+                 companyUpdate.result_ytd = l_result; 
+
+                 const l_liq = getVal(latest, 'liquidity');
+                 if (l_liq !== null) companyUpdate.liquidity = Number(l_liq);
+                 
+                 const l_rec = getVal(latest, 'receivables');
+                 if (l_rec !== null) companyUpdate.receivables = Number(l_rec);
+                 
+                 const l_pay = getVal(latest, 'accountsPayable', 'accounts_payable');
+                 if (l_pay !== null) {
+                     companyUpdate.accountsPayable = Number(l_pay);
+                     companyUpdate.accounts_payable = Number(l_pay);
+                 }
+
+                 // Dates
+                 const l_liqDate = getVal(latest, 'liquidityDate', 'liquidity_date');
+                 if(l_liqDate) { companyUpdate.liquidityDate = l_liqDate; companyUpdate.liquidity_date = l_liqDate; }
+                 
+                 const l_recDate = getVal(latest, 'receivablesDate', 'receivables_date');
+                 if(l_recDate) { companyUpdate.receivablesDate = l_recDate; companyUpdate.receivables_date = l_recDate; }
+
+                 const l_payDate = getVal(latest, 'accountsPayableDate', 'accounts_payable_date');
+                 if(l_payDate) { companyUpdate.accountsPayableDate = l_payDate; companyUpdate.accounts_payable_date = l_payDate; }
+                 
+                 const l_pnlDate = getVal(latest, 'pnlDate', 'pnl_date');
+                 if(l_pnlDate) { companyUpdate.pnlDate = l_pnlDate; companyUpdate.pnl_date = l_pnlDate; }
+                 
+                 const l_reportDate = getVal(latest, 'reportDate', 'report_date');
+                 if (l_reportDate) {
+                     const d = new Date(l_reportDate).toLocaleDateString('no-NO');
+                     companyUpdate.lastReportDate = d;
+                     companyUpdate.last_report_date = d;
+                 }
+                 
+                 const l_author = getVal(latest, 'authorName', 'author_name');
+                 if(l_author) {
+                     companyUpdate.lastReportBy = l_author;
+                     companyUpdate.last_report_by = l_author;
+                 }
+
+                 const l_comment = getVal(latest, 'comment');
+                 if(l_comment) {
+                     companyUpdate.currentComment = l_comment;
+                     companyUpdate.current_comment = l_comment;
+                 }
+
+              } else {
+                 // Reset values if no reports
+                 companyUpdate.revenue = 0;
+                 companyUpdate.expenses = 0;
+                 companyUpdate.resultYtd = 0;
+                 companyUpdate.result_ytd = 0;
+                 companyUpdate.liquidity = 0;
+                 companyUpdate.receivables = 0;
+                 companyUpdate.accountsPayable = 0;
+                 companyUpdate.accounts_payable = 0;
+                 companyUpdate.currentComment = '';
+                 companyUpdate.current_comment = '';
+                 companyUpdate.lastReportDate = '';
+                 companyUpdate.last_report_date = '';
+                 companyUpdate.lastReportBy = '';
+                 companyUpdate.last_report_by = '';
+              }
+              
+              await patchNEON({ table: 'companies', data: companyUpdate });
+              
+              // 4. Reload Data
+              await reloadCompanies();
+              if (viewMode === ViewMode.ADMIN) fetchAllReports();
+          }
+
       } catch (e) {
           console.error("Delete report error", e);
           alert("Kunne ikke slette rapporten.");
