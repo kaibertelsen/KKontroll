@@ -22,6 +22,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
         }
     };
 
+
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden">
             {/* Background Elements */}
@@ -51,6 +52,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                         data-ms-form="login" 
                         data-turnstile-sitekey="0x4AAAAAAAQTptj2So4dx43e"
                         className="space-y-4"
+                        method="post"
                     >
                         <div className="space-y-1">
                             <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
@@ -81,6 +83,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
 
                         <button 
                             type="submit" 
+                            data-wait="Vennligst vent..."
                             className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] flex justify-center gap-2 mt-4 items-center"
                         >
                             <LogIn size={20} />
