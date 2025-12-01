@@ -1209,10 +1209,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               {/* Aggregates - Show simpler version on mobile */}
               {!isAdminMode && (
                 <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                     <div className="flex gap-4 text-center sm:text-left">
+                     <div className="flex gap-6 text-center sm:text-left">
                         <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Omsetning</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Resultat</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalResult)}</span></div>
-                        <div className="flex flex-col px-2"><span className="text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-xs font-bold text-emerald-600">{formatCurrency(totalLiquidity)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Kostnader</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Resultat</span><span className={`text-xs font-bold ${totalResult >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatCurrency(totalResult)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Budsjett</span><span className="text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalLiquidity)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Fordringer</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Gjeld</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
+                        <div className="flex flex-col px-2"><span className="text-[9px] uppercase font-bold text-slate-400">Arb.Kapital</span><span className="text-xs font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
                      </div>
                 </div>
               )}
