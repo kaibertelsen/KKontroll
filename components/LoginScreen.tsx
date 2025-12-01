@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Bug, LogIn } from 'lucide-react';
+import { Lock, Bug } from 'lucide-react';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -21,7 +21,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             setDemoError("Feil demo-passord");
         }
     };
-
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-900 font-sans p-4 relative overflow-hidden">
@@ -78,17 +77,15 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                             />
                         </div>
                         
-                        {/* Memberstack Error Container - shown automatically by script on error */}
+                        {/* Memberstack Error Container */}
                         <div data-ms-message="error" className="text-rose-300 text-xs bg-rose-500/20 p-2 rounded border border-rose-500/30 hidden"></div>
 
-                        <button 
+                        <input 
                             type="submit" 
+                            value="Logg inn"
                             data-wait="Vennligst vent..."
-                            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] flex justify-center gap-2 mt-4 items-center"
-                        >
-                            <LogIn size={20} />
-                            Logg inn
-                        </button>
+                            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] cursor-pointer mt-4"
+                        />
                     </form>
                 ) : (
                     /* DEMO FORM */
