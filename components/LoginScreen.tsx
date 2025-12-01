@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, Bug, Loader2, LogIn } from 'lucide-react';
+import { Lock, Bug, LogIn } from 'lucide-react';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -9,58 +9,16 @@ interface LoginScreenProps {
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }) => {
     const [showDemoInput, setShowDemoInput] = useState(false);
     
-    // Login State
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
-    const [statusMsg, setStatusMsg] = useState('Klar til innlogging');
-
     // Demo State
     const [demoPwd, setDemoPwd] = useState('');
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsLoading(true);
-        setErrorMsg('');
-        setStatusMsg('Kontakter Memberstack...');
-
-        try {
-            if (!window.$memberstackDom) {
-                 // Try waiting a bit if it's not loaded yet (rare case if defer is used correctly)
-                 setStatusMsg('Venter på Memberstack...');
-                 await new Promise(r => setTimeout(r, 1000));
-                 if (!window.$memberstackDom) throw new Error("Memberstack skript er ikke lastet.");
-            }
-            
-            const result = await window.$memberstackDom.login({
-                email: email,
-                password: password
-            });
-
-            if (result.data) {
-                setStatusMsg('Innlogging vellykket! Laster dashboard...');
-                // Allow a brief moment for tokens to persist/propagate
-                setTimeout(() => {
-                    onLoginSuccess();
-                }, 500);
-            } else {
-                throw new Error("Kunne ikke logge inn. Sjekk e-post og passord.");
-            }
-        } catch (error: any) {
-            console.error("Login Error:", error);
-            setErrorMsg(error.message || "Feil ved innlogging.");
-            setIsLoading(false);
-            setStatusMsg('Feil oppstod.');
-        }
-    };
+    const [demoError, setDemoError] = useState('');
 
     const handleDemoSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (demoPwd === 'KonsernDemo2025') {
             onDemoStart();
         } else {
-            setErrorMsg("Feil demo-passord");
+            setDemoError("Feil demo-passord");
         }
     };
 
@@ -87,27 +45,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                     <p className="text-slate-400 text-sm">Logg inn for å få tilgang til dashboard</p>
                 </div>
 
-                {/* Error Banner */}
-                {errorMsg && (
-                    <div className="mb-4 bg-rose-500/20 border border-rose-500/50 rounded-lg p-3 text-rose-200 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
-                        <Bug size={16} />
-                        {errorMsg}
-                    </div>
-                )}
-
-                {/* MAIN LOGIN FORM (Imperative) */}
+                {/* MAIN LOGIN FORM (Declarative Memberstack Form) */}
                 {!showDemoInput ? (
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form 
+                        data-ms-form="login" 
+                        data-turnstile-sitekey="0x4AAAAAAAQTptj2So4dx43e"
+                        className="space-y-4"
+                    >
                         <div className="space-y-1">
                             <label className="text-xs font-bold uppercase text-slate-400 ml-1">E-post</label>
                             <input 
-                                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-50" 
+                                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all" 
                                 type="email" 
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
+                                data-ms-member="email"
                                 placeholder="navn@selskap.no" 
                                 required 
-                                disabled={isLoading}
                             />
                         </div>
                         
@@ -116,23 +68,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                                 <label className="text-xs font-bold uppercase text-slate-400">Passord</label>
                             </div>
                             <input 
-                                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all disabled:opacity-50" 
+                                className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all" 
                                 type="password" 
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
+                                data-ms-member="password"
                                 placeholder="••••••••" 
                                 required 
-                                disabled={isLoading}
                             />
                         </div>
+                        
+                        {/* Memberstack Error Container - shown automatically by script on error */}
+                        <div data-ms-message="error" className="text-rose-300 text-xs bg-rose-500/20 p-2 rounded border border-rose-500/30 hidden"></div>
 
                         <button 
                             type="submit" 
-                            disabled={isLoading}
-                            className="w-full bg-sky-600 hover:bg-sky-500 disabled:bg-sky-800 disabled:cursor-wait text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] flex justify-center gap-2 mt-4 items-center"
+                            className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] flex justify-center gap-2 mt-4 items-center"
                         >
-                            {isLoading ? <Loader2 className="animate-spin" size={20} /> : <LogIn size={20} />}
-                            {isLoading ? 'Logger inn...' : 'Logg inn'}
+                            <LogIn size={20} />
+                            Logg inn
                         </button>
                     </form>
                 ) : (
@@ -150,23 +102,26 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                                 onChange={e => setDemoPwd(e.target.value)}
                             />
                         </div>
+
+                         {demoError && (
+                            <div className="mb-4 bg-rose-500/20 border border-rose-500/50 rounded-lg p-3 text-rose-200 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                                <Bug size={16} />
+                                {demoError}
+                            </div>
+                         )}
+
                         <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
                     </form>
                 )}
 
                 <div className="mt-8 pt-6 border-t border-white/10 text-center">
-                    <button onClick={() => { setShowDemoInput(!showDemoInput); setErrorMsg(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
+                    <button onClick={() => { setShowDemoInput(!showDemoInput); setDemoError(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                         {showDemoInput ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
                     </button>
                 </div>
             </div>
 
-            {/* Status Bar */}
-            <div className="mt-4 flex items-center gap-2 text-slate-500 text-xs font-mono">
-                 <Loader2 size={12} className={isLoading ? 'animate-spin' : ''} /> Status: <span className="text-slate-400">{statusMsg}</span>
-            </div>
-            
-            <div className="mt-2 text-slate-600 text-[10px]">
+            <div className="mt-4 text-slate-600 text-[10px]">
                 Powered by Attentio KK
             </div>
         </div>
