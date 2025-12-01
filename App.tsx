@@ -660,8 +660,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               }));
               
               // If selected company is the one updated, we need to force update it from the new companies list
-              // But setCompanies is async. We can do a quick hack or just let the user re-select.
-              // For better UX, we'll try to update selectedCompany too if it matches.
               if (selectedCompany && selectedCompany.id === companyIdToUpdate) {
                    setSelectedCompany(prev => {
                        if (!prev) return null;
@@ -709,16 +707,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           // 3. Recalculate Company State
           if (companyIdToUpdate) {
               const res = await getNEON({ table: 'reports', where: { companyId: companyIdToUpdate } });
-              const remaining = res.rows || [];
+              // Explicitly filter out the deleted ID just in case
+              const validReports = (res.rows || []).filter((r: any) => r.id !== reportId);
               
               // Sort by date/created desc
-              remaining.sort((a: any, b: any) => {
+              validReports.sort((a: any, b: any) => {
                   const dateA = new Date(a.reportDate || a.report_date).getTime();
                   const dateB = new Date(b.reportDate || b.report_date).getTime();
+                  if (dateA === dateB) return b.id - a.id;
                   return dateB - dateA;
               });
               
-              const latest = remaining[0];
+              const latest = validReports[0];
               const companyUpdate: any = { id: companyIdToUpdate };
               
               // Helper to safely access row props (camel or snake)
