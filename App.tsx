@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -149,7 +150,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 if(res.rows) {
                     const mappedUsers = res.rows.map((u: any) => ({
                         id: u.id,
-                        authId: u.authId || u.auth_id, 
                         email: u.email,
                         fullName: u.fullName || u.full_name,
                         role: u.role,
@@ -911,8 +911,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const handleAddUser = async (user: Omit<UserData, 'id'>) => {
       try {
           const payload = {
-              authId: user.authId,
               email: user.email,
+              password: user.password,
               fullName: user.fullName,
               role: user.role,
               groupId: userProfile.groupId,
@@ -923,7 +923,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
           if(res.rows) setUsers(res.rows.map((u:any) => ({
               id: u.id, 
-              authId: u.authId || u.auth_id, 
               email: u.email, 
               role: u.role, 
               fullName: u.fullName || u.full_name, 
@@ -938,20 +937,23 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateUser = async (user: UserData) => {
       try {
-          const payload = {
+          const payload: any = {
               id: user.id,
-              authId: user.authId,
               email: user.email,
               fullName: user.fullName,
               role: user.role,
               companyId: user.companyId
           };
+
+          if (user.password) {
+              payload.password = user.password;
+          }
+
            await patchNEON({ table: 'users', data: payload });
            
            const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
            if(res.rows) setUsers(res.rows.map((u:any) => ({
                id: u.id, 
-               authId: u.authId || u.auth_id, 
                email: u.email, 
                role: u.role, 
                fullName: u.fullName || u.full_name, 
@@ -975,7 +977,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   };
 
   const handleLogout = () => {
-      localStorage.removeItem('konsern_access');
+      localStorage.removeItem('konsern_user_id');
       localStorage.removeItem('konsern_mode');
       if(window.$memberstackDom) window.$memberstackDom.logout();
       window.initKonsernKontroll();
@@ -984,9 +986,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const toggleMode = () => {
       const newMode = isDemo ? 'live' : 'demo';
       if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
-          alert("Du må logge inn med demo-passord først.");
-          window.initKonsernKontroll(); 
-          return;
+          // alert("Du må logge inn med demo-passord først.");
+          // window.initKonsernKontroll(); 
+          // return;
       }
       window.initKonsernKontroll(undefined, newMode === 'demo');
   };

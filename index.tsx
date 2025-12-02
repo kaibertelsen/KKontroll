@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -12,8 +13,8 @@ console.log("KonsernKontroll Script Loaded");
 declare global {
   interface Window {
     initKonsernKontroll: (userId?: string | number, demoMode?: boolean) => Promise<void>;
-    $memberstackDom?: any;
     konsernRoot?: ReactDOM.Root; 
+    $memberstackDom?: any;
   }
 }
 
@@ -59,9 +60,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-// Fallback user ID for testing "Live" mode without Memberstack
-const TEST_USER_ID = "mem_sb_cmi4ny448009m0sr4ew3hdge1";
-
 // --- LOADING LOGGER COMPONENT ---
 interface LogEntry {
     time: string;
@@ -94,7 +92,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.3.13</div>
+                    <div className="text-[10px] text-slate-400">v1.4.0 (Direct Neon)</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -184,44 +182,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   addLog("Initialiserer applikasjon...");
 
   // 1. AUTH CHECK
-  let memberstackUser = null;
-  const localToken = localStorage.getItem("_ms-mid");
+  const localUserId = localStorage.getItem("konsern_user_id");
   const forceDemo = demoMode || localStorage.getItem('konsern_mode') === 'demo';
 
   if (!forceDemo) {
-      if (localToken) {
-          addLog("Fant lokal sesjonsnøkkel (_ms-mid).", 'info');
-          
-          // WAIT for Memberstack DOM if not ready yet
-          if (!window.$memberstackDom) {
-              addLog("Venter på at Memberstack skal laste...");
-              for (let i = 0; i < 30; i++) { // Wait up to 3 seconds (30 * 100ms)
-                  if (window.$memberstackDom) break;
-                  await new Promise(resolve => setTimeout(resolve, 100));
-              }
-          }
-      }
-
-      try {
-          addLog("Sjekker Memberstack status...");
-          if (window.$memberstackDom) {
-              const member = await window.$memberstackDom.getCurrentMember();
-              if (member?.data) {
-                  memberstackUser = member.data;
-                  addLog(`Memberstack bruker funnet: ${memberstackUser.id}`, 'success');
-              } else {
-                  addLog("Ingen aktiv Memberstack sesjon funnet.");
-              }
-          } else {
-              addLog("Memberstack DOM ikke klar - men token finnes. Prøver auto-login...");
-              // We trust the token if MS dom isn't ready yet, it will verify against API later
-              if (localToken) {
-                   // Minimal mock user for "Assume logged in" state until verified by DB
-                   memberstackUser = { id: "mem_temp", customFields: {} }; 
-              }
-          }
-      } catch (e: any) { 
-          addLog(`Feil under Memberstack sjekk: ${e.message}`, 'error');
+      if (localUserId) {
+          addLog(`Fant lokal bruker-ID: ${localUserId}`, 'info');
+      } else {
+          addLog("Ingen aktiv sesjon funnet.");
       }
   }
 
@@ -233,14 +201,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       shouldStartApp = true;
       isDemo = true;
       addLog("Modus satt til: DEMO", 'info');
-  } else if (localToken || memberstackUser) {
+  } else if (localUserId) {
       shouldStartApp = true;
       isDemo = false;
       addLog("Modus satt til: LIVE", 'info');
   }
   
   if (!shouldStartApp) {
-      addLog("Ingen gyldig sesjon. Viser innloggingsskjerm.");
+      addLog("Viser innloggingsskjerm.");
       
       // RENDER LOGIN SCREEN
       root.render(
@@ -281,92 +249,37 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   }
 
   // --- REAL MODE START ---
-  let effectiveUserId = userId;
-  
-  // Try to use the Memberstack ID if we have the real object, otherwise rely on the DB lookup via token logic (Neon handles AuthID)
-  if (!effectiveUserId && memberstackUser && memberstackUser.id !== "mem_temp") {
-      if (memberstackUser.customFields && memberstackUser.customFields['neonid']) {
-          effectiveUserId = memberstackUser.customFields['neonid'];
-          addLog(`Bruker Custom Field 'neonid': ${effectiveUserId}`, 'info');
-      } else {
-          effectiveUserId = memberstackUser.id;
-          addLog(`Bruker standard Auth ID: ${effectiveUserId}`, 'info');
-      }
-  }
-
-  // If we still only have the token (mem_temp), we need to rely on the neon.ts to pick up the token from localStorage
-  if (!effectiveUserId && localToken) {
-       if (window.$memberstackDom) {
-            try {
-                const member = await window.$memberstackDom.getCurrentMember();
-                if(member?.data) effectiveUserId = member.data.id;
-            } catch(e) {}
-       }
-  }
-
-  if (!effectiveUserId) {
-       addLog("Fant token, men kunne ikke hente Member ID. Prøver å laste på nytt...", 'error');
-       
-       renderLog([
-            {
-                label: "Prøv igjen",
-                icon: RefreshCw,
-                onClick: () => window.location.reload()
-            },
-            {
-                label: "Logg ut",
-                icon: LogOut,
-                onClick: () => {
-                    localStorage.removeItem("_ms-mid");
-                    window.location.reload();
-                }
-            }
-        ]);
-      return;
-  }
+  const effectiveUserId = userId || localUserId;
 
   try {
     addLog("Kobler til Neon database...");
     
-    let userWhere = {};
-    const userIdStr = String(effectiveUserId);
+    const userWhere = { id: effectiveUserId };
+    addLog(`Søker etter bruker ID: ${effectiveUserId}`, 'info');
     
-    if (userIdStr.startsWith('mem_')) {
-        userWhere = { authId: userIdStr }; 
-        addLog(`Søkemetode: authId (Memberstack ID)`, 'info');
-    } else if (/^\d+$/.test(userIdStr)) {
-        userWhere = { id: userIdStr };
-        addLog(`Søkemetode: id (Intern ID)`, 'info');
-    } else {
-        userWhere = { authId: userIdStr };
-        addLog(`Søkemetode: authId (Generisk)`, 'info');
-    }
-
-    addLog(`Kjører databasesøk: ${JSON.stringify(userWhere)}`);
-    
+    // We expect the headers in neon.ts to handle the "door key" (AppID/Key)
+    // Here we just fetch the user row to see if they exist and get their profile
     const userRes = await getNEON({ table: 'users', where: userWhere });
     const rawUser = userRes.rows[0];
 
     if (!rawUser) {
         addLog("FEIL: Bruker ikke funnet i databasen.", 'error');
-        addLog(`Søkte etter: ${JSON.stringify(userWhere)}`, 'error');
-        addLog("Dette betyr at Memberstack-brukeren ikke er koblet mot en rad i users-tabellen.", 'error');
+        addLog(`Søkte etter ID: ${effectiveUserId}`, 'error');
         
         renderLog([
             {
+                label: "Logg ut / Prøv igjen",
+                icon: LogOut,
+                onClick: () => { 
+                    localStorage.removeItem("konsern_user_id");
+                    window.location.reload(); 
+                }
+            },
+             {
                 label: "Start Demo Modus",
                 icon: MonitorPlay,
                 variant: 'secondary',
                 onClick: () => window.initKonsernKontroll(undefined, true)
-            },
-            {
-                label: "Logg ut og prøv igjen",
-                icon: LogOut,
-                onClick: () => { 
-                    localStorage.removeItem("_ms-mid");
-                    if(window.$memberstackDom) window.$memberstackDom.logout(); 
-                    window.location.reload(); 
-                }
             }
         ]);
         return;
@@ -374,7 +287,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
     const user = {
         id: rawUser.id,
-        authId: rawUser.authId || rawUser.auth_id,
+        email: rawUser.email,
         fullName: rawUser.fullName || rawUser.full_name || 'Ukjent Bruker',
         role: rawUser.role,
         groupId: rawUser.groupId || rawUser.group_id,
@@ -535,6 +448,14 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             label: "Prøv igjen",
             icon: RefreshCw,
             onClick: () => window.initKonsernKontroll()
+        },
+        {
+            label: "Logg ut",
+            icon: LogOut,
+            onClick: () => {
+                localStorage.removeItem("konsern_user_id");
+                window.location.reload(); 
+            }
         },
         {
             label: "Start Demo Modus",

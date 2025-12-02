@@ -35,8 +35,9 @@ export const groups = pgTable("groups", {
 ---------------------------------------------------*/
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  authId: varchar("auth_id", { length: 255 }).unique().notNull(), 
+  // authId removed - using direct DB auth
   email: varchar("email", { length: 255 }).notNull(),
+  password: varchar("password", { length: 255 }), // Password field for direct login
   fullName: varchar("full_name", { length: 255 }),
   role: userRoleEnum("role").default("leader").notNull(),
   groupId: integer("group_id").references(() => groups.id).notNull(),

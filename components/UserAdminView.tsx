@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserData, CompanyData } from '../types';
-import { Trash2, Edit, Plus, Save, X, User, Shield } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, User, Shield, Lock } from 'lucide-react';
 
 interface UserAdminViewProps {
   users: UserData[];
@@ -19,12 +20,15 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
 
   useEffect(() => {
     if (editingUser) {
-      setFormData(editingUser);
+      setFormData({
+          ...editingUser,
+          password: '' // Don't show existing hash/password
+      });
     } else {
       // Defaults for new user
       setFormData({
-        authId: '', // In a real app, this might come from the Auth Provider
         email: '',
+        password: '',
         fullName: '',
         role: 'leader',
         companyId: null
@@ -35,8 +39,14 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.authId) {
-        alert("E-post og Auth ID er påkrevd");
+    if (!formData.email) {
+        alert("E-post er påkrevd");
+        return;
+    }
+    
+    // Require password for new users
+    if (!editingUser && !formData.password) {
+        alert("Passord er påkrevd for nye brukere");
         return;
     }
 
@@ -175,19 +185,6 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 
                 <div>
-                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Auth ID (fra Memberstack)</label>
-                    <input 
-                        name="authId"
-                        type="text"
-                        required
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono text-sm"
-                        placeholder="mem_..."
-                        value={formData.authId || ''}
-                        onChange={handleInputChange}
-                    />
-                </div>
-
-                <div>
                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Fullt Navn</label>
                     <input 
                         name="fullName"
@@ -210,6 +207,24 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                         value={formData.email || ''}
                         onChange={handleInputChange}
                     />
+                </div>
+
+                <div>
+                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">
+                        {editingUser ? 'Nytt Passord (La stå tomt for å beholde)' : 'Passord'}
+                    </label>
+                    <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                        <input 
+                            name="password"
+                            type="text"
+                            required={!editingUser}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg pl-9 pr-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono text-sm"
+                            placeholder="Velg passord"
+                            value={formData.password || ''}
+                            onChange={handleInputChange}
+                        />
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

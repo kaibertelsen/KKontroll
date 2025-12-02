@@ -1,4 +1,5 @@
 
+
 export interface CompanyData {
   id: number;
   name: string; 
@@ -33,8 +34,8 @@ export interface ComputedCompanyData extends CompanyData {
 
 export interface UserData {
   id: number;
-  authId: string;
   email: string;
+  password?: string; // Optional for UI, present in DB
   fullName: string;
   role: 'controller' | 'leader';
   groupId: number;

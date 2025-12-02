@@ -1,41 +1,36 @@
 
+
 // API Client for Neon / AttentioCloud
 
 const API_BASE = "https://attentiocloud-api.vercel.app";
 
-function getToken() {
-  return (
-    localStorage.getItem("_ms-mid") ||
-    document.cookie
-      .split("; ")
-      .find((r) => r.startsWith("_ms-mid="))
-      ?.split("=")[1] ||
-    null
-  );
-}
+// --- CREDENTIALS MANAGEMENT ---
 
-function getPlans() {
-  const raw = localStorage.getItem("_ms-mem");
-  if (!raw) return [];
-  try {
-    const obj = JSON.parse(raw);
-    // @ts-ignore
-    return (obj.planConnections || []).map(p => p.planId);
-  } catch (e) {
-    console.warn("Invalid _ms-mem JSON", e);
-    return [];
-  }
-}
+const DEFAULT_APP_ID = "konsern-app";
+const DEFAULT_API_KEY = "jgk3h4lk36h346kjh36";
 
-function buildHeaders() {
-  const token = getToken();
-  // Allow execution without token for robustness, warning logged
-  if (!token) console.warn("Missing Memberstack token (_ms-mid), request may fail.");
+function getApiCredentials() {
+  // Check Vercel/Vite environment variables first. 
+  // Note: Variables in Vercel must start with 'VITE_' to be exposed to the client (e.g. VITE_NEON_APP_ID).
+  const envAppId = (import.meta as any).env.VITE_NEON_APP_ID;
+  const envApiKey = (import.meta as any).env.VITE_NEON_API_KEY;
 
   return {
+    // Priority: LocalStorage (Dev Override) -> Environment Variables -> Hardcoded Fallback
+    appId: localStorage.getItem("neon_appId") || envAppId || DEFAULT_APP_ID,
+    apiKey: localStorage.getItem("neon_apiKey") || envApiKey || DEFAULT_API_KEY,
+  };
+}
+
+// --- HEADERS ---
+
+function buildHeaders() {
+  const { appId, apiKey } = getApiCredentials();
+  
+  return {
     "Content-Type": "application/json",
-    "Authorization": `Bearer ${token || ''}`,
-    "X-MS-Plans": getPlans().join(","),
+    "X-APP-ID": appId,
+    "Authorization": `Bearer ${apiKey}`,
   };
 }
 
@@ -92,9 +87,9 @@ export async function getNEON({
 
   console.log(`[NEON] GET Construction:`, { table, where, url });
   
-  // ROBUST RETRY LOGIC (5 attempts, 1000ms delay)
+  // ROBUST RETRY LOGIC (3 attempts, 1000ms delay)
   let lastError;
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     try {
         const res = await fetch(url, options);
         
@@ -167,7 +162,11 @@ export async function postNEON({
       }
 
       const json = await res.json();
-      return apiresponse(json, responsId);
+      return apiresponse({
+        inserted: json.inserted,
+        insertedCount: json.insertedCount,
+        user: json.user
+      }, responsId);
   } catch (error: any) {
       console.error(`[NEON] POST Network Error:`, error);
       throw error;
@@ -219,7 +218,11 @@ export async function patchNEON({
       if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
 
       const json = await res.json();
-      return apiresponse(json, responsId);
+      return apiresponse({
+        rows: json.rows,
+        updatedCount: json.updatedCount,
+        mode: json.mode
+      }, responsId);
   } catch (error: any) {
       console.error(`[NEON] PATCH Network Error:`, error);
       throw error;
