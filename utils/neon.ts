@@ -275,7 +275,8 @@ export async function deleteNEON({
   }
 
   const ids = Array.isArray(data) ? data : [data];
-  const value = ids.join(",");
+  // Encode value for URL safety and handle potential multiple values
+  const value = encodeURIComponent(ids.join(","));
 
   const url = `${API_BASE}/api/${table}?field=${field}&value=${value}`;
   const headers = buildHeaders();
@@ -284,12 +285,14 @@ export async function deleteNEON({
   console.group(`[NEON] DELETE ${table}`);
   console.log(`URL:`, url);
   console.log(`Headers:`, headers);
+  console.log(`Data (Body):`, ids); // Log the body data being sent
   console.groupEnd();
 
   try {
       const res = await fetch(url, {
         method: "DELETE",
-        headers: headers as any
+        headers: headers as any,
+        body: JSON.stringify(ids) // Send IDs in body as well to support bulk delete on supported backends
       });
 
       if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
