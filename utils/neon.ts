@@ -15,11 +15,13 @@ function getApiCredentials() {
   const envAppId = (import.meta as any).env.VITE_NEON_APP_ID;
   const envApiKey = (import.meta as any).env.VITE_NEON_API_KEY;
 
-  return {
+  const creds = {
     // Priority: LocalStorage (Dev Override) -> Environment Variables -> Hardcoded Fallback
     appId: localStorage.getItem("neon_appId") || envAppId || DEFAULT_APP_ID,
     apiKey: localStorage.getItem("neon_apiKey") || envApiKey || DEFAULT_API_KEY,
   };
+  
+  return creds;
 }
 
 // --- HEADERS ---
@@ -83,9 +85,15 @@ export async function getNEON({
 
   if (params.toString() !== "") url += `?${params.toString()}`;
 
-  const options: RequestInit = isPublic ? {} : { headers: buildHeaders() };
+  const headers = isPublic ? {} : buildHeaders();
+  const options: RequestInit = isPublic ? {} : { headers };
 
-  console.log(`[NEON] GET Construction:`, { table, where, url });
+  // DEBUG LOGGING
+  console.groupCollapsed(`[NEON] GET ${table}`);
+  console.log(`URL:`, url);
+  console.log(`Headers:`, headers);
+  console.log(`Params:`, { where, fields, pagination });
+  console.groupEnd();
   
   // ROBUST RETRY LOGIC (3 attempts, 1000ms delay)
   let lastError;
@@ -147,9 +155,18 @@ export async function postNEON({
   const url = `${API_BASE}/api/${table}`;
   const bodyToSend = Array.isArray(data) ? data : [data];
   
+  const headers = isPublic ? { "Content-Type": "application/json" } : buildHeaders();
+  
+  // DEBUG LOGGING
+  console.group(`[NEON] POST ${table}`);
+  console.log(`URL:`, url);
+  console.log(`Headers:`, headers);
+  console.log(`Payload:`, bodyToSend);
+  console.groupEnd();
+
   const options: RequestInit = {
       method: "POST",
-      headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
+      headers: headers as any,
       body: JSON.stringify(bodyToSend)
   };
 
@@ -207,9 +224,18 @@ export async function patchNEON({
     });
   }
 
+  const headers = isPublic ? { "Content-Type": "application/json" } : buildHeaders();
+
+  // DEBUG LOGGING
+  console.group(`[NEON] PATCH ${table}`);
+  console.log(`URL:`, url);
+  console.log(`Headers:`, headers);
+  console.log(`Payload:`, payload);
+  console.groupEnd();
+
   const options: RequestInit = {
     method: "PATCH",
-    headers: isPublic ? { "Content-Type": "application/json" } : buildHeaders(),
+    headers: headers as any,
     body: JSON.stringify(payload)
   };
 
@@ -247,11 +273,18 @@ export async function deleteNEON({
   const value = ids.join(",");
 
   const url = `${API_BASE}/api/${table}?field=id&value=${value}`;
+  const headers = buildHeaders();
+
+  // DEBUG LOGGING
+  console.group(`[NEON] DELETE ${table}`);
+  console.log(`URL:`, url);
+  console.log(`Headers:`, headers);
+  console.groupEnd();
 
   try {
       const res = await fetch(url, {
         method: "DELETE",
-        headers: buildHeaders()
+        headers: headers as any
       });
 
       if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
