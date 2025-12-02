@@ -259,20 +259,22 @@ export async function patchNEON({
 export async function deleteNEON({ 
   table, 
   data, 
-  responsId 
+  responsId,
+  field = 'id' // Added optional field parameter, defaults to 'id'
 }: { 
   table: string, 
   data: any, 
-  responsId?: string 
+  responsId?: string,
+  field?: string
 }) {
   if (data === undefined || data === null) {
-    throw new Error("deleteNEON requires 'data' to be an ID or array of IDs");
+    throw new Error("deleteNEON requires 'data' to be an ID or array of IDs/values");
   }
 
   const ids = Array.isArray(data) ? data : [data];
   const value = ids.join(",");
 
-  const url = `${API_BASE}/api/${table}?field=id&value=${value}`;
+  const url = `${API_BASE}/api/${table}?field=${field}&value=${value}`;
   const headers = buildHeaders();
 
   // DEBUG LOGGING

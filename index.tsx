@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -92,7 +94,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.5.0 (Sorted)</div>
+                    <div className="text-[10px] text-slate-400">v1.6.0 (Multi-Company)</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -232,7 +234,8 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         fullName: "Demo Controller",
         role: 'controller' as const,
         groupId: 1,
-        groupName: "Demo Konsern AS"
+        groupName: "Demo Konsern AS",
+        companyIds: [1, 2]
     };
 
     setTimeout(() => {
@@ -285,25 +288,43 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         return;
     }
 
-    const user = {
-        id: rawUser.id,
-        email: rawUser.email,
-        fullName: rawUser.fullName || rawUser.full_name || 'Ukjent Bruker',
-        role: rawUser.role,
-        groupId: rawUser.groupId || rawUser.group_id,
-        companyId: rawUser.companyId || rawUser.company_id
-    };
-
-    addLog(`Bruker verifisert: ${user.fullName} (${user.role})`, 'success');
+    addLog(`Bruker verifisert: ${rawUser.full_name || rawUser.fullName} (${rawUser.role})`, 'success');
     localStorage.setItem('konsern_mode', 'live'); 
 
+    // --- FETCH MULTI-COMPANY ACCESS ---
+    addLog("Henter tilknyttede selskaper...");
+    let accessList: number[] = [];
+    
+    try {
+        const accessRes = await getNEON({ table: 'user_company_access', where: { userId: rawUser.id } });
+        if (accessRes.rows && accessRes.rows.length > 0) {
+            accessList = accessRes.rows.map((r: any) => r.companyId || r.company_id);
+            addLog(`Fant ${accessList.length} selskaper via tilgangstabell.`, 'success');
+        } else {
+            // Fallback to legacy single company ID
+            const legacyId = rawUser.companyId || rawUser.company_id;
+            if (legacyId) {
+                accessList = [legacyId];
+                addLog(`Ingen tabell-tilganger. Bruker legacy ID: ${legacyId}`, 'info');
+            } else {
+                addLog(`Ingen selskaper tilknyttet bruker.`, 'info');
+            }
+        }
+    } catch (e) {
+        console.warn("Failed to fetch user access table, falling back to legacy", e);
+        const legacyId = rawUser.companyId || rawUser.company_id;
+        if(legacyId) accessList = [legacyId];
+    }
+
+    // --- FETCH GROUP ---
     let groupName = "Mitt Konsern";
     let logoUrl = undefined;
 
-    addLog(`Henter konserndata (Group ID: ${user.groupId})...`);
+    const groupId = rawUser.groupId || rawUser.group_id;
+    addLog(`Henter konserndata (Group ID: ${groupId})...`);
     
-    if (user.groupId) {
-        const groupRes = await getNEON({ table: 'groups', where: { id: user.groupId } });
+    if (groupId) {
+        const groupRes = await getNEON({ table: 'groups', where: { id: groupId } });
         if(groupRes.rows[0]) {
             groupName = groupRes.rows[0].name;
             logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url;
@@ -311,36 +332,38 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         }
     }
 
+    // --- FETCH COMPANIES ---
     let companyWhere: any = {};
-    if (user.role === 'leader' && user.companyId) {
-        companyWhere = { id: user.companyId };
-        addLog(`Henter selskap for leder (ID: ${user.companyId})...`);
+    const userRole = rawUser.role;
+
+    if (userRole === 'leader' && accessList.length > 0) {
+        // We fetch ALL group companies, and filter in Frontend (simplifies logic vs constructing huge WHERE OR clause)
+        // Optimization: In a large app, we would do WHERE id IN (...), but simple where object in getNEON doesn't support IN list yet
+        companyWhere = { group_id: groupId };
+        addLog(`Henter selskaper for leder...`);
     } else {
-        companyWhere = { group_id: user.groupId };
+        companyWhere = { group_id: groupId };
         addLog(`Henter alle selskaper i konsernet...`);
     }
     
     const compRes = await getNEON({ table: 'companies', where: companyWhere });
     const rawCompanies = compRes.rows || [];
-    addLog(`Fant ${rawCompanies.length} selskaper.`, 'success');
+    addLog(`Fant ${rawCompanies.length} selskaper totalt.`, 'success');
 
     addLog("Prosesserer finansielle data...");
     
     const mappedCompanies = rawCompanies.map((c: any) => {
         // AGGRESSIVE BUDGET EXTRACTION & PARSING
         let bMonths: number[] = [];
-        const rawMonths = c.budgetMonths ?? c.budget_months; // Try both keys
+        const rawMonths = c.budgetMonths ?? c.budget_months; 
         
         try {
             if (Array.isArray(rawMonths)) {
                 bMonths = rawMonths.map(Number);
             } else if (typeof rawMonths === 'object' && rawMonths !== null) {
-                // Handle object case {0: 100, 1: 200}
                 bMonths = Object.values(rawMonths).map(Number);
             } else if (typeof rawMonths === 'string') {
-                // Handle JSON format "[1,2,3]" OR Postgres Array format "{1,2,3}"
                 let cleanStr = rawMonths.trim();
-                // If it looks like Postgres array { ... }, convert to JSON [ ... ]
                 if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
                     cleanStr = cleanStr.replace('{', '[').replace('}', ']');
                 }
@@ -349,28 +372,21 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
                     const parsed = JSON.parse(cleanStr);
                     if (Array.isArray(parsed)) bMonths = parsed.map(Number);
                 } catch (jsonErr) {
-                    console.warn("JSON parse failed, trying comma split", cleanStr);
-                    // Fallback: Split by comma if strictly numbers
                     const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
                     if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
                         bMonths = parts.map(Number);
                     }
                 }
             }
-        } catch(e) {
-            console.warn("Budget parse fail", e);
-        }
+        } catch(e) { console.warn("Budget parse fail", e); }
 
-        // Validate length and numbers
         if (!bMonths || bMonths.length !== 12 || bMonths.some(isNaN)) {
              bMonths = Array(12).fill(0);
         }
 
-        // Determine Total
         const bTotal = Number(c.budgetTotal || c.budget_total || 0);
         const sumMonths = bMonths.reduce((a, b) => a + b, 0);
 
-        // Fallback: If total > 0 but sum of months is 0 or NaN, distribute flat
         if ((sumMonths === 0 || isNaN(sumMonths)) && bTotal > 0) {
                 const perMonth = Math.round(bTotal / 12);
                 bMonths = Array(12).fill(perMonth);
@@ -392,7 +408,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             name: c.name || '',
             fullName: c.fullName || c.full_name || '', 
             manager: c.manager || '',
-            sortOrder: Number(c.sortOrder || c.sort_order || 0), // LOAD SORT ORDER
+            sortOrder: Number(c.sortOrder || c.sort_order || 0),
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
             liquidityDate: c.liquidity_date || c.liquidityDate || '',
@@ -405,17 +421,16 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         };
     });
 
-    // SORT BY DB ORDER
     mappedCompanies.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     const userProfile = {
-        id: user.id,
-        fullName: user.fullName,
-        role: user.role as 'controller' | 'leader',
-        groupId: user.groupId,
+        id: rawUser.id,
+        fullName: rawUser.fullName || rawUser.full_name,
+        role: rawUser.role as 'controller' | 'leader',
+        groupId: groupId,
         groupName: groupName,
-        logoUrl: logoUrl, // Pass logo to App
-        companyId: user.companyId
+        logoUrl: logoUrl,
+        companyIds: accessList // NEW: Pass the list of accessible company IDs
     };
 
     addLog("Alt klart. Starter dashboard.", 'success');

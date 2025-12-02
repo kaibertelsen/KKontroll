@@ -1,4 +1,5 @@
 
+
 import {
   pgTable,
   varchar,
@@ -32,22 +33,7 @@ export const groups = pgTable("groups", {
 });
 
 /* -------------------------------------------------
-   2. USERS (Brukere)
----------------------------------------------------*/
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  authId: varchar("auth_id", { length: 255 }),
-  email: varchar("email", { length: 255 }).notNull(),
-  password: varchar("password", { length: 255 }), 
-  fullName: varchar("full_name", { length: 255 }),
-  role: userRoleEnum("role").default("leader").notNull(),
-  groupId: integer("group_id").references(() => groups.id).notNull(),
-  companyId: integer("company_id").references(() => companies.id),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-/* -------------------------------------------------
-   3. COMPANIES (Selskaper)
+   2. COMPANIES (Selskaper)
 ---------------------------------------------------*/
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
@@ -91,6 +77,30 @@ export const companies = pgTable("companies", {
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/* -------------------------------------------------
+   3. USERS (Brukere)
+---------------------------------------------------*/
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
+  authId: varchar("auth_id", { length: 255 }),
+  email: varchar("email", { length: 255 }).notNull(),
+  password: varchar("password", { length: 255 }), 
+  fullName: varchar("full_name", { length: 255 }),
+  role: userRoleEnum("role").default("leader").notNull(),
+  groupId: integer("group_id").references(() => groups.id).notNull(),
+  companyId: integer("company_id").references(() => companies.id), // Kept for legacy support, but userCompanyAccess is preferred
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* -------------------------------------------------
+   3.5 USER_COMPANY_ACCESS (Many-to-Many)
+---------------------------------------------------*/
+export const userCompanyAccess = pgTable("user_company_access", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
 });
 
 /* -------------------------------------------------
@@ -156,6 +166,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.companyId],
     references: [companies.id],
   }),
+  companyAccess: many(userCompanyAccess),
   reports: many(reports),
 }));
 
@@ -165,8 +176,20 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
     references: [groups.id],
   }),
   users: many(users),
+  userAccess: many(userCompanyAccess),
   reports: many(reports),
   forecasts: many(forecasts),
+}));
+
+export const userCompanyAccessRelations = relations(userCompanyAccess, ({ one }) => ({
+  user: one(users, {
+    fields: [userCompanyAccess.userId],
+    references: [users.id],
+  }),
+  company: one(companies, {
+    fields: [userCompanyAccess.companyId],
+    references: [companies.id],
+  }),
 }));
 
 export const reportsRelations = relations(reports, ({ one }) => ({

@@ -1,7 +1,9 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { UserData, CompanyData } from '../types';
-import { Trash2, Edit, Plus, Save, X, User, Shield, Lock } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, User, Shield, Lock, CheckSquare } from 'lucide-react';
 import { hashPassword } from '../utils/crypto';
 
 interface UserAdminViewProps {
@@ -35,7 +37,8 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
         password: '',
         fullName: '',
         role: 'leader',
-        companyId: null
+        companyId: null,
+        companyIds: []
       });
     }
   }, [editingUser, isModalOpen]);
@@ -64,9 +67,10 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
         delete userPayload.password;
     }
 
-    // If role is controller, force companyId to null
+    // If role is controller, force company IDs to be cleared
     if (userPayload.role === 'controller') {
         userPayload.companyId = null;
+        userPayload.companyIds = [];
     }
 
     if (editingUser) {
@@ -88,14 +92,28 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'companyId' ? (value ? Number(value) : null) : value
+      [name]: value
     }));
   };
 
-  const getCompanyName = (id?: number | null) => {
-      if (!id) return '-';
-      const comp = companies.find(c => c.id === id);
-      return comp ? comp.name : 'Ukjent';
+  const handleCompanyCheck = (companyId: number) => {
+      setFormData(prev => {
+          const currentIds = prev.companyIds || [];
+          if (currentIds.includes(companyId)) {
+              return { ...prev, companyIds: currentIds.filter(id => id !== companyId) };
+          } else {
+              return { ...prev, companyIds: [...currentIds, companyId] };
+          }
+      });
+  };
+
+  const getCompanyNames = (ids?: number[]) => {
+      if (!ids || ids.length === 0) return '-';
+      const names = ids.map(id => {
+          const c = companies.find(comp => comp.id === id);
+          return c ? c.name : '';
+      }).filter(Boolean);
+      return names.join(', ');
   };
 
   return (
@@ -125,7 +143,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                 <th className="p-4">Navn</th>
                 <th className="p-4">E-post</th>
                 <th className="p-4">Rolle</th>
-                <th className="p-4">Tilknyttet Selskap</th>
+                <th className="p-4">Tilknyttede Selskaper</th>
                 <th className="p-4 text-center">Handlinger</th>
               </tr>
             </thead>
@@ -149,8 +167,8 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                           {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </span>
                   </td>
-                  <td className="p-4 text-slate-600 dark:text-slate-400">
-                      {user.role === 'controller' ? <span className="text-slate-400 italic">Alle (Admin)</span> : getCompanyName(user.companyId)}
+                  <td className="p-4 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={getCompanyNames(user.companyIds)}>
+                      {user.role === 'controller' ? <span className="text-slate-400 italic">Alle (Admin)</span> : getCompanyNames(user.companyIds)}
                   </td>
                   <td className="p-4 flex justify-center gap-2">
                     <button 
@@ -183,7 +201,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
       {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             
             <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">
@@ -239,37 +257,45 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Rolle</label>
-                        <select 
-                            name="role" 
-                            value={formData.role} 
-                            onChange={handleInputChange}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
-                        >
-                            <option value="leader">Leader</option>
-                            <option value="controller">Controller</option>
-                        </select>
-                    </div>
-                    
-                    {formData.role === 'leader' && (
-                        <div>
-                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Koble til Selskap</label>
-                            <select 
-                                name="companyId" 
-                                value={formData.companyId || ''} 
-                                onChange={handleInputChange}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
-                            >
-                                <option value="">-- Velg Selskap --</option>
-                                {companies.map(c => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                <div>
+                    <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Rolle</label>
+                    <select 
+                        name="role" 
+                        value={formData.role} 
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                    >
+                        <option value="leader">Leader</option>
+                        <option value="controller">Controller</option>
+                    </select>
                 </div>
+                
+                {formData.role === 'leader' && (
+                    <div>
+                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Tilknyttede Selskaper</label>
+                        <div className="max-h-48 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-2 bg-slate-50 dark:bg-slate-900 space-y-1">
+                            {companies.map(c => (
+                                <label key={c.id} className="flex items-center gap-3 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded cursor-pointer select-none">
+                                    <div className={`w-4 h-4 border rounded flex items-center justify-center transition-colors ${
+                                        (formData.companyIds || []).includes(c.id) 
+                                        ? 'bg-sky-600 border-sky-600 text-white' 
+                                        : 'border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-800'
+                                    }`}>
+                                        {(formData.companyIds || []).includes(c.id) && <CheckSquare size={12} />}
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        className="hidden" 
+                                        checked={(formData.companyIds || []).includes(c.id)}
+                                        onChange={() => handleCompanyCheck(c.id)}
+                                    />
+                                    <span className="text-sm text-slate-700 dark:text-slate-300">{c.name}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">Du kan velge flere selskaper.</p>
+                    </div>
+                )}
 
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
                     <button 

@@ -1,6 +1,8 @@
 
 
 
+
+
 export interface CompanyData {
   id: number;
   name: string; 
@@ -41,7 +43,8 @@ export interface UserData {
   fullName: string;
   role: 'controller' | 'leader';
   groupId: number;
-  companyId?: number | null; 
+  companyId?: number | null; // Legacy single company
+  companyIds?: number[]; // New multi-company support
 }
 
 export interface ReportLogItem {
