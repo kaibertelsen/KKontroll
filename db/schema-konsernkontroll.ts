@@ -27,6 +27,7 @@ export const budgetModeEnum = pgEnum("budget_mode", ["annual", "quarterly", "mon
 export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(), 
+  logoUrl: varchar("logo_url", { length: 255 }), // Restored for API compatibility
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -35,7 +36,7 @@ export const groups = pgTable("groups", {
 ---------------------------------------------------*/
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  // authId removed - using direct DB auth
+  authId: varchar("auth_id", { length: 255 }), // Restored for API compatibility
   email: varchar("email", { length: 255 }).notNull(),
   password: varchar("password", { length: 255 }), // Password field for direct login
   fullName: varchar("full_name", { length: 255 }),
