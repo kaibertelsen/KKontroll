@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -400,27 +401,27 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   };
 
   const StatCard = ({ icon: Icon, label, value, subText, highlight, valueColor, onEdit }: any) => (
-    <div className="bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full relative group">
+    <div className="bg-white dark:bg-slate-800 p-3 sm:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full relative group transition-all">
         {onEdit && (
             <button 
                 onClick={onEdit}
-                className="absolute top-3 right-3 text-slate-300 hover:text-sky-600 opacity-0 group-hover:opacity-100 transition-all"
+                className="absolute top-2 right-2 sm:top-3 sm:right-3 text-slate-300 hover:text-sky-600 sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-all"
                 title="Rediger"
             >
-                <Edit size={14} />
+                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
         )}
         <div>
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-2">
-                <Icon size={16} />
-                <span className="text-xs font-bold uppercase tracking-wider">{label}</span>
+            <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 dark:text-slate-400 mb-1 sm:mb-2">
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</span>
             </div>
-            <p className={`text-2xl font-bold tabular-nums ${valueColor ? valueColor : 'text-slate-900 dark:text-white'}`}>
+            <p className={`text-lg sm:text-2xl font-bold tabular-nums truncate ${valueColor ? valueColor : 'text-slate-900 dark:text-white'}`}>
                 {formatCurrency(value)}
             </p>
         </div>
         {subText && (
-            <p className={`text-xs mt-2 ${highlight ? (highlight > 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+            <p className={`text-[10px] sm:text-xs mt-0.5 sm:mt-2 truncate ${highlight ? (highlight > 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
                 {subText}
             </p>
         )}
@@ -481,10 +482,10 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         
-        <div className="space-y-4 mb-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="space-y-2 sm:space-y-4 mb-4 sm:mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
@@ -497,7 +498,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 />
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
