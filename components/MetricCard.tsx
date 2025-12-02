@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -28,6 +29,9 @@ interface MetricCardProps {
   onDragEnter?: (e: React.DragEvent, index: number) => void;
   onDragEnd?: () => void;
   index: number;
+  
+  // New Prop
+  cardSize?: 'normal' | 'compact';
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ 
@@ -37,7 +41,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   onDragStart,
   onDragEnter,
   onDragEnd,
-  index
+  index,
+  cardSize = 'normal'
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -126,6 +131,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
         e.preventDefault(); 
         return;
     }
+    if (cardSize === 'compact') {
+        onSelect(data);
+        return;
+    }
     setIsFlipped(!isFlipped);
   };
 
@@ -146,7 +155,64 @@ const MetricCard: React.FC<MetricCardProps> = ({
       </div>
     </div>
   );
+  
+  // --- COMPACT VIEW (New Requirement) ---
+  if (cardSize === 'compact') {
+      return (
+        <div 
+            className={`h-48 relative select-none rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-300 overflow-hidden
+            ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10 shadow-lg ring-2 ring-amber-400 ring-opacity-50' : 'cursor-pointer hover:-translate-y-1 hover:shadow-md hover:border-sky-300 dark:hover:border-sky-700'}`}
+            onClick={handleClick}
+            draggable={isSortMode}
+            onDragStart={(e) => onDragStart && onDragStart(e, index)}
+            onDragEnter={(e) => onDragEnter && onDragEnter(e, index)}
+            onDragEnd={onDragEnd}
+            onDragOver={(e) => e.preventDefault()} 
+        >
+            {/* Status Strip */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${data.calculatedDeviationPercent < 0 ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
 
+            <div className="p-4 flex flex-col h-full pl-5">
+                <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate" title={data.name}>
+                        {data.name} {/* Short abbreviation */}
+                    </h3>
+                    <div className={`text-xs font-bold px-1.5 py-0.5 rounded ${data.calculatedDeviationPercent < 0 ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'}`}>
+                        {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(0)}%
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-x-2 gap-y-3 flex-grow">
+                    <div>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">Resultat</p>
+                        <p className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(data.resultYTD)}</p>
+                    </div>
+                    <div>
+                         <p className="text-[10px] uppercase font-bold text-slate-400">Likviditet</p>
+                         <p className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(data.liquidity)}</p>
+                    </div>
+                     <div>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">Budsjett</p>
+                        <p className="text-sm font-bold text-slate-500">{formatCurrency(data.calculatedBudgetYTD)}</p>
+                    </div>
+                     <div>
+                        <p className="text-[10px] uppercase font-bold text-slate-400">Kapital</p>
+                        <p className="text-sm font-bold text-sky-600 dark:text-sky-400">{formatCurrency(statusValue)}</p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Drag Handle Overlay */}
+            {isSortMode && (
+                <div className="absolute top-2 right-2 bg-white dark:bg-slate-700 rounded-full p-1 shadow-md border border-slate-200 dark:border-slate-600">
+                    <GripHorizontal className="w-3 h-3 text-slate-500" />
+                </div>
+            )}
+        </div>
+      );
+  }
+
+  // --- NORMAL VIEW (Existing) ---
   return (
     <div 
       className={`h-[420px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}

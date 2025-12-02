@@ -28,7 +28,9 @@ import {
   X,
   Lock,
   Save,
-  KeyRound
+  KeyRound,
+  Grid2X2,
+  LayoutTemplate
 } from 'lucide-react';
 
 interface UserProfile {
@@ -61,6 +63,7 @@ const toISODate = (dateStr: string) => {
 function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const [sortField, setSortField] = useState<SortField>(SortField.DEFAULT);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
+  const [cardSize, setCardSize] = useState<'normal' | 'compact'>('normal');
   const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
   const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -1286,7 +1289,25 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         <button onClick={() => setIsTodayMode(false)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span></button>
                         <div className="w-2"></div>
                         <button onClick={() => setIsTodayMode(true)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>I dag <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({currentDateDisplay})</span></button>
+                        
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+                        
+                        <button 
+                            onClick={() => setCardSize('normal')} 
+                            className={`p-2 rounded-lg transition-all ${cardSize === 'normal' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Stor visning"
+                        >
+                            <Grid2X2 size={16} />
+                        </button>
+                        <button 
+                            onClick={() => setCardSize('compact')} 
+                            className={`p-2 rounded-lg transition-all ${cardSize === 'compact' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Kompakt visning"
+                        >
+                            <LayoutTemplate size={16} />
+                        </button>
                     </div>
+
                     <div className="flex bg-slate-200/60 dark:bg-slate-800 p-1 rounded-lg self-end md:self-auto transition-colors duration-300">
                         <button onClick={() => setViewMode(ViewMode.GRID)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.GRID ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" />Kort</button>
                         <button onClick={() => setViewMode(ViewMode.ANALYTICS)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.ANALYTICS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Analyse</button>
@@ -1303,7 +1324,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                             <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
                         )}
                         
-                        <AnimatedGrid className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6 pb-24">
+                        <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${cardSize === 'compact' ? 'xl:grid-cols-4 gap-3' : 'xl:grid-cols-3 gap-6'} pb-24`}>
                             {sortedData.map((company, index) => (
                                 <MetricCard 
                                     key={company.id} 
@@ -1314,6 +1335,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                                     onDragEnter={onDragEnter}
                                     onDragEnd={onDragEnd}
                                     index={index}
+                                    cardSize={cardSize}
                                 />
                             ))}
                         </AnimatedGrid>

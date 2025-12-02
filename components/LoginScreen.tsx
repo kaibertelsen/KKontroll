@@ -187,8 +187,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                 </div>
             </div>
 
-            <div className="mt-4 text-slate-600 text-[10px]">
-                Powered by Attentio KK
+            <div className="mt-4 text-slate-600 text-[10px] uppercase tracking-wider font-semibold">
+                Attentio FinanceHub
             </div>
         </div>
     );
