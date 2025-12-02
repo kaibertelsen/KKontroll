@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { Lock, Bug, User, Loader2, Database } from 'lucide-react';
 import { getNEON, patchNEON, postNEON } from '../utils/neon';
@@ -81,7 +83,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
     };
 
     const handleMigration = async () => {
-        if(!window.confirm("Dette vil kopiere 'company_id' fra users-tabellen til den nye 'user_company_access'-tabellen for alle brukere. Fortsette?")) return;
+        if(!window.confirm("Dette vil kopiere 'company_id' fra users-tabellen til den nye 'usercompanyaccess'-tabellen for alle brukere. Fortsette?")) return;
         
         setIsLoading(true);
         try {
@@ -92,7 +94,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
              // 2. Fetch Existing Access to prevent duplicates
              let existingAccess: any[] = [];
              try {
-                 const aRes = await getNEON({ table: 'userCompanyAccess' });
+                 const aRes = await getNEON({ table: 'usercompanyaccess' });
                  existingAccess = aRes.rows || [];
              } catch (e) { console.warn("Could not fetch existing access, assuming empty"); }
 
@@ -116,7 +118,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
              if (toInsert.length === 0) {
                  alert("Ingen nye koblinger å migrere (alt ser oppdatert ut).");
              } else {
-                 await postNEON({ table: 'userCompanyAccess', data: toInsert });
+                 await postNEON({ table: 'usercompanyaccess', data: toInsert });
                  alert(`Suksess! Migrerte ${toInsert.length} koblinger.`);
              }
 

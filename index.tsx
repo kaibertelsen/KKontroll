@@ -293,7 +293,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     let accessList: number[] = [];
     
     try {
-        const accessRes = await getNEON({ table: 'userCompanyAccess', where: { userId: rawUser.id } });
+        const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: rawUser.id } });
         if (accessRes.rows && accessRes.rows.length > 0) {
             accessList = accessRes.rows.map((r: any) => r.companyId || r.company_id);
             addLog(`Fant ${accessList.length} selskaper via tilgangstabell.`, 'success');

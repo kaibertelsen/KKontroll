@@ -6,20 +6,23 @@ const API_BASE = "https://attentiocloud-api.vercel.app";
 
 // --- CREDENTIALS MANAGEMENT ---
 
-const DEFAULT_APP_ID = "konsern-app";
-const DEFAULT_API_KEY = "jgk3h4lk36h346kjh36";
+// Hardcoded keys removed for security. 
+// Keys must be provided via Vite Environment Variables (VITE_NEON_APP_ID, VITE_NEON_API_KEY)
+// or set in LocalStorage for development.
 
 function getApiCredentials() {
-  // Check Vercel/Vite environment variables first. 
-  // Note: Variables in Vercel must start with 'VITE_' to be exposed to the client (e.g. VITE_NEON_APP_ID).
+  // Check Vercel/Vite environment variables.
   const envAppId = (import.meta as any).env.VITE_NEON_APP_ID;
   const envApiKey = (import.meta as any).env.VITE_NEON_API_KEY;
 
   const creds = {
-    // Priority: LocalStorage (Dev Override) -> Environment Variables -> Hardcoded Fallback
-    appId: localStorage.getItem("neon_appId") || envAppId || DEFAULT_APP_ID,
-    apiKey: localStorage.getItem("neon_apiKey") || envApiKey || DEFAULT_API_KEY,
+    appId: localStorage.getItem("neon_appId") || envAppId || "",
+    apiKey: localStorage.getItem("neon_apiKey") || envApiKey || "",
   };
+  
+  if (!creds.appId || !creds.apiKey) {
+      console.warn("Mangler API-nøkler! Sørg for at VITE_NEON_APP_ID og VITE_NEON_API_KEY er satt i miljøvariabler.");
+  }
   
   return creds;
 }

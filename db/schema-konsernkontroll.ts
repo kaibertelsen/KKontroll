@@ -90,14 +90,15 @@ export const users = pgTable("users", {
   fullName: varchar("full_name", { length: 255 }),
   role: userRoleEnum("role").default("leader").notNull(),
   groupId: integer("group_id").references(() => groups.id).notNull(),
-  companyId: integer("company_id").references(() => companies.id), // Kept for legacy support, but userCompanyAccess is preferred
+  companyId: integer("company_id").references(() => companies.id), // Kept for legacy support, but usercompanyaccess is preferred
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 /* -------------------------------------------------
    3.5 USER_COMPANY_ACCESS (Many-to-Many)
+   Renamed to "usercompanyaccess" to avoid issues
 ---------------------------------------------------*/
-export const userCompanyAccess = pgTable("user_company_access", {
+export const usercompanyaccess = pgTable("usercompanyaccess", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
@@ -179,7 +180,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.companyId],
     references: [companies.id],
   }),
-  companyAccess: many(userCompanyAccess),
+  companyAccess: many(usercompanyaccess),
   reports: many(reports),
   logs: many(logs),
 }));
@@ -190,18 +191,18 @@ export const companiesRelations = relations(companies, ({ one, many }) => ({
     references: [groups.id],
   }),
   users: many(users),
-  userAccess: many(userCompanyAccess),
+  userAccess: many(usercompanyaccess),
   reports: many(reports),
   forecasts: many(forecasts),
 }));
 
-export const userCompanyAccessRelations = relations(userCompanyAccess, ({ one }) => ({
+export const usercompanyaccessRelations = relations(usercompanyaccess, ({ one }) => ({
   user: one(users, {
-    fields: [userCompanyAccess.userId],
+    fields: [usercompanyaccess.userId],
     references: [users.id],
   }),
   company: one(companies, {
-    fields: [userCompanyAccess.companyId],
+    fields: [usercompanyaccess.companyId],
     references: [companies.id],
   }),
 }));

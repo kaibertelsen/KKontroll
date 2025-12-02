@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -194,7 +195,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         if(res.rows) {
             // For each user, we also need to fetch their multi-company access
             // In a real optimized backend we would do a JOIN. Here we might need N+1 query or fetch all access
-            const accessRes = await getNEON({ table: 'userCompanyAccess' });
+            const accessRes = await getNEON({ table: 'usercompanyaccess' });
             const allAccess = accessRes.rows || [];
 
             const mappedUsers = res.rows.map((u: any) => {
@@ -808,7 +809,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   userId: createdUser.id,
                   companyId: cid
               }));
-              await postNEON({ table: 'userCompanyAccess', data: accessRows });
+              await postNEON({ table: 'usercompanyaccess', data: accessRows });
           }
           
           fetchUsers();
@@ -850,11 +851,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           // 2. Update Company Access (Delete all, then Insert new)
           // Fetch existing to delete
-          const accessRes = await getNEON({ table: 'userCompanyAccess', where: { userId: user.id } });
+          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: user.id } });
           const existingIds = (accessRes.rows || []).map((r:any) => r.id);
           
           if (existingIds.length > 0) {
-              await deleteNEON({ table: 'userCompanyAccess', data: existingIds });
+              await deleteNEON({ table: 'usercompanyaccess', data: existingIds });
           }
 
           // Insert new
@@ -863,7 +864,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   userId: user.id,
                   companyId: cid
               }));
-              await postNEON({ table: 'userCompanyAccess', data: accessRows });
+              await postNEON({ table: 'usercompanyaccess', data: accessRows });
           }
            
           logActivity(userProfile.id, 'UPDATE_USER', 'users', user.id, `Oppdaterte bruker: ${user.email}`);
@@ -879,7 +880,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           // Delete access rows first (foreign key constraint usually handles cascade, but cleaner to be explicit if no cascade)
           // However, our deleteNEON by custom field isn't set up for FK cascade logic unless DB has it. 
           // Let's rely on deleteNEON custom field support added in neon.ts to delete access rows by userId
-          await deleteNEON({ table: 'userCompanyAccess', data: id, field: 'userId' });
+          await deleteNEON({ table: 'usercompanyaccess', data: id, field: 'userId' });
           
           // Then delete user
           await deleteNEON({ table: 'users', data: id });
