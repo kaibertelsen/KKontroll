@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -80,46 +81,42 @@ interface LoadingLoggerProps {
 
 const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
     const hasError = logs.some(l => l.type === 'error');
-    
-    return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 font-mono p-4">
-            <div className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-300 flex flex-col max-h-[80vh]">
-                <div className="bg-slate-100 dark:bg-slate-900 px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between shrink-0">
-                    <div className="flex items-center gap-2">
-                        {hasError ? <XCircle className="text-rose-500" size={18} /> : <Loader2 className="animate-spin text-sky-600" size={18} />}
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                            {hasError ? 'Systemstopp' : 'Systemstart'}
-                        </span>
-                    </div>
-                    <div className="text-[10px] text-slate-400">v1.6.0 (Multi-Company)</div>
-                </div>
-                
-                <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
-                    {logs.map((log, idx) => (
-                        <div key={idx} className={`flex gap-3 p-1.5 rounded border ${
-                            log.type === 'error' ? 'text-rose-700 bg-rose-50 border-rose-100 dark:bg-rose-900/20 dark:border-rose-900/50 dark:text-rose-300' : 
-                            log.type === 'success' ? 'text-emerald-700 bg-emerald-50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30 dark:text-emerald-400' : 
-                            'text-slate-600 border-transparent dark:text-slate-400'
-                        }`}>
-                            <span className="opacity-40 shrink-0 select-none">[{log.time}]</span>
-                            <span className="break-all">{log.message}</span>
-                        </div>
-                    ))}
-                    <div id="log-end" />
-                </div>
+    const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
 
-                {actions && actions.length > 0 && (
-                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 border-t border-slate-200 dark:border-slate-700 shrink-0 flex flex-wrap justify-center gap-3">
-                        {actions.map((action, idx) => (
+    // ERROR STATE
+    if (hasError) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 font-sans p-4">
+                <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/50 p-8 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                    <div className="w-16 h-16 bg-rose-100 dark:bg-rose-900/30 rounded-full flex items-center justify-center mb-6 shadow-inner">
+                        <XCircle className="text-rose-600 dark:text-rose-400 w-8 h-8" />
+                    </div>
+                    
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Noe gikk galt</h2>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+                        Vi støtte på et problem under oppstarten.
+                    </p>
+
+                    <div className="text-left w-full bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/30 rounded-lg p-4 mb-6 max-h-48 overflow-y-auto shadow-sm">
+                        {logs.filter(l => l.type === 'error').map((l, i) => (
+                            <div key={i} className="flex gap-2 text-xs text-rose-700 dark:text-rose-300 mb-1 last:mb-0 font-mono">
+                                <span className="opacity-50 select-none">•</span>
+                                <span>{l.message}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full">
+                        {actions?.map((action, idx) => (
                              <button 
                                 key={idx}
                                 onClick={action.onClick}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold shadow-sm transition-all text-sm
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold shadow-sm transition-all text-sm w-full
                                     ${action.variant === 'danger' 
-                                        ? 'bg-rose-100 text-rose-700 hover:bg-rose-200 border border-rose-200' 
+                                        ? 'bg-white border border-rose-200 text-rose-700 hover:bg-rose-50 dark:bg-rose-950 dark:border-rose-900 dark:text-rose-300' 
                                         : action.variant === 'secondary'
-                                            ? 'bg-slate-200 text-slate-700 hover:bg-slate-300 border border-slate-300'
-                                            : 'bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200'
+                                            ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-700 dark:text-white'
+                                            : 'bg-sky-600 text-white hover:bg-sky-500 shadow-sky-200 dark:shadow-none'
                                     }
                                 `}
                             >
@@ -128,13 +125,38 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             </button>
                         ))}
                     </div>
-                )}
+                </div>
             </div>
-            {!actions && (
-                <p className="mt-4 text-xs text-slate-400 max-w-xs text-center animate-pulse">
-                    Jobber...
-                </p>
-            )}
+        );
+    }
+
+    // LOADING STATE (Smooth)
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 font-sans">
+             <div className="relative flex flex-col items-center animate-in fade-in duration-1000">
+                 {/* Logo Area */}
+                 <div className="mb-12 relative">
+                     <div className="absolute inset-0 bg-sky-400 blur-2xl opacity-20 rounded-full animate-pulse"></div>
+                     <img 
+                        src="https://ucarecdn.com/b3e83749-8c8a-4382-b28b-fe1d988eff42/Attentioshlogo.png" 
+                        alt="Logo" 
+                        className="h-16 w-auto relative z-10 drop-shadow-sm"
+                     />
+                 </div>
+                 
+                 {/* Loader */}
+                 <div className="relative w-12 h-12 mb-8">
+                     <div className="absolute inset-0 border-4 border-slate-200 dark:border-slate-800 rounded-full"></div>
+                     <div className="absolute inset-0 border-4 border-sky-500 rounded-full border-t-transparent animate-spin"></div>
+                 </div>
+                 
+                 {/* Status Text */}
+                 <div className="h-6 flex items-center justify-center">
+                    <p className="text-xs font-medium uppercase tracking-widest text-slate-400 dark:text-slate-500 animate-pulse">
+                        {lastLog ? lastLog.message : 'Initialiserer...'}
+                    </p>
+                 </div>
+             </div>
         </div>
     );
 };
@@ -162,10 +184,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             <LoadingLogger logs={[...logs]} actions={actions} />
         </React.StrictMode>
       );
-      setTimeout(() => {
-          const el = document.getElementById('log-end');
-          if(el) el.scrollIntoView({ behavior: "smooth" });
-      }, 50);
   };
 
   const addLog = (msg: string, type: LogEntry['type'] = 'info') => {
@@ -178,7 +196,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
       renderLog();
   };
 
-  addLog("Initialiserer applikasjon...");
+  addLog("Startet opp...");
 
   // 1. AUTH CHECK
   const localUserId = localStorage.getItem("konsern_user_id");
@@ -186,9 +204,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   if (!forceDemo) {
       if (localUserId) {
-          addLog(`Fant lokal bruker-ID: ${localUserId}`, 'info');
+          addLog(`Verifiserer sesjon...`, 'info');
       } else {
-          addLog("Ingen aktiv sesjon funnet.");
+          addLog("Sjekker innlogging...");
       }
   }
 
@@ -199,11 +217,10 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   if (forceDemo) {
       shouldStartApp = true;
       isDemo = true;
-      addLog("Modus satt til: DEMO", 'info');
+      addLog("Klargjør demo-miljø...", 'info');
   } else if (localUserId) {
       shouldStartApp = true;
       isDemo = false;
-      addLog("Modus satt til: LIVE", 'info');
   }
   
   if (!shouldStartApp) {
@@ -223,7 +240,6 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   // --- DEMO MODE START ---
   if (isDemo) {
-    addLog("Klargjør demodata...");
     localStorage.setItem('konsern_mode', 'demo'); 
     
     const mockUserProfile = {
@@ -244,7 +260,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
                 </ErrorBoundary>
             </React.StrictMode>
         );
-    }, 1200);
+    }, 1500); // Slightly longer delay to show off the loader
     return;
   }
 
@@ -252,10 +268,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
   const effectiveUserId = userId || localUserId;
 
   try {
-    addLog("Kobler til Neon database...");
+    addLog("Kobler til database...");
     
     const userWhere = { id: effectiveUserId };
-    addLog(`Søker etter bruker ID: ${effectiveUserId}`, 'info');
     
     // We expect the headers in neon.ts to handle the "door key" (AppID/Key)
     // Here we just fetch the user row to see if they exist and get their profile
@@ -263,8 +278,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const rawUser = userRes.rows[0];
 
     if (!rawUser) {
-        addLog("FEIL: Bruker ikke funnet i databasen.", 'error');
-        addLog(`Søkte etter ID: ${effectiveUserId}`, 'error');
+        addLog("Fant ikke bruker.", 'error');
         
         renderLog([
             {
@@ -285,26 +299,22 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         return;
     }
 
-    addLog(`Bruker verifisert: ${rawUser.full_name || rawUser.fullName} (${rawUser.role})`, 'success');
+    addLog(`Henter brukerdata...`, 'success');
     localStorage.setItem('konsern_mode', 'live'); 
 
     // --- FETCH MULTI-COMPANY ACCESS ---
-    addLog("Henter tilknyttede selskaper...");
+    addLog("Henter selskaper...");
     let accessList: number[] = [];
     
     try {
         const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: rawUser.id } });
         if (accessRes.rows && accessRes.rows.length > 0) {
             accessList = accessRes.rows.map((r: any) => r.companyId || r.company_id);
-            addLog(`Fant ${accessList.length} selskaper via tilgangstabell.`, 'success');
         } else {
             // Fallback to legacy single company ID
             const legacyId = rawUser.companyId || rawUser.company_id;
             if (legacyId) {
                 accessList = [legacyId];
-                addLog(`Ingen tabell-tilganger. Bruker legacy ID: ${legacyId}`, 'info');
-            } else {
-                addLog(`Ingen selskaper tilknyttet bruker.`, 'info');
             }
         }
     } catch (e) {
@@ -318,14 +328,12 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     let logoUrl = undefined;
 
     const groupId = rawUser.groupId || rawUser.group_id;
-    addLog(`Henter konserndata (Group ID: ${groupId})...`);
     
     if (groupId) {
         const groupRes = await getNEON({ table: 'groups', where: { id: groupId } });
         if(groupRes.rows[0]) {
             groupName = groupRes.rows[0].name;
             logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url;
-            addLog(`Konsern: ${groupName}`, 'success');
         }
     }
 
@@ -334,20 +342,15 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
     const userRole = rawUser.role;
 
     if (userRole === 'leader' && accessList.length > 0) {
-        // We fetch ALL group companies, and filter in Frontend (simplifies logic vs constructing huge WHERE OR clause)
-        // Optimization: In a large app, we would do WHERE id IN (...), but simple where object in getNEON doesn't support IN list yet
         companyWhere = { group_id: groupId };
-        addLog(`Henter selskaper for leder...`);
     } else {
         companyWhere = { group_id: groupId };
-        addLog(`Henter alle selskaper i konsernet...`);
     }
     
     const compRes = await getNEON({ table: 'companies', where: companyWhere });
     const rawCompanies = compRes.rows || [];
-    addLog(`Fant ${rawCompanies.length} selskaper totalt.`, 'success');
 
-    addLog("Prosesserer finansielle data...");
+    addLog("Klargjør dashboard...");
     
     const mappedCompanies = rawCompanies.map((c: any) => {
         // AGGRESSIVE BUDGET EXTRACTION & PARSING
@@ -430,7 +433,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         companyIds: accessList // NEW: Pass the list of accessible company IDs
     };
 
-    addLog("Alt klart. Starter dashboard.", 'success');
+    addLog("Alt klart.", 'success');
     
     setTimeout(() => {
         root.render(
@@ -440,24 +443,34 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             </ErrorBoundary>
         </React.StrictMode>
         );
-    }, 800);
+    }, 500);
 
   } catch (e: any) {
     console.error("Init Error:", e);
     let msg = e.message || String(e);
     
     if (msg.includes("Failed to fetch")) {
-        msg = "Kan ikke koble til serveren. Starter Demo-modus automatisk...";
-        addLog(`KRITISK NETTVERKSFEIL: ${msg}`, 'error');
-        addLog("Dette skyldes ofte at serveren er utilgjengelig, CORS-blokkering eller manglende tilgang.", 'error');
+        msg = "Kan ikke koble til serveren.";
+        addLog(`${msg}`, 'error');
         
-        setTimeout(() => {
-            window.initKonsernKontroll(undefined, true);
-        }, 1500);
+        // Show retry button
+        renderLog([
+            {
+                label: "Prøv igjen",
+                icon: RefreshCw,
+                onClick: () => window.initKonsernKontroll()
+            },
+            {
+                label: "Start Demo",
+                icon: MonitorPlay,
+                variant: 'secondary',
+                onClick: () => window.initKonsernKontroll(undefined, true)
+            }
+        ]);
         return;
     }
     
-    addLog(`KRITISK FEIL: ${msg}`, 'error');
+    addLog(`${msg}`, 'error');
     
     renderLog([
         {
