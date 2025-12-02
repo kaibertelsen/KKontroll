@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -9,6 +11,7 @@ import UserAdminView from './components/UserAdminView';
 import AnimatedGrid from './components/AnimatedGrid';
 import { postNEON, patchNEON, deleteNEON, getNEON } from './utils/neon';
 import { hashPassword } from './utils/crypto';
+import { logActivity } from './utils/logging';
 import { 
   LayoutGrid, 
   BarChart3, 
@@ -144,6 +147,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                       data: { id: update.id, sortOrder: update.sortOrder } 
                   });
               }
+              logActivity(userProfile.id, 'SORT_COMPANIES', 'companies', undefined, 'Lagret ny rekkefølge på kortene');
               console.log("Sort order persisted to DB");
           } catch (e) {
               console.error("Failed to save sort order", e);
@@ -466,6 +470,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           // 2. Hash new password and update
           const newHash = await hashPassword(passwordForm.newPassword);
           await patchNEON({ table: 'users', data: { id: user.id, password: newHash } });
+          logActivity(user.id, 'CHANGE_PASSWORD', 'users', user.id, 'Endret eget passord');
           
           alert("Passord endret!");
           setIsPasswordModalOpen(false);
@@ -506,7 +511,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           };
           
           if (!isDemo) {
-              await postNEON({ table: 'companies', data: dbPayload });
+              const res = await postNEON({ table: 'companies', data: dbPayload });
+              const newId = res.inserted?.[0]?.id;
+              logActivity(userProfile.id, 'CREATE_COMPANY', 'companies', newId, `Opprettet selskap: ${newCompany.name}`);
               await reloadCompanies();
           } else {
               const id = companies.length > 0 ? Math.max(...companies.map(c => c.id)) + 1 : 1;
@@ -546,6 +553,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           if (!isDemo) {
               await patchNEON({ table: 'companies', data: dbPayload });
+              logActivity(userProfile.id, 'UPDATE_COMPANY', 'companies', updatedCompany.id, `Oppdaterte selskap: ${updatedCompany.name}`);
               await reloadCompanies();
           } else {
               setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
@@ -566,6 +574,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           if (!isDemo) {
               await deleteNEON({ table: 'companies', data: id });
+              logActivity(userProfile.id, 'DELETE_COMPANY', 'companies', id, 'Slettet selskap');
               await reloadCompanies();
               if (selectedCompany?.id === id) setSelectedCompany(null);
           } else {
@@ -633,8 +642,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
+              logActivity(userProfile.id, 'UPDATE_REPORT', 'reports', reportData.id, `Oppdaterte rapport. Status: submitted`);
           } else {
-              await postNEON({ table: 'reports', data: reportPayload });
+              const res = await postNEON({ table: 'reports', data: reportPayload });
+              logActivity(userProfile.id, 'SUBMIT_REPORT', 'reports', res.inserted?.[0]?.id, `Sendte inn ny rapport`);
           }
 
           // 2. UPDATE COMPANY SNAPSHOT IMMEDIATELY
@@ -692,6 +703,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
        // Simply call delete logic as before...
        try {
             await deleteNEON({ table: 'reports', data: reportId });
+            logActivity(userProfile.id, 'DELETE_REPORT', 'reports', reportId, 'Slettet rapport');
             setReports(prev => prev.filter(r => r.id !== reportId));
             setAllReports(prev => prev.filter(r => r.id !== reportId));
             // Trigger reload to update company totals if needed
@@ -717,6 +729,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   approvedByUserId: userProfile.id 
               } 
           });
+          logActivity(userProfile.id, 'APPROVE_REPORT', 'reports', reportId, 'Godkjente rapport');
           
           // Update lists immediately
           const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'approved' as const, approvedBy: 'Kontroller' } : r;
@@ -741,6 +754,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                   approvedByUserId: null
               } 
           });
+          logActivity(userProfile.id, 'UNLOCK_REPORT', 'reports', reportId, 'Låste opp rapport (tilbake til submitted)');
           const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'submitted' as const, approvedBy: undefined } : r;
           setReports(prev => prev.map(updater));
           setAllReports(prev => prev.map(updater));
@@ -763,6 +777,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                    await postNEON({ table: 'forecasts', data: payload });
               }
           }
+          logActivity(userProfile.id, 'UPDATE_FORECAST', 'forecasts', undefined, 'Oppdaterte likviditetsprognose');
           if(selectedCompany) {
              // ... fetch forecast ...
           }
@@ -785,6 +800,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const res = await postNEON({ table: 'users', data: payload });
           // Ensure we get the ID. The `inserted` field contains the rows.
           const createdUser = res.inserted[0];
+          logActivity(userProfile.id, 'CREATE_USER', 'users', createdUser.id, `Opprettet bruker: ${user.email}`);
 
           // 2. Add Company Access Rows
           if (user.companyIds && user.companyIds.length > 0) {
@@ -850,7 +866,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               await postNEON({ table: 'user_company_access', data: accessRows });
           }
            
-           fetchUsers();
+          logActivity(userProfile.id, 'UPDATE_USER', 'users', user.id, `Oppdaterte bruker: ${user.email}`);
+          fetchUsers();
       } catch (e) {
           console.error("Update user error", e);
           alert("Kunne ikke oppdatere bruker");
@@ -866,6 +883,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           
           // Then delete user
           await deleteNEON({ table: 'users', data: id });
+          logActivity(userProfile.id, 'DELETE_USER', 'users', id, 'Slettet bruker');
           
           setUsers(users.filter(u => u.id !== id));
       } catch (e) {
@@ -875,6 +893,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   };
 
   const handleLogout = () => {
+      logActivity(userProfile.id, 'LOGOUT', 'users', userProfile.id, 'Logget ut');
       localStorage.removeItem('konsern_user_id');
       localStorage.removeItem('konsern_mode');
       window.initKonsernKontroll();

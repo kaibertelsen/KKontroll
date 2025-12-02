@@ -149,6 +149,19 @@ export const forecasts = pgTable("forecasts", {
 });
 
 /* -------------------------------------------------
+   6. LOGS (Aktivitetslogg)
+---------------------------------------------------*/
+export const logs = pgTable("logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id),
+  action: varchar("action", { length: 100 }).notNull(), // e.g. 'LOGIN', 'CREATE_COMPANY'
+  entity: varchar("entity", { length: 100 }), // e.g. 'companies', 'reports'
+  entityId: integer("entity_id"),
+  details: text("details"), // JSON string or description
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* -------------------------------------------------
    RELATIONS
 ---------------------------------------------------*/
 
@@ -168,6 +181,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   companyAccess: many(userCompanyAccess),
   reports: many(reports),
+  logs: many(logs),
 }));
 
 export const companiesRelations = relations(companies, ({ one, many }) => ({
@@ -211,5 +225,12 @@ export const forecastsRelations = relations(forecasts, ({ one }) => ({
   company: one(companies, {
     fields: [forecasts.companyId],
     references: [companies.id],
+  }),
+}));
+
+export const logsRelations = relations(logs, ({ one }) => ({
+  user: one(users, {
+    fields: [logs.userId],
+    references: [users.id],
   }),
 }));

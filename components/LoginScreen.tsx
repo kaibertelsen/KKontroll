@@ -1,8 +1,10 @@
 
+
 import React, { useState } from 'react';
 import { Lock, Bug, User, Loader2 } from 'lucide-react';
 import { getNEON, patchNEON } from '../utils/neon';
 import { hashPassword } from '../utils/crypto';
+import { logActivity } from '../utils/logging';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -39,6 +41,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                 // CASE A: Password matches the hash (Secure)
                 if (user.password === inputHash) {
                     localStorage.setItem("konsern_user_id", user.id);
+                    logActivity(user.id, 'LOGIN', 'users', user.id, 'Vellykket innlogging');
                     onLoginSuccess();
                     return;
                 }
@@ -52,6 +55,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                          data: { id: user.id, password: inputHash }
                      });
                      localStorage.setItem("konsern_user_id", user.id);
+                     logActivity(user.id, 'LOGIN_MIGRATE', 'users', user.id, 'Innlogging med passordmigrering');
                      onLoginSuccess();
                      return;
                 }
