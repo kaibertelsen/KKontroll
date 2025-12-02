@@ -340,57 +340,92 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
 
       {activeTab === 'companies' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-                <thead>
-                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
-                    <th className="p-4">Navn</th>
-                    <th className="p-4">Leder</th>
-                    <th className="p-4 text-right">Budsjett</th>
-                    <th className="p-4">Modell</th>
-                    <th className="p-4 text-right">Resultat YTD</th>
-                    <th className="p-4 text-right">Likviditet</th>
-                    <th className="p-4 text-center">Handlinger</th>
-                </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-                {companies.map((company) => (
-                    <tr key={company.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                    <td className="p-4">
-                        <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
-                        <div className="text-xs text-slate-500">{company.fullName}</div>
-                    </td>
-                    <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={company.manager}>
-                         {company.manager || '-'}
-                    </td>
-                    <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.budgetTotal)}</td>
-                    <td className="p-4">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                            company.budgetMode === 'monthly' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800' :
-                            company.budgetMode === 'quarterly' ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' :
-                            'bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
-                        }`}>
-                            {company.budgetMode === 'annual' ? 'År' : company.budgetMode === 'quarterly' ? 'Kvartal' : 'Måned'}
-                        </span>
-                    </td>
-                    <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.resultYTD)}</td>
-                    <td className="p-4 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(company.liquidity)}</td>
-                    <td className="p-4 flex justify-center gap-2">
-                        <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Rediger"><Edit className="w-4 h-4" /></button>
-                        <button onClick={() => handleDelete(company.id)} className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Slett"><Trash2 className="w-4 h-4" /></button>
-                    </td>
+            
+            {/* DESKTOP TABLE VIEW */}
+            <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                    <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                        <th className="p-4">Navn</th>
+                        <th className="p-4">Leder</th>
+                        <th className="p-4 text-right">Budsjett</th>
+                        <th className="p-4">Modell</th>
+                        <th className="p-4 text-right">Resultat YTD</th>
+                        <th className="p-4 text-right">Likviditet</th>
+                        <th className="p-4 text-center">Handlinger</th>
                     </tr>
-                ))}
-                {companies.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen selskaper registrert.</td></tr>)}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+                    {companies.map((company) => (
+                        <tr key={company.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                        <td className="p-4">
+                            <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
+                            <div className="text-xs text-slate-500">{company.fullName}</div>
+                        </td>
+                        <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={company.manager}>
+                            {company.manager || '-'}
+                        </td>
+                        <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.budgetTotal)}</td>
+                        <td className="p-4">
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                                company.budgetMode === 'monthly' ? 'bg-purple-50 text-purple-600 border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800' :
+                                company.budgetMode === 'quarterly' ? 'bg-blue-50 text-blue-600 border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800' :
+                                'bg-slate-50 text-slate-600 border-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'
+                            }`}>
+                                {company.budgetMode === 'annual' ? 'År' : company.budgetMode === 'quarterly' ? 'Kvartal' : 'Måned'}
+                            </span>
+                        </td>
+                        <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.resultYTD)}</td>
+                        <td className="p-4 text-right font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(company.liquidity)}</td>
+                        <td className="p-4 flex justify-center gap-2">
+                            <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Rediger"><Edit className="w-4 h-4" /></button>
+                            <button onClick={() => handleDelete(company.id)} className="p-2 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Slett"><Trash2 className="w-4 h-4" /></button>
+                        </td>
+                        </tr>
+                    ))}
+                    {companies.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen selskaper registrert.</td></tr>)}
+                    </tbody>
+                </table>
             </div>
+
+            {/* MOBILE CARD VIEW */}
+            <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+                {companies.map((company) => (
+                    <div key={company.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors" onClick={() => openEditModal(company)}>
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="font-bold text-slate-900 dark:text-white text-base">{company.name}</h3>
+                                <p className="text-xs text-slate-500">{company.manager || 'Ingen leder'}</p>
+                            </div>
+                            <div className="flex gap-1">
+                                <button onClick={(e) => { e.stopPropagation(); openEditModal(company); }} className="p-2 bg-slate-100 dark:bg-slate-700 rounded text-slate-500 dark:text-slate-300">
+                                    <Edit size={16} />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-y-2 text-sm mt-2">
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Resultat YTD</p>
+                                <p className="font-mono text-slate-900 dark:text-white">{formatCurrency(company.resultYTD)}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Likviditet</p>
+                                <p className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(company.liquidity)}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Budsjett ({company.budgetMode === 'annual' ? 'År' : company.budgetMode})</p>
+                                <p className="font-mono text-slate-600 dark:text-slate-300">{formatCurrency(company.budgetTotal)}</p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                 {companies.length === 0 && (<div className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen selskaper registrert.</div>)}
+            </div>
+
         </div>
       )}
 
-      {/* Reports Code Same as Before... */}
-      {/* ... */}
-      
+      {/* Reports View */}
       {activeTab === 'reports' && (
            <div className="space-y-4">
                {/* Filter Bar */}
@@ -419,86 +454,132 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
                </div>
 
                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-50 dark:text-slate-400 font-semibold">
-                            <th className="p-4">Dato</th>
-                            <th className="p-4">Selskap</th>
-                            <th className="p-4">Innsender</th>
-                            <th className="p-4">Tall</th> {/* NEW COLUMN */}
-                            <th className="p-4">Kommentar</th>
-                            <th className="p-4 text-center">Status</th>
-                            <th className="p-4 text-center">Handlinger</th>
-                        </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+                    {/* DESKTOP TABLE */}
+                    <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-50 dark:text-slate-400 font-semibold">
+                                <th className="p-4">Dato</th>
+                                <th className="p-4">Selskap</th>
+                                <th className="p-4">Innsender</th>
+                                <th className="p-4">Tall</th>
+                                <th className="p-4">Kommentar</th>
+                                <th className="p-4 text-center">Status</th>
+                                <th className="p-4 text-center">Handlinger</th>
+                            </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+                            {filteredReports.map((report) => (
+                                <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                                    <td className="p-4 text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">{report.date}</td>
+                                    <td className="p-4 font-bold text-slate-900 dark:text-white">{getCompanyName(report.companyId!)}</td>
+                                    <td className="p-4 text-slate-600 dark:text-slate-300">{report.author}</td>
+                                    <td className="p-4">
+                                        {renderReportValues(report)}
+                                    </td>
+                                    <td className="p-4 text-slate-500 italic truncate max-w-xs">{report.comment}</td>
+                                    <td className="p-4 text-center">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                            report.status === 'approved' 
+                                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
+                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                                        }`}>
+                                            {report.status === 'approved' ? 'Godkjent' : 'Til godkjenning'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4 text-center flex justify-center gap-2">
+                                        {report.status === 'approved' ? (
+                                            <>
+                                                <button 
+                                                    onClick={() => openReportModal(report)}
+                                                    className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                                    title="Se rapport"
+                                                >
+                                                    <Eye size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => onUnlockReport(report.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
+                                                    title="Lås opp rapport"
+                                                >
+                                                    <Unlock size={16} />
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button 
+                                                    onClick={() => onApproveReport(report.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"
+                                                    title="Godkjenn"
+                                                >
+                                                    <CheckCircle size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => openReportModal(report)}
+                                                    className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                                    title="Rediger"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => onDeleteReport(report.id)}
+                                                    className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                                                    title="Slett"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredReports.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400">Ingen rapporter funnet.</td></tr>)}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* MOBILE CARD VIEW */}
+                    <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-700">
                         {filteredReports.map((report) => (
-                            <tr key={report.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                                <td className="p-4 text-slate-600 dark:text-slate-300 font-mono whitespace-nowrap">{report.date}</td>
-                                <td className="p-4 font-bold text-slate-900 dark:text-white">{getCompanyName(report.companyId!)}</td>
-                                <td className="p-4 text-slate-600 dark:text-slate-300">{report.author}</td>
-                                <td className="p-4">
-                                    {renderReportValues(report)}
-                                </td>
-                                <td className="p-4 text-slate-500 italic truncate max-w-xs">{report.comment}</td>
-                                <td className="p-4 text-center">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            <div key={report.id} className="p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="text-xs text-slate-500 font-mono">{report.date}</p>
+                                        <h3 className="font-bold text-slate-900 dark:text-white text-sm">{getCompanyName(report.companyId!)}</h3>
+                                        <p className="text-xs text-slate-500">{report.author}</p>
+                                    </div>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                         report.status === 'approved' 
                                         ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' 
                                         : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
                                     }`}>
-                                        {report.status === 'approved' ? 'Godkjent' : 'Til godkjenning'}
+                                        {report.status === 'approved' ? 'Godkjent' : 'Venter'}
                                     </span>
-                                </td>
-                                <td className="p-4 text-center flex justify-center gap-2">
+                                </div>
+                                <div className="mb-2">
+                                     {renderReportValues(report)}
+                                </div>
+                                {report.comment && (
+                                    <p className="text-xs text-slate-500 italic mb-3 truncate">"{report.comment}"</p>
+                                )}
+                                <div className="flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700 pt-2">
                                      {report.status === 'approved' ? (
                                         <>
-                                            <button 
-                                                onClick={() => openReportModal(report)}
-                                                className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
-                                                title="Se rapport"
-                                            >
-                                                <Eye size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => onUnlockReport(report.id)}
-                                                className="p-1.5 text-slate-400 hover:text-amber-600 transition-colors"
-                                                title="Lås opp rapport"
-                                            >
-                                                <Unlock size={16} />
-                                            </button>
+                                            <button onClick={() => openReportModal(report)} className="text-xs font-bold text-sky-600">Se Detaljer</button>
+                                            <button onClick={() => onUnlockReport(report.id)} className="text-xs font-bold text-amber-600">Lås Opp</button>
                                         </>
                                      ) : (
                                         <>
-                                            <button 
-                                                onClick={() => onApproveReport(report.id)}
-                                                className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"
-                                                title="Godkjenn"
-                                            >
-                                                <CheckCircle size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => openReportModal(report)}
-                                                className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
-                                                title="Rediger"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
-                                            <button 
-                                                onClick={() => onDeleteReport(report.id)}
-                                                className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
-                                                title="Slett"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                             <button onClick={() => onDeleteReport(report.id)} className="text-xs font-bold text-rose-600">Slett</button>
+                                             <button onClick={() => openReportModal(report)} className="text-xs font-bold text-slate-600 dark:text-slate-400">Rediger</button>
+                                             <button onClick={() => onApproveReport(report.id)} className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1 rounded">Godkjenn</button>
                                         </>
                                      )}
-                                </td>
-                            </tr>
+                                </div>
+                            </div>
                         ))}
-                        {filteredReports.length === 0 && (<tr><td colSpan={7} className="p-8 text-center text-slate-400">Ingen rapporter funnet.</td></tr>)}
-                        </tbody>
-                    </table>
+                         {filteredReports.length === 0 && (<div className="p-8 text-center text-slate-400">Ingen rapporter funnet.</div>)}
+                    </div>
                </div>
            </div>
       )}

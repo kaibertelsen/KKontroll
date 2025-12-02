@@ -1063,12 +1063,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                </div>
             </button>
 
-            {isAdminMode && (
-                <div className="flex items-center bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full border border-slate-200 dark:border-slate-600 absolute left-1/2 transform -translate-x-1/2 hidden md:flex">
-                    <button onClick={() => setViewMode(ViewMode.ADMIN)} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}><Building2 size={12} /> Selskaper</button>
-                    <button onClick={() => setViewMode(ViewMode.USER_ADMIN)} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-300 ${viewMode === ViewMode.USER_ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}><Users size={12} /> Brukere</button>
-                </div>
-            )}
+            {/* Desktop Admin Navigation (Moved to main area for mobile) */}
             
             <div className="flex items-center space-x-4 md:space-x-6">
               {isDemo && (
@@ -1110,6 +1105,26 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     <div className="h-4 w-px bg-slate-600"></div>
                     <button onClick={saveSort} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold text-sm"><Check size={16}/> Lagre</button>
                     <button onClick={cancelSort} className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-bold text-sm"><X size={16}/> Avbryt</button>
+                </div>
+            </div>
+        )}
+
+        {/* MOBILE & DESKTOP ADMIN NAV - Placed in Main Content for better mobile visibility */}
+        {isAdminMode && (
+            <div className="flex justify-center mb-6 animate-in slide-in-from-top-2">
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-full md:w-auto">
+                    <button 
+                        onClick={() => setViewMode(ViewMode.ADMIN)} 
+                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                        <Building2 size={16} /> Selskaper
+                    </button>
+                    <button 
+                        onClick={() => setViewMode(ViewMode.USER_ADMIN)} 
+                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.USER_ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                        <Users size={16} /> Brukere
+                    </button>
                 </div>
             </div>
         )}
@@ -1250,27 +1265,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           </div>
       )}
 
-      {/* Footer - REBUILT */}
+      {/* Footer - REBUILT FOR MOBILE OPTIMIZATION */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-col sm:flex-row items-center justify-between gap-4">
-              {/* Aggregates - Show simpler version on mobile */}
+              {/* Aggregates - Optimized for mobile */}
               {!isAdminMode && (
-                <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide">
-                     <div className="flex gap-6 text-center sm:text-left">
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Omsetning</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Kostnader</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Resultat</span><span className={`text-xs font-bold ${totalResult >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatCurrency(totalResult)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Budsjett</span><span className="text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalLiquidity)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Fordringer</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700"><span className="text-[9px] uppercase font-bold text-slate-400">Gjeld</span><span className="text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
-                        <div className="flex flex-col px-2"><span className="text-[9px] uppercase font-bold text-slate-400">Arb.Kapital</span><span className="text-xs font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
+                <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide w-full sm:w-auto">
+                     <div className="flex gap-3 sm:gap-6 text-center sm:text-left px-1 py-1">
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Omsetning</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Kostnader</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Resultat</span><span className={`text-[10px] sm:text-xs font-bold ${totalResult >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatCurrency(totalResult)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Budsjett</span><span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalLiquidity)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Fordringer</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Gjeld</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
+                        <div className="flex flex-col px-2 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Arb.Kapital</span><span className="text-[10px] sm:text-xs font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
                      </div>
                 </div>
               )}
               
-              {/* Attentio Footer Branding */}
-              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
+              {/* Attentio Footer Branding - Hidden on small mobile if cluttered */}
+              <div className="hidden sm:flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Powered by</span>
                  <a href="https://www.attentio.no" target="_blank" rel="noreferrer">
                      <img src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" alt="Attentio" className="h-4 w-auto grayscale hover:grayscale-0 transition-all" />

@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { UserData, CompanyData } from '../types';
 import { Trash2, Edit, Plus, Save, X, User, Shield, Lock, CheckSquare } from 'lucide-react';
@@ -136,12 +132,14 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
         </button>
       </div>
 
-      {/* Table */}
+      {/* Table & Cards */}
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div className="overflow-x-auto">
+        
+        {/* DESKTOP TABLE */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+              <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-50 dark:text-slate-400 font-semibold">
                 <th className="p-4">Navn</th>
                 <th className="p-4">E-post</th>
                 <th className="p-4">Rolle</th>
@@ -198,6 +196,50 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
             </tbody>
           </table>
         </div>
+
+        {/* MOBILE CARD VIEW */}
+        <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-700">
+             {visibleUsers.map((user) => (
+                <div key={user.id} className="p-4" onClick={() => { setEditingUser(user); setIsModalOpen(true); }}>
+                    <div className="flex items-center justify-between mb-2">
+                         <div className="flex items-center gap-3">
+                             <div className="bg-slate-100 dark:bg-slate-700 p-2 rounded-full">
+                                <User size={16} className="text-slate-500 dark:text-slate-300"/>
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900 dark:text-white">{user.fullName}</h3>
+                                <p className="text-xs text-slate-500">{user.email}</p>
+                            </div>
+                         </div>
+                         <div className="flex gap-1">
+                             <button onClick={(e) => { e.stopPropagation(); setEditingUser(user); setIsModalOpen(true); }} className="p-2 bg-slate-100 dark:bg-slate-700 rounded text-slate-500">
+                                <Edit size={16} />
+                             </button>
+                         </div>
+                    </div>
+                    
+                    <div className="pl-11 space-y-2">
+                        <div className="flex gap-2">
+                             <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                                user.role === 'controller' 
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
+                                : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                            }`}>
+                                {user.role === 'controller' ? <Shield size={10} className="mr-1"/> : null}
+                                {user.role.toUpperCase()}
+                            </span>
+                        </div>
+                        {user.role === 'leader' && (
+                             <p className="text-xs text-slate-600 dark:text-slate-400">
+                                <span className="font-bold">Selskaper:</span> {getCompanyNames(user.companyIds)}
+                             </p>
+                        )}
+                    </div>
+                </div>
+             ))}
+              {visibleUsers.length === 0 && (<div className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen brukere funnet.</div>)}
+        </div>
+
       </div>
 
       {/* Modal */}
