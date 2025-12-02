@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -436,6 +433,39 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     } catch(e) { console.error("Reload companies error", e); }
   };
 
+  const syncManagers = async (companyIds: number[]) => {
+      // For each company, calculate leader string and patch DB
+      if (companyIds.length === 0) return;
+      const uniqueIds = [...new Set(companyIds)];
+      
+      try {
+        // 1. Fetch all leaders
+        const lRes = await getNEON({ table: 'users', where: { role: 'leader' } });
+        const allLeaders = lRes.rows || [];
+        
+        // 2. Fetch all access
+        const aRes = await getNEON({ table: 'usercompanyaccess' });
+        const allAccess = aRes.rows || [];
+
+        for (const cid of uniqueIds) {
+            // Find leaders for this company
+            const linkedUserIds = allAccess
+                .filter((a: any) => (a.companyId === cid || a.company_id === cid))
+                .map((a: any) => a.userId || a.user_id);
+            
+            const companyLeaders = allLeaders.filter((u: any) => linkedUserIds.includes(u.id));
+            const managerStr = companyLeaders.map((u: any) => u.fullName || u.full_name).join(', ') || 'Ingen leder';
+            
+            await patchNEON({ table: 'companies', data: { id: cid, manager: managerStr } });
+        }
+        
+        // Reload companies to refresh UI
+        await reloadCompanies();
+      } catch (err) {
+        console.error("Failed to sync manager names", err);
+      }
+  };
+
   // --- PASSWORD CHANGE HANDLER ---
   const handleChangePassword = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -815,20 +845,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           fetchUsers();
 
           // --- AUTO-UPDATE MANAGER NAMES ---
-          // If a leader is assigned to companies, and those companies have placeholder managers, update them.
-          if (user.role === 'leader' && user.companyIds && user.companyIds.length > 0 && user.fullName) {
-              for (const cid of user.companyIds) {
-                  const targetCompany = companies.find(c => c.id === cid);
-                  const isPlaceholder = !targetCompany?.manager || targetCompany.manager === 'Admin' || targetCompany.manager === 'Ukjent';
-                  
-                  if (targetCompany && isPlaceholder) {
-                       await patchNEON({ 
-                          table: 'companies', 
-                          data: { id: targetCompany.id, manager: user.fullName } 
-                      });
-                  }
-              }
-              await reloadCompanies();
+          if (user.role === 'leader' && user.companyIds && user.companyIds.length > 0) {
+              await syncManagers(user.companyIds);
           }
 
       } catch (e) {
@@ -853,6 +871,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           // Fetch existing to delete
           const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: user.id } });
           const existingIds = (accessRes.rows || []).map((r:any) => r.id);
+          const existingCompanyIds = (accessRes.rows || []).map((r:any) => r.companyId || r.company_id);
           
           if (existingIds.length > 0) {
               await deleteNEON({ table: 'usercompanyaccess', data: existingIds });
@@ -869,6 +888,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
            
           logActivity(userProfile.id, 'UPDATE_USER', 'users', user.id, `Oppdaterte bruker: ${user.email}`);
           fetchUsers();
+          
+          // Sync managers for old and new companies
+          const allAffectedIds = [...new Set([...existingCompanyIds, ...(user.companyIds || [])])];
+          await syncManagers(allAffectedIds);
+
       } catch (e) {
           console.error("Update user error", e);
           alert("Kunne ikke oppdatere bruker");
@@ -877,9 +901,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleDeleteUser = async (id: number) => {
        try {
-          // Delete access rows first (foreign key constraint usually handles cascade, but cleaner to be explicit if no cascade)
-          // However, our deleteNEON by custom field isn't set up for FK cascade logic unless DB has it. 
-          // Let's rely on deleteNEON custom field support added in neon.ts to delete access rows by userId
+          // Fetch existing to know which companies to sync
+          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: id } });
+          const existingCompanyIds = (accessRes.rows || []).map((r:any) => r.companyId || r.company_id);
+
+          // Delete access rows
           await deleteNEON({ table: 'usercompanyaccess', data: id, field: 'userId' });
           
           // Then delete user
@@ -887,6 +913,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           logActivity(userProfile.id, 'DELETE_USER', 'users', id, 'Slettet bruker');
           
           setUsers(users.filter(u => u.id !== id));
+          
+          // Sync managers
+          await syncManagers(existingCompanyIds);
       } catch (e) {
           console.error("Delete user error", e);
           alert("Kunne ikke slette bruker (sjekk om brukeren har rapporter)");
@@ -1075,6 +1104,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         {viewMode === ViewMode.ADMIN && effectiveRole === 'controller' && (
            <AdminView 
                companies={companies} 
+               users={users}
                allReports={allReports}
                onAdd={handleAddCompany} 
                onUpdate={handleUpdateCompany} 

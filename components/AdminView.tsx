@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
-import { CompanyData, ReportLogItem } from '../types';
+import { CompanyData, ReportLogItem, UserData } from '../types';
 import { formatCurrency } from '../constants';
 import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock, CheckCircle, Clock, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AdminViewProps {
   companies: CompanyData[];
-  allReports?: ReportLogItem[]; // New prop
+  users: UserData[];
+  allReports?: ReportLogItem[]; 
   onAdd: (company: Omit<CompanyData, 'id'>) => void;
   onUpdate: (company: CompanyData) => void;
   onDelete: (id: number) => void;
@@ -34,7 +34,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
+const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   const [activeTab, setActiveTab] = useState<'companies' | 'reports'>('companies');
@@ -76,7 +76,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
       setFormData({
         name: '',
         fullName: '',
-        manager: 'Kai',
+        manager: '',
         revenue: 0,
         expenses: 0,
         resultYTD: 0,
@@ -302,6 +302,11 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
     </div>
   );
 
+  // Identify leaders for the editing company
+  const companyLeaders = editingCompany 
+    ? users.filter(u => u.role === 'leader' && (u.companyIds || []).includes(editingCompany.id))
+    : [];
+
   return (
     <div className="animate-in fade-in duration-500">
       
@@ -354,7 +359,9 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                         <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
                         <div className="text-xs text-slate-500">{company.fullName}</div>
                     </td>
-                    <td className="p-4 text-slate-600 dark:text-slate-300">{company.manager}</td>
+                    <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={company.manager}>
+                         {company.manager || '-'}
+                    </td>
                     <td className="p-4 text-right font-mono text-slate-700 dark:text-slate-200">{formatCurrency(company.budgetTotal)}</td>
                     <td className="p-4">
                         <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
@@ -380,6 +387,9 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
         </div>
       )}
 
+      {/* Reports Code Same as Before... */}
+      {/* ... */}
+      
       {activeTab === 'reports' && (
            <div className="space-y-4">
                {/* Filter Bar */}
@@ -716,10 +726,26 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
                             <label className="text-xs font-bold uppercase text-slate-500">Fullt Navn</label>
                             <input name="fullName" type="text" className="w-full border rounded px-3 py-2" value={formData.fullName || ''} onChange={handleInputChange} />
                         </div>
+                        
                         <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Leder</label>
-                            <input name="manager" type="text" className="w-full border rounded px-3 py-2" value={formData.manager} onChange={handleInputChange} />
+                            <label className="text-xs font-bold uppercase text-slate-500">Leder (Daglig leder)</label>
+                            {/* REPLACED INPUT WITH DYNAMIC LIST */}
+                            <div className="w-full border rounded px-3 py-2 min-h-[42px] bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-600 flex items-center">
+                                {companyLeaders.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                        {companyLeaders.map(u => (
+                                            <span key={u.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-200">
+                                                {u.fullName}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span className="text-slate-400 text-xs italic">Ingen leder tildelt</span>
+                                )}
+                            </div>
+                            <p className="text-[10px] text-slate-400">Ledere tildeles via "Brukere"-fanen.</p>
                         </div>
+
                     </div>
                      {/* Financials (Read Only) */}
                      <div className="grid grid-cols-2 gap-6">
