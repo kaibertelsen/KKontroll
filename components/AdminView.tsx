@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem, UserData } from '../types';
 import { formatCurrency } from '../constants';

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -448,18 +449,30 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         const allAccess = aRes.rows || [];
 
         for (const cid of uniqueIds) {
-            // Find leaders for this company
+            // Find leaders for this company (via access table)
             const linkedUserIds = allAccess
                 .filter((a: any) => (a.companyId === cid || a.company_id === cid))
                 .map((a: any) => a.userId || a.user_id);
             
-            const companyLeaders = allLeaders.filter((u: any) => linkedUserIds.includes(u.id));
-            const managerStr = companyLeaders.map((u: any) => u.fullName || u.full_name).join(', ') || 'Ingen leder';
+            // Also find leaders via legacy companyId (if any) that are NOT in linkedUserIds
+            const legacyLeaders = allLeaders.filter((u:any) => 
+                (u.companyId === cid || u.company_id === cid) && !linkedUserIds.includes(u.id)
+            );
+            
+            // Combine both sources
+            const linkedLeaders = allLeaders.filter((u: any) => linkedUserIds.includes(u.id));
+            const combinedLeaders = [...linkedLeaders, ...legacyLeaders];
+
+            // Deduplicate based on ID
+            const uniqueLeaders = Array.from(new Set(combinedLeaders.map((u:any) => u.id)))
+                .map(id => combinedLeaders.find((u:any) => u.id === id));
+
+            const managerStr = uniqueLeaders.map((u: any) => u.fullName || u.full_name).join(', ') || 'Ingen leder';
             
             await patchNEON({ table: 'companies', data: { id: cid, manager: managerStr } });
         }
         
-        // Reload companies to refresh UI
+        // Reload companies to refresh UI with new manager strings
         await reloadCompanies();
       } catch (err) {
         console.error("Failed to sync manager names", err);

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Lock, Bug, User, Loader2 } from 'lucide-react';
 import { getNEON, patchNEON } from '../utils/neon';
@@ -44,20 +45,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                     return;
                 }
                 
-                // CASE B: Password matches plaintext (Legacy/Migration)
-                // If the stored password matches the raw input, verify it and UPGRADE it to hash
-                if (user.password === password) {
-                     console.log("Migrating legacy password to hash...");
-                     await patchNEON({ 
-                         table: 'users', 
-                         data: { id: user.id, password: inputHash }
-                     });
-                     localStorage.setItem("konsern_user_id", user.id);
-                     logActivity(user.id, 'LOGIN_MIGRATE', 'users', user.id, 'Innlogging med passordmigrering');
-                     onLoginSuccess();
-                     return;
-                }
-
                 // CASE C: Wrong password
                 setError("Feil passord.");
             } else {
