@@ -263,7 +263,7 @@ export async function deleteNEON({
   table, 
   data, 
   responsId,
-  field = 'id' // Added optional field parameter, defaults to 'id'
+  field = 'id' 
 }: { 
   table: string, 
   data: any, 
@@ -275,33 +275,47 @@ export async function deleteNEON({
   }
 
   const ids = Array.isArray(data) ? data : [data];
-  // Encode value for URL safety and handle potential multiple values
-  const value = encodeURIComponent(ids.join(","));
 
-  const url = `${API_BASE}/api/${table}?field=${field}&value=${value}`;
-  const headers = buildHeaders();
+  // If there are no IDs, return early
+  if (ids.length === 0) {
+      return apiresponse({ deleted: 0, ids: [] }, responsId);
+  }
 
-  // DEBUG LOGGING
-  console.group(`[NEON] DELETE ${table}`);
-  console.log(`URL:`, url);
-  console.log(`Headers:`, headers);
-  console.log(`Data (Body):`, ids); // Log the body data being sent
-  console.groupEnd();
+  // Helper function to perform a single DELETE request
+  const performDelete = async (valueToDelete: any) => {
+       const valEncoded = encodeURIComponent(String(valueToDelete));
+       const url = `${API_BASE}/api/${table}?field=${field}&value=${valEncoded}`;
+       const headers = buildHeaders();
+       
+       // DEBUG LOGGING
+       console.groupCollapsed(`[NEON] DELETE ${table} (${field}=${valueToDelete})`);
+       console.log(`URL:`, url);
+       console.groupEnd();
+
+       const res = await fetch(url, {
+         method: "DELETE",
+         headers: headers as any,
+         body: JSON.stringify([valueToDelete]) 
+       });
+
+       if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
+       return await res.json();
+  };
+  
 
   try {
-      const res = await fetch(url, {
-        method: "DELETE",
-        headers: headers as any,
-        body: JSON.stringify(ids) // Send IDs in body as well to support bulk delete on supported backends
-      });
+      let totalDeleted = 0;
 
-      if (!res.ok) throw new Error(`DELETE failed: ${res.status}`);
-
-      const json = await res.json();
+      // The backend API strictly requires ?field=x&value=y and uses eq() (equality check).
+      // It does not support comma-separated lists for IN clauses.
+      // Therefore, if we have multiple IDs, we MUST run multiple requests in parallel.
+      
+      const results = await Promise.all(ids.map((id: any) => performDelete(id)));
+      totalDeleted = results.reduce((acc, r) => acc + (r.deleted || 0), 0);
 
       return apiresponse(
         {
-          deleted: json.deleted,
+          deleted: totalDeleted,
           ids
         },
         responsId
