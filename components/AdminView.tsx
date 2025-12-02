@@ -254,12 +254,14 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, allReports = [], onAdd
   
   const getCompanyName = (id: number) => companies.find(c => c.id === id)?.name || 'Ukjent';
 
-  // Helper to render report values (Same as CompanyDetailView)
+  // Helper to render report values
   const renderReportValues = (report: ReportLogItem) => {
       const items = [];
       if (report.result != null) items.push({ label: 'Resultat', value: report.result });
       if (report.liquidity != null) items.push({ label: 'Likviditet', value: report.liquidity });
       if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
+      if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
+      if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
       
       if (items.length === 0) return <span className="text-xs text-slate-400 italic">Ingen tall</span>;
 
