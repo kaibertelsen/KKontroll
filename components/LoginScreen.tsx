@@ -1,8 +1,6 @@
-
-
 import React, { useState } from 'react';
-import { Lock, Bug, User, Loader2 } from 'lucide-react';
-import { getNEON, patchNEON } from '../utils/neon';
+import { Lock, Bug, User, Loader2, Database } from 'lucide-react';
+import { getNEON, patchNEON, postNEON } from '../utils/neon';
 import { hashPassword } from '../utils/crypto';
 import { logActivity } from '../utils/logging';
 
@@ -79,6 +77,54 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             onDemoStart();
         } else {
             setDemoError("Feil demo-passord");
+        }
+    };
+
+    const handleMigration = async () => {
+        if(!window.confirm("Dette vil kopiere 'company_id' fra users-tabellen til den nye 'user_company_access'-tabellen for alle brukere. Fortsette?")) return;
+        
+        setIsLoading(true);
+        try {
+             // 1. Fetch Users
+             const uRes = await getNEON({ table: 'users' });
+             const users = uRes.rows || [];
+             
+             // 2. Fetch Existing Access to prevent duplicates
+             let existingAccess: any[] = [];
+             try {
+                 const aRes = await getNEON({ table: 'userCompanyAccess' });
+                 existingAccess = aRes.rows || [];
+             } catch (e) { console.warn("Could not fetch existing access, assuming empty"); }
+
+             const toInsert = [];
+             
+             for (const u of users) {
+                 const legacyId = u.companyId || u.company_id;
+                 if (legacyId) {
+                     // Check if exists
+                     const exists = existingAccess.some((a: any) => 
+                        (a.userId === u.id || a.user_id === u.id) && 
+                        (a.companyId === legacyId || a.company_id === legacyId)
+                     );
+                     
+                     if (!exists) {
+                         toInsert.push({ userId: u.id, companyId: legacyId });
+                     }
+                 }
+             }
+
+             if (toInsert.length === 0) {
+                 alert("Ingen nye koblinger å migrere (alt ser oppdatert ut).");
+             } else {
+                 await postNEON({ table: 'userCompanyAccess', data: toInsert });
+                 alert(`Suksess! Migrerte ${toInsert.length} koblinger.`);
+             }
+
+        } catch (e: any) {
+            console.error("Migration failed", e);
+            alert("Migrering feilet: " + e.message);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -187,6 +233,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                 <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
                     <button onClick={() => { setShowDemoInput(!showDemoInput); setDemoError(''); setError(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                         {showDemoInput ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
+                    </button>
+                    
+                    <button onClick={handleMigration} className="flex items-center gap-2 text-[10px] text-slate-600 hover:text-sky-500 transition-colors opacity-50 hover:opacity-100 mt-2">
+                        <Database size={10} />
+                        Migrer Data (Legacy)
                     </button>
                 </div>
             </div>
