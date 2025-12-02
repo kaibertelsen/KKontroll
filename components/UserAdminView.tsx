@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { UserData, CompanyData } from '../types';
 import { Trash2, Edit, Plus, Save, X, User, Shield, Lock } from 'lucide-react';
+import { hashPassword } from '../utils/crypto';
 
 interface UserAdminViewProps {
   users: UserData[];
@@ -36,7 +37,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
     }
   }, [editingUser, isModalOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.email) {
@@ -50,7 +51,15 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
         return;
     }
 
-    const userPayload = formData as UserData;
+    const userPayload = { ...formData } as UserData;
+
+    // Hashing Logic
+    if (formData.password) {
+        userPayload.password = await hashPassword(formData.password);
+    } else if (editingUser) {
+        // If editing and no password entered, delete the field so we don't overwrite with empty string
+        delete userPayload.password;
+    }
 
     // If role is controller, force companyId to null
     if (userPayload.role === 'controller') {
@@ -220,7 +229,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                             type="text"
                             required={!editingUser}
                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg pl-9 pr-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none font-mono text-sm"
-                            placeholder="Velg passord"
+                            placeholder={editingUser ? "••••••••" : "Velg passord"}
                             value={formData.password || ''}
                             onChange={handleInputChange}
                         />

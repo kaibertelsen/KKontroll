@@ -9,6 +9,7 @@ import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
 import AnimatedGrid from './components/AnimatedGrid';
 import { postNEON, patchNEON, deleteNEON, getNEON } from './utils/neon';
+import { hashPassword } from './utils/crypto';
 import { 
   LayoutGrid, 
   BarChart3, 
@@ -24,7 +25,10 @@ import {
   Users,
   LogOut,
   Check,
-  X
+  X,
+  Lock,
+  Save,
+  KeyRound
 } from 'lucide-react';
 
 interface UserProfile {
@@ -78,6 +82,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const [originalOrder, setOriginalOrder] = useState<CompanyData[]>([]);
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+  
+  // PASSWORD CHANGE STATE
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
 
   // --- DATA POLLING ---
   useEffect(() => {
@@ -372,6 +380,52 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             }
         }
     } catch(e) { console.error("Reload companies error", e); }
+  };
+
+  // --- PASSWORD CHANGE HANDLER ---
+  const handleChangePassword = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (isDemo) {
+          alert("Passordbytte er deaktivert i demo-modus.");
+          return;
+      }
+      
+      if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+          alert("Nytt passord matcher ikke bekreftelsen.");
+          return;
+      }
+
+      try {
+          // 1. Verify old password (fetch current user data first)
+          const res = await getNEON({ table: 'users', where: { id: userProfile.id } });
+          const user = res.rows[0];
+          
+          if (!user) {
+              alert("Feil: Fant ikke bruker.");
+              return;
+          }
+
+          const oldHash = await hashPassword(passwordForm.oldPassword);
+          const legacyMatch = user.password === passwordForm.oldPassword;
+          const hashMatch = user.password === oldHash;
+
+          if (!legacyMatch && !hashMatch) {
+               alert("Gammelt passord er feil.");
+               return;
+          }
+
+          // 2. Hash new password and update
+          const newHash = await hashPassword(passwordForm.newPassword);
+          await patchNEON({ table: 'users', data: { id: user.id, password: newHash } });
+          
+          alert("Passord endret!");
+          setIsPasswordModalOpen(false);
+          setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+
+      } catch (e) {
+          console.error("Change pwd error", e);
+          alert("Kunne ikke endre passord.");
+      }
   };
 
 
@@ -929,6 +983,35 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               groupId: u.groupId || u.group_id, 
               companyId: u.companyId || u.company_id
           })));
+
+          // --- AUTO-UPDATE COMPANY MANAGER NAME (The "Internal Function") ---
+          // If this new user is a LEADER and assigned to a company,
+          // and that company has no manager set (or is default), update it.
+          if (user.role === 'leader' && user.companyId && user.fullName) {
+              const targetCompany = companies.find(c => c.id === user.companyId);
+              
+              // Check if manager is empty, "Admin" (seed default), "Ukjent", or generic
+              const isPlaceholder = !targetCompany?.manager || targetCompany.manager === 'Admin' || targetCompany.manager === 'Ukjent';
+
+              if (targetCompany && isPlaceholder) {
+                  try {
+                      // Update DB
+                      await patchNEON({ 
+                          table: 'companies', 
+                          data: { id: targetCompany.id, manager: user.fullName } 
+                      });
+                      
+                      // Update Local State immediately for UX
+                      setCompanies(prev => prev.map(c => 
+                          c.id === targetCompany.id ? { ...c, manager: user.fullName } : c
+                      ));
+                      console.log(`Auto-updated manager for ${targetCompany.name} to ${user.fullName}`);
+                  } catch(e) {
+                      console.error("Failed to sync manager name", e);
+                  }
+              }
+          }
+
       } catch (e) {
           console.error("Add user error", e);
           alert("Kunne ikke legge til bruker");
@@ -1114,9 +1197,17 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
               <button onClick={toggleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isDemo ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'}`} title={isDemo ? "Klikk for å koble til Database" : "Klikk for å se demo-data"}>{isDemo ? <MonitorPlay size={14}/> : <Database size={14}/>}<span>{isDemo ? 'DEMO' : 'LIVE'}</span></button>
 
-              <div className="hidden md:flex items-center text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700"><UserCircle className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" /><span className="hidden lg:inline">Velkommen: </span>{userProfile.fullName || 'Bruker'}</div>
+              <button 
+                onClick={() => setIsPasswordModalOpen(true)}
+                className="hidden md:flex items-center text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                title="Endre passord"
+              >
+                  <UserCircle className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />
+                  <span className="hidden lg:inline">{userProfile.fullName || 'Bruker'}</span>
+              </button>
+              
               <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
-              <button onClick={handleLogout} className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors" title="Logg ut / Tilbake"><LogOut className="w-5 h-5" /></button>
+              <button onClick={handleLogout} className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors" title="Logg ut"><LogOut className="w-5 h-5" /></button>
 
               {effectiveRole === 'controller' && (
                 <button onClick={() => setViewMode(isAdminMode ? ViewMode.GRID : ViewMode.ADMIN)} className={`p-2 rounded-full transition-colors ${isAdminMode ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Admin / Innstillinger"><Settings className="w-5 h-5" /></button>
@@ -1205,6 +1296,57 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         )}
       </main>
       
+      {/* Password Change Modal */}
+      {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound size={18}/> Endre Passord</h3>
+                    <button onClick={() => setIsPasswordModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+                <form onSubmit={handleChangePassword} className="p-6 space-y-4">
+                    <div>
+                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Gammelt Passord</label>
+                        <input 
+                            type="password"
+                            required
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                            value={passwordForm.oldPassword}
+                            onChange={e => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Nytt Passord</label>
+                        <input 
+                            type="password"
+                            required
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                            value={passwordForm.newPassword}
+                            onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                        />
+                    </div>
+                     <div>
+                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Bekreft Nytt Passord</label>
+                        <input 
+                            type="password"
+                            required
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                            value={passwordForm.confirmPassword}
+                            onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                        />
+                    </div>
+                    <div className="pt-2">
+                        <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white rounded-lg py-2 font-bold shadow-md transition-all">
+                            Oppdater Passord
+                        </button>
+                    </div>
+                </form>
+            </div>
+          </div>
+      )}
+
       {/* Footer - REBUILT */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-col sm:flex-row items-center justify-between gap-4">

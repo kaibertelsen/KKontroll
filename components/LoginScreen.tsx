@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
 import { Lock, Bug, User, Loader2, Database } from 'lucide-react';
-import { getNEON, postNEON } from '../utils/neon';
+import { getNEON, postNEON, patchNEON } from '../utils/neon';
+import { hashPassword } from '../utils/crypto';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -37,17 +38,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             
             if (res.rows && res.rows.length > 0) {
                 const user = res.rows[0];
+                const inputHash = await hashPassword(password);
                 
-                // 2. Simple password check
-                if (user.password && user.password !== password) {
-                     setError("Feil passord.");
-                     setIsLoading(false);
+                // CASE A: Password matches the hash (Secure)
+                if (user.password === inputHash) {
+                    localStorage.setItem("konsern_user_id", user.id);
+                    onLoginSuccess();
+                    return;
+                }
+                
+                // CASE B: Password matches plaintext (Legacy/Migration)
+                // If the stored password matches the raw input, verify it and UPGRADE it to hash
+                if (user.password === password) {
+                     console.log("Migrating legacy password to hash...");
+                     await patchNEON({ 
+                         table: 'users', 
+                         data: { id: user.id, password: inputHash }
+                     });
+                     localStorage.setItem("konsern_user_id", user.id);
+                     onLoginSuccess();
                      return;
                 }
 
-                // Success! Save ID and init
-                localStorage.setItem("konsern_user_id", user.id);
-                onLoginSuccess();
+                // CASE C: Wrong password
+                setError("Feil passord.");
             } else {
                 setError("Fant ingen bruker med denne e-posten.");
             }
@@ -90,13 +104,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
 
             setSeedMessage("Gruppe opprettet. Lager admin-bruker...");
 
-            // 2. Create User
-            // NOTE: Using camelCase property names as defined in Drizzle Schema (users)
+            // 2. Create User (Hash the password 'admin')
+            const adminHash = await hashPassword('admin');
             await postNEON({
                 table: 'users',
                 data: {
                     email: 'admin@attentio.no',
-                    password: 'admin',
+                    password: adminHash,
                     fullName: 'Admin Bruker',
                     role: 'controller',
                     groupId: newGroup.id
@@ -104,7 +118,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             });
 
             // 3. Create Sample Company
-            // NOTE: Using camelCase property names as defined in Drizzle Schema (companies)
             setSeedMessage("Oppretter eksempel-selskap...");
             await postNEON({
                 table: 'companies',
