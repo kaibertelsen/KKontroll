@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { Lock, Bug, User, Loader2 } from 'lucide-react';
-import { getNEON } from '../utils/neon';
+import { Lock, Bug, User, Loader2, Database } from 'lucide-react';
+import { getNEON, postNEON } from '../utils/neon';
 
 interface LoginScreenProps {
     onLoginSuccess: () => void;
@@ -20,6 +21,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
     const [demoPwd, setDemoPwd] = useState('');
     const [demoError, setDemoError] = useState('');
 
+    // Seeding State
+    const [isSeeding, setIsSeeding] = useState(false);
+    const [seedMessage, setSeedMessage] = useState('');
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -33,9 +38,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             if (res.rows && res.rows.length > 0) {
                 const user = res.rows[0];
                 
-                // 2. Simple password check (In a real app, use hashing!)
-                // If user has no password set in DB, allow logic or fail? 
-                // For now, if DB has password field, we check it.
+                // 2. Simple password check
                 if (user.password && user.password !== password) {
                      setError("Feil passord.");
                      setIsLoading(false);
@@ -62,6 +65,73 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             onDemoStart();
         } else {
             setDemoError("Feil demo-passord");
+        }
+    };
+
+    const handleSeedDatabase = async () => {
+        if (!window.confirm("Dette vil opprette en ny gruppe og en admin-bruker. Vil du fortsette?")) return;
+        
+        setIsSeeding(true);
+        setSeedMessage("Oppretter database-struktur...");
+
+        try {
+            // 1. Create Group
+            const groupRes = await postNEON({ 
+                table: 'groups', 
+                data: { name: 'Mitt Konsern' } 
+            });
+            
+            // Neon inserts return array of inserted rows in 'inserted' property
+            const newGroup = groupRes.inserted?.[0];
+            
+            if (!newGroup || !newGroup.id) {
+                throw new Error("Klarte ikke opprette gruppe.");
+            }
+
+            setSeedMessage("Gruppe opprettet. Lager admin-bruker...");
+
+            // 2. Create User
+            await postNEON({
+                table: 'users',
+                data: {
+                    email: 'admin@attentio.no',
+                    password: 'admin',
+                    full_name: 'Admin Bruker',
+                    role: 'controller',
+                    group_id: newGroup.id
+                }
+            });
+
+            // 3. Create Sample Company
+            setSeedMessage("Oppretter eksempel-selskap...");
+            await postNEON({
+                table: 'companies',
+                data: {
+                    group_id: newGroup.id,
+                    name: 'TEST',
+                    full_name: 'Test Selskap AS',
+                    manager: 'Admin',
+                    revenue: 100000,
+                    expenses: 50000,
+                    result_ytd: 50000,
+                    budget_total: 120000,
+                    liquidity: 25000,
+                    receivables: 0,
+                    accounts_payable: 0
+                }
+            });
+
+            setSeedMessage("Ferdig! Fyller inn skjema...");
+            setEmail('admin@attentio.no');
+            setPassword('admin');
+            alert("Database initialisert! Logg inn med:\nE-post: admin@attentio.no\nPassord: admin");
+
+        } catch (e: any) {
+            console.error("Seeding error", e);
+            setError("Feil ved initialisering: " + e.message);
+        } finally {
+            setIsSeeding(false);
+            setSeedMessage('');
         }
     };
 
@@ -131,10 +201,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                                 <span>{error}</span>
                             </div>
                         )}
+                        
+                        {seedMessage && (
+                             <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-lg p-3 text-emerald-200 text-sm flex items-center gap-2 animate-in fade-in">
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>{seedMessage}</span>
+                            </div>
+                        )}
 
                         <button 
                             type="submit" 
-                            disabled={isLoading}
+                            disabled={isLoading || isSeeding}
                             className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] mt-4 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isLoading ? <Loader2 className="animate-spin" size={20}/> : 'Logg inn'}
@@ -167,10 +244,21 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                     </form>
                 )}
 
-                <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
                     <button onClick={() => { setShowDemoInput(!showDemoInput); setDemoError(''); setError(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                         {showDemoInput ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
                     </button>
+                    
+                    {!showDemoInput && (
+                        <button 
+                            onClick={handleSeedDatabase}
+                            disabled={isSeeding}
+                            className="flex items-center gap-1 text-[10px] text-emerald-500/70 hover:text-emerald-400 transition-colors uppercase font-bold tracking-wider"
+                        >
+                            <Database size={10} />
+                            Initialiser Database (Dev)
+                        </button>
+                    )}
                 </div>
             </div>
 
