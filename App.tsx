@@ -122,10 +122,36 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   };
 
   const saveSort = async () => {
+      // 1. Prepare updates
+      const updates = companies.map((c, index) => ({
+          id: c.id,
+          sortOrder: index
+      }));
+      
+      // 2. Optimistic update local state (companies is already sorted by drag)
       setIsSortMode(false);
       dragItem.current = null;
       dragOverItem.current = null;
-      console.log("New order saved:", companies.map(c => c.name));
+      
+      // 3. Persist to DB
+      if (!isDemo) {
+          try {
+              // We loop to update. In a real heavy production app, a batch update endpoint would be better.
+              // Given ~20 companies, this is acceptable for now.
+              for (const update of updates) {
+                  await patchNEON({ 
+                      table: 'companies', 
+                      data: { id: update.id, sortOrder: update.sortOrder } 
+                  });
+              }
+              console.log("Sort order persisted to DB");
+          } catch (e) {
+              console.error("Failed to save sort order", e);
+              alert("Kunne ikke lagre rekkefølgen til databasen.");
+          }
+      } else {
+          console.log("Sort saved locally (Demo mode)");
+      }
   };
 
   const onDragStart = (e: React.DragEvent, index: number) => {
@@ -340,6 +366,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     name: c.name || '',
                     fullName: c.fullName || c.full_name || '', 
                     manager: c.manager || '',
+                    sortOrder: Number(c.sortOrder || c.sort_order || 0), // LOAD SORT
                     revenue: Number(c.revenue || 0),
                     expenses: Number(c.expenses || 0),
                     liquidityDate: c.liquidityDate || c.liquidity_date || '',
@@ -351,6 +378,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     pnlDate: c.pnlDate || c.pnl_date || ''
                 };
             });
+            
+            // SORT
+            mapped.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
             setCompanies(mapped);
             
             if (selectedCompany) {
@@ -441,11 +472,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               expenses: newCompany.expenses,
               resultYtd: newCompany.resultYTD, 
               budgetTotal: newCompany.budgetTotal,
-              budget_total: newCompany.budgetTotal, // Backup snake_case
+              budget_total: newCompany.budgetTotal, 
               budgetMode: newCompany.budgetMode,
-              budget_mode: newCompany.budgetMode, // Backup snake_case
+              budget_mode: newCompany.budgetMode, 
               budgetMonths: newCompany.budgetMonths,
-              budget_months: newCompany.budgetMonths, // Backup snake_case
+              budget_months: newCompany.budgetMonths, 
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
               accountsPayable: newCompany.accountsPayable,
@@ -480,11 +511,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               expenses: updatedCompany.expenses,
               resultYtd: updatedCompany.resultYTD,
               budgetTotal: updatedCompany.budgetTotal,
-              budget_total: updatedCompany.budgetTotal, // Backup snake_case
+              budget_total: updatedCompany.budgetTotal, 
               budgetMode: updatedCompany.budgetMode,
-              budget_mode: updatedCompany.budgetMode, // Backup snake_case
+              budget_mode: updatedCompany.budgetMode, 
               budgetMonths: updatedCompany.budgetMonths,
-              budget_months: updatedCompany.budgetMonths, // Backup snake_case
+              budget_months: updatedCompany.budgetMonths, 
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
               accountsPayable: updatedCompany.accountsPayable,
@@ -985,27 +1016,20 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           })));
 
           // --- AUTO-UPDATE COMPANY MANAGER NAME (The "Internal Function") ---
-          // If this new user is a LEADER and assigned to a company,
-          // and that company has no manager set (or is default), update it.
           if (user.role === 'leader' && user.companyId && user.fullName) {
               const targetCompany = companies.find(c => c.id === user.companyId);
-              
-              // Check if manager is empty, "Admin" (seed default), "Ukjent", or generic
               const isPlaceholder = !targetCompany?.manager || targetCompany.manager === 'Admin' || targetCompany.manager === 'Ukjent';
 
               if (targetCompany && isPlaceholder) {
                   try {
-                      // Update DB
                       await patchNEON({ 
                           table: 'companies', 
                           data: { id: targetCompany.id, manager: user.fullName } 
                       });
                       
-                      // Update Local State immediately for UX
                       setCompanies(prev => prev.map(c => 
                           c.id === targetCompany.id ? { ...c, manager: user.fullName } : c
                       ));
-                      console.log(`Auto-updated manager for ${targetCompany.name} to ${user.fullName}`);
                   } catch(e) {
                       console.error("Failed to sync manager name", e);
                   }
@@ -1068,11 +1092,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const toggleMode = () => {
       const newMode = isDemo ? 'live' : 'demo';
-      if (newMode === 'demo' && localStorage.getItem('konsern_access') !== 'granted') {
-          // alert("Du må logge inn med demo-passord først.");
-          // window.initKonsernKontroll(); 
-          // return;
-      }
       window.initKonsernKontroll(undefined, newMode === 'demo');
   };
 
@@ -1127,7 +1146,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       case SortField.RESULT: return data.sort((a, b) => b.resultYTD - a.resultYTD);
       case SortField.DEVIATION: return data.sort((a, b) => a.calculatedDeviationPercent - b.calculatedDeviationPercent);
       case SortField.LIQUIDITY: return data.sort((a, b) => b.liquidity - a.liquidity);
-      default: return data; 
+      default: return data; // Uses default load order (sortOrder)
     }
   }, [displayedData, sortField, isSortMode]);
 
@@ -1170,15 +1189,23 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <a href="https://www.attentio.no" target="_blank" rel="noreferrer" className="flex items-center gap-3 group">
+            
+            {/* LOGO LINK - CHANGED TO INTERNAL NAVIGATION */}
+            <button 
+                onClick={() => {
+                    setViewMode(ViewMode.GRID);
+                    setSelectedCompany(null);
+                }}
+                className="flex items-center gap-3 group focus:outline-none"
+            >
                <div className="bg-white/10 p-1.5 rounded-lg">
                   <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Attentio" className="h-8 w-8 rounded-lg shadow-sm" />
                </div>
-               <div className="hidden sm:block">
+               <div className="hidden sm:block text-left">
                   <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{userProfile.groupName || 'Konsernoversikt'}</h1>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Powered by Attentio</p>
                </div>
-            </a>
+            </button>
 
             {isAdminMode && (
                 <div className="flex items-center bg-slate-100 dark:bg-slate-700/50 p-1 rounded-full border border-slate-200 dark:border-slate-600 absolute left-1/2 transform -translate-x-1/2 hidden md:flex">
@@ -1219,7 +1246,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
-        {/* ... (Sort overlay logic remains) ... */}
+        {/* Sort overlay */}
         {isSortMode && (
             <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
                 <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">

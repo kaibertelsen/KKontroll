@@ -92,7 +92,7 @@ const LoadingLogger = ({ logs, actions }: LoadingLoggerProps) => {
                             {hasError ? 'Systemstopp' : 'Systemstart'}
                         </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">v1.4.0 (Direct Neon)</div>
+                    <div className="text-[10px] text-slate-400">v1.5.0 (Sorted)</div>
                 </div>
                 
                 <div className="p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 scroll-smooth flex-grow font-mono text-xs space-y-2">
@@ -392,6 +392,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             name: c.name || '',
             fullName: c.fullName || c.full_name || '', 
             manager: c.manager || '',
+            sortOrder: Number(c.sortOrder || c.sort_order || 0), // LOAD SORT ORDER
             revenue: Number(c.revenue || 0),
             expenses: Number(c.expenses || 0),
             liquidityDate: c.liquidity_date || c.liquidityDate || '',
@@ -403,6 +404,9 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
             pnlDate: c.pnl_date || c.pnlDate || ''
         };
     });
+
+    // SORT BY DB ORDER
+    mappedCompanies.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     const userProfile = {
         id: user.id,

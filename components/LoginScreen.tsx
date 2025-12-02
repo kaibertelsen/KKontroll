@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { Lock, Bug, User, Loader2, Database } from 'lucide-react';
-import { getNEON, postNEON, patchNEON } from '../utils/neon';
+import { Lock, Bug, User, Loader2 } from 'lucide-react';
+import { getNEON, patchNEON } from '../utils/neon';
 import { hashPassword } from '../utils/crypto';
 
 interface LoginScreenProps {
@@ -21,10 +21,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
     // Demo State
     const [demoPwd, setDemoPwd] = useState('');
     const [demoError, setDemoError] = useState('');
-
-    // Seeding State
-    const [isSeeding, setIsSeeding] = useState(false);
-    const [seedMessage, setSeedMessage] = useState('');
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,74 +75,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             onDemoStart();
         } else {
             setDemoError("Feil demo-passord");
-        }
-    };
-
-    const handleSeedDatabase = async () => {
-        if (!window.confirm("Dette vil opprette en ny gruppe og en admin-bruker. Vil du fortsette?")) return;
-        
-        setIsSeeding(true);
-        setSeedMessage("Oppretter database-struktur...");
-
-        try {
-            // 1. Create Group
-            const groupRes = await postNEON({ 
-                table: 'groups', 
-                data: { name: 'Mitt Konsern' } 
-            });
-            
-            // Neon inserts return array of inserted rows in 'inserted' property
-            const newGroup = groupRes.inserted?.[0];
-            
-            if (!newGroup || !newGroup.id) {
-                throw new Error("Klarte ikke opprette gruppe.");
-            }
-
-            setSeedMessage("Gruppe opprettet. Lager admin-bruker...");
-
-            // 2. Create User (Hash the password 'admin')
-            const adminHash = await hashPassword('admin');
-            await postNEON({
-                table: 'users',
-                data: {
-                    email: 'admin@attentio.no',
-                    password: adminHash,
-                    fullName: 'Admin Bruker',
-                    role: 'controller',
-                    groupId: newGroup.id
-                }
-            });
-
-            // 3. Create Sample Company
-            setSeedMessage("Oppretter eksempel-selskap...");
-            await postNEON({
-                table: 'companies',
-                data: {
-                    groupId: newGroup.id,
-                    name: 'TEST',
-                    fullName: 'Test Selskap AS',
-                    manager: 'Admin',
-                    revenue: 100000,
-                    expenses: 50000,
-                    resultYtd: 50000,
-                    budgetTotal: 120000,
-                    liquidity: 25000,
-                    receivables: 0,
-                    accountsPayable: 0
-                }
-            });
-
-            setSeedMessage("Ferdig! Fyller inn skjema...");
-            setEmail('admin@attentio.no');
-            setPassword('admin');
-            alert("Database initialisert! Logg inn med:\nE-post: admin@attentio.no\nPassord: admin");
-
-        } catch (e: any) {
-            console.error("Seeding error", e);
-            setError("Feil ved initialisering: " + e.message);
-        } finally {
-            setIsSeeding(false);
-            setSeedMessage('');
         }
     };
 
@@ -217,16 +145,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                             </div>
                         )}
                         
-                        {seedMessage && (
-                             <div className="bg-emerald-500/20 border border-emerald-500/50 rounded-lg p-3 text-emerald-200 text-sm flex items-center gap-2 animate-in fade-in">
-                                <Loader2 size={16} className="animate-spin" />
-                                <span>{seedMessage}</span>
-                            </div>
-                        )}
-
                         <button 
                             type="submit" 
-                            disabled={isLoading || isSeeding}
+                            disabled={isLoading}
                             className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-sky-900/20 transition-all transform active:scale-[0.98] mt-4 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             {isLoading ? <Loader2 className="animate-spin" size={20}/> : 'Logg inn'}
@@ -263,17 +184,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                     <button onClick={() => { setShowDemoInput(!showDemoInput); setDemoError(''); setError(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
                         {showDemoInput ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
                     </button>
-                    
-                    {!showDemoInput && (
-                        <button 
-                            onClick={handleSeedDatabase}
-                            disabled={isSeeding}
-                            className="flex items-center gap-1 text-[10px] text-emerald-500/70 hover:text-emerald-400 transition-colors uppercase font-bold tracking-wider"
-                        >
-                            <Database size={10} />
-                            Initialiser Database (Dev)
-                        </button>
-                    )}
                 </div>
             </div>
 

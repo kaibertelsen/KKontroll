@@ -27,7 +27,7 @@ export const budgetModeEnum = pgEnum("budget_mode", ["annual", "quarterly", "mon
 export const groups = pgTable("groups", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(), 
-  logoUrl: varchar("logo_url", { length: 255 }), // Restored for API compatibility
+  logoUrl: varchar("logo_url", { length: 255 }), 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -36,9 +36,9 @@ export const groups = pgTable("groups", {
 ---------------------------------------------------*/
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  authId: varchar("auth_id", { length: 255 }), // Restored for API compatibility
+  authId: varchar("auth_id", { length: 255 }),
   email: varchar("email", { length: 255 }).notNull(),
-  password: varchar("password", { length: 255 }), // Password field for direct login
+  password: varchar("password", { length: 255 }), 
   fullName: varchar("full_name", { length: 255 }),
   role: userRoleEnum("role").default("leader").notNull(),
   groupId: integer("group_id").references(() => groups.id).notNull(),
@@ -52,10 +52,13 @@ export const users = pgTable("users", {
 export const companies = pgTable("companies", {
   id: serial("id").primaryKey(),
   groupId: integer("group_id").references(() => groups.id).notNull(),
-  name: varchar("name", { length: 50 }).notNull(), // Initials/Short Name
-  fullName: varchar("full_name", { length: 255 }), // Full Legal Name
+  name: varchar("name", { length: 50 }).notNull(), 
+  fullName: varchar("full_name", { length: 255 }), 
   manager: varchar("manager", { length: 255 }).notNull(), 
   
+  // Sortering i Dashboard
+  sortOrder: integer("sort_order").default(0),
+
   // Økonomiske nøkkeltall (Snapshot)
   revenue: integer("revenue").default(0).notNull(),
   expenses: integer("expenses").default(0).notNull(),
@@ -67,8 +70,8 @@ export const companies = pgTable("companies", {
   budgetMonths: json("budget_months").$type<number[]>().default([0,0,0,0,0,0,0,0,0,0,0,0]),
 
   liquidity: integer("liquidity").default(0).notNull(),
-  receivables: integer("receivables").default(0).notNull(), // Fordringer
-  accountsPayable: integer("accounts_payable").default(0).notNull(), // Leverandørgjeld
+  receivables: integer("receivables").default(0).notNull(), 
+  accountsPayable: integer("accounts_payable").default(0).notNull(), 
   
   liquidityDate: varchar("liquidity_date", { length: 20 }), 
   receivablesDate: varchar("receivables_date", { length: 20 }),
@@ -99,7 +102,6 @@ export const reports = pgTable("reports", {
   submittedByUserId: integer("submitted_by_user_id").references(() => users.id),
   authorName: varchar("author_name", { length: 255 }), 
   
-  // Made these nullable to allow partial reporting
   revenue: integer("revenue"),
   expenses: integer("expenses"),
   resultYtd: integer("result_ytd"),
@@ -111,13 +113,13 @@ export const reports = pgTable("reports", {
   liquidityDate: varchar("liquidity_date", { length: 20 }),
   receivablesDate: varchar("receivables_date", { length: 20 }),
   accountsPayableDate: varchar("accounts_payable_date", { length: 20 }),
-  
+  pnlDate: varchar("pnl_date", { length: 20 }),
+
   comment: text("comment"),
   source: varchar("source", { length: 50 }).default("Manuell"), 
   
   status: reportStatusEnum("status").default("submitted"),
   
-  // Approval flow
   approvedByUserId: integer("approved_by_user_id").references(() => users.id),
   approvedAt: timestamp("approved_at"),
   
@@ -130,9 +132,9 @@ export const reports = pgTable("reports", {
 export const forecasts = pgTable("forecasts", {
   id: serial("id").primaryKey(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
-  month: varchar("month", { length: 10 }).notNull(), // "YYYY-MM"
-  estimatedReceivables: integer("estimated_receivables").default(0), // Forventet inn
-  estimatedPayables: integer("estimated_payables").default(0), // Forventet ut
+  month: varchar("month", { length: 10 }).notNull(), 
+  estimatedReceivables: integer("estimated_receivables").default(0), 
+  estimatedPayables: integer("estimated_payables").default(0), 
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 

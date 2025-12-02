@@ -1,17 +1,19 @@
 
 
+
 export interface CompanyData {
   id: number;
   name: string; 
   fullName?: string; 
   manager: string; 
+  sortOrder?: number; // Added for ordering
   resultYTD: number;
   budgetTotal: number; 
   budgetMode: 'annual' | 'quarterly' | 'monthly';
   budgetMonths: number[]; 
   revenue: number; 
   expenses: number; 
-  pnlDate?: string; // NEW: Date for Profit & Loss figures
+  pnlDate?: string; 
   liquidity: number;
   receivables: number; 
   accountsPayable: number; 
@@ -35,7 +37,7 @@ export interface ComputedCompanyData extends CompanyData {
 export interface UserData {
   id: number;
   email: string;
-  password?: string; // Optional for UI, present in DB
+  password?: string; 
   fullName: string;
   role: 'controller' | 'leader';
   groupId: number;
@@ -55,7 +57,7 @@ export interface ReportLogItem {
   revenue?: number | null;
   expenses?: number | null;
   
-  pnlDate?: string; // NEW
+  pnlDate?: string; 
 
   receivables?: number | null;
   accountsPayable?: number | null;
