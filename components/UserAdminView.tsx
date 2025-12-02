@@ -16,6 +16,9 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
   
+  // Filter out superadmin from the view
+  const visibleUsers = users.filter(u => u.email !== 'admin@attentio.no');
+
   // Form State
   const [formData, setFormData] = useState<Partial<UserData>>({});
 
@@ -127,7 +130,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
-              {users.map((user) => (
+              {visibleUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                   <td className="p-4 font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <div className="bg-slate-100 dark:bg-slate-700 p-1.5 rounded-full">
@@ -167,7 +170,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                   </td>
                 </tr>
               ))}
-              {users.length === 0 && (
+              {visibleUsers.length === 0 && (
                   <tr>
                       <td colSpan={5} className="p-8 text-center text-slate-400 dark:text-slate-500">Ingen brukere funnet.</td>
                   </tr>
