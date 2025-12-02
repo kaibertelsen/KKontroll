@@ -91,33 +91,35 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
             setSeedMessage("Gruppe opprettet. Lager admin-bruker...");
 
             // 2. Create User
+            // NOTE: Using camelCase property names as defined in Drizzle Schema (users)
             await postNEON({
                 table: 'users',
                 data: {
                     email: 'admin@attentio.no',
                     password: 'admin',
-                    full_name: 'Admin Bruker',
+                    fullName: 'Admin Bruker',
                     role: 'controller',
-                    group_id: newGroup.id
+                    groupId: newGroup.id
                 }
             });
 
             // 3. Create Sample Company
+            // NOTE: Using camelCase property names as defined in Drizzle Schema (companies)
             setSeedMessage("Oppretter eksempel-selskap...");
             await postNEON({
                 table: 'companies',
                 data: {
-                    group_id: newGroup.id,
+                    groupId: newGroup.id,
                     name: 'TEST',
-                    full_name: 'Test Selskap AS',
+                    fullName: 'Test Selskap AS',
                     manager: 'Admin',
                     revenue: 100000,
                     expenses: 50000,
-                    result_ytd: 50000,
-                    budget_total: 120000,
+                    resultYtd: 50000,
+                    budgetTotal: 120000,
                     liquidity: 25000,
                     receivables: 0,
-                    accounts_payable: 0
+                    accountsPayable: 0
                 }
             });
 
