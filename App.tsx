@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -268,9 +272,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
          liquidity: r.liquidity,
          receivables: r.receivables,
          accountsPayable: r.accountsPayable || r.accounts_payable,
+         publicFees: r.publicFees || r.public_fees,
          liquidityDate: r.liquidityDate || r.liquidity_date || '',
          receivablesDate: r.receivablesDate || r.receivables_date || '',
          accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
+         publicFeesDate: r.publicFeesDate || r.public_fees_date || '',
          source: r.source || 'Manuell',
          approvedBy: r.approvedByUserId || r.approved_by_user_id ? 'Kontroller' : undefined,
          approvedAt: r.approvedAt || r.approved_at ? new Date(r.approvedAt || r.approved_at).toLocaleDateString('no-NO') : undefined,
@@ -381,6 +387,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
+                    publicFees: Number(c.publicFees || c.public_fees || 0), // LOAD NEW FIELD
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
@@ -393,6 +400,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     liquidityDate: c.liquidityDate || c.liquidity_date || '',
                     receivablesDate: c.receivablesDate || c.receivables_date || '',
                     accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
+                    publicFeesDate: c.publicFeesDate || c.public_fees_date || '', // LOAD NEW FIELD DATE
                     lastReportDate: c.lastReportDate || c.last_report_date || '',
                     lastReportBy: c.lastReportBy || c.last_report_by || '',
                     comment: c.currentComment || c.current_comment || '',
@@ -547,10 +555,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               liquidity: newCompany.liquidity,
               receivables: newCompany.receivables,
               accountsPayable: newCompany.accountsPayable,
+              publicFees: newCompany.publicFees,
               pnlDate: newCompany.pnlDate,
               liquidityDate: newCompany.liquidityDate,
               receivablesDate: newCompany.receivablesDate,
               accountsPayableDate: newCompany.accountsPayableDate,
+              publicFeesDate: newCompany.publicFeesDate,
               trendHistory: newCompany.trendHistory
           };
           
@@ -588,10 +598,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
               accountsPayable: updatedCompany.accountsPayable,
+              publicFees: updatedCompany.publicFees,
               pnlDate: updatedCompany.pnlDate,
               liquidityDate: updatedCompany.liquidityDate,
               receivablesDate: updatedCompany.receivablesDate,
               accountsPayableDate: updatedCompany.accountsPayableDate,
+              publicFeesDate: updatedCompany.publicFeesDate,
               trendHistory: updatedCompany.trendHistory
           };
 
@@ -683,6 +695,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               reportPayload.accountsPayable = Number(reportData.accountsPayable);
               if(reportData.accountsPayableDate) reportPayload.accountsPayableDate = reportData.accountsPayableDate;
           }
+          
+          if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
+              reportPayload.publicFees = Number(reportData.publicFees);
+              if(reportData.publicFeesDate) reportPayload.publicFeesDate = reportData.publicFeesDate;
+          }
 
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
@@ -717,6 +734,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
               companyUpdate.accountsPayable = Number(reportData.accountsPayable);
               if(reportData.accountsPayableDate) companyUpdate.accountsPayableDate = reportData.accountsPayableDate;
+          }
+          
+          if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
+              companyUpdate.publicFees = Number(reportData.publicFees);
+              if(reportData.publicFeesDate) companyUpdate.publicFeesDate = reportData.publicFeesDate;
           }
 
           companyUpdate.lastReportDate = new Date().toLocaleDateString('no-NO');
@@ -1014,7 +1036,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const totalLiquidity = computedData.reduce((acc, curr) => acc + curr.liquidity, 0);
   const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
   const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
-  const totalWorkingCapital = (totalReceivables - totalPayables) + totalLiquidity;
+  const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
+  
+  // Updated Working Capital: Liquidity + Receivables - Payables - PublicFees
+  const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees);
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
@@ -1278,7 +1303,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Budsjett</span><span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
                         <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalLiquidity)}</span></div>
                         <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Fordringer</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Gjeld</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Lev.Gjeld</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
+                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Off.Avg</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPublicFees)}</span></div>
                         <div className="flex flex-col px-2 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Arb.Kapital</span><span className="text-[10px] sm:text-xs font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
                      </div>
                 </div>

@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import {
   pgTable,
   varchar,
@@ -58,10 +62,12 @@ export const companies = pgTable("companies", {
   liquidity: integer("liquidity").default(0).notNull(),
   receivables: integer("receivables").default(0).notNull(), 
   accountsPayable: integer("accounts_payable").default(0).notNull(), 
+  publicFees: integer("public_fees").default(0).notNull(), // New field
   
   liquidityDate: varchar("liquidity_date", { length: 20 }), 
   receivablesDate: varchar("receivables_date", { length: 20 }),
   accountsPayableDate: varchar("accounts_payable_date", { length: 20 }),
+  publicFeesDate: varchar("public_fees_date", { length: 20 }), // New field
   
   // Analyse
   trendHistory: numeric("trend_history", { precision: 5, scale: 2 }).default("0"), 
@@ -120,10 +126,12 @@ export const reports = pgTable("reports", {
   liquidity: integer("liquidity"),
   receivables: integer("receivables"),
   accountsPayable: integer("accounts_payable"),
+  publicFees: integer("public_fees"), // New Field
   
   liquidityDate: varchar("liquidity_date", { length: 20 }),
   receivablesDate: varchar("receivables_date", { length: 20 }),
   accountsPayableDate: varchar("accounts_payable_date", { length: 20 }),
+  publicFeesDate: varchar("public_fees_date", { length: 20 }), // New Field
   pnlDate: varchar("pnl_date", { length: 20 }),
 
   comment: text("comment"),

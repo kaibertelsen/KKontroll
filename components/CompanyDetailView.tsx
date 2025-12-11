@@ -1,8 +1,12 @@
 
+
+
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData } from '../types';
 import { formatCurrency } from '../constants';
-import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye } from 'lucide-react';
+import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye, Landmark } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
 } from 'recharts';
@@ -231,7 +235,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       return [...combinedData, ...futureData];
   }, [historyData, company.liquidity, forecasts]);
 
-  const statusValue = (company.receivables - company.accountsPayable) + company.liquidity;
+  // Working Capital Formula: (Liquidity + Receivables) - (Payables + PublicFees)
+  const statusValue = (company.receivables + company.liquidity) - (company.accountsPayable + (company.publicFees || 0));
 
   // --- REPORTING FORM LOGIC ---
   const [reportingMode, setReportingMode] = useState<'ytd' | 'monthly'>('ytd');
@@ -244,9 +249,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       liquidity: string | number;
       receivables: string | number;
       accountsPayable: string | number;
+      publicFees: string | number; // Added
       liquidityDate: string;
       receivablesDate: string;
       accountsPayableDate: string;
+      publicFeesDate: string; // Added
       comment: string;
       source: string;
       reportDate: string;
@@ -258,9 +265,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       liquidity: '',
       receivables: '',
       accountsPayable: '',
+      publicFees: '', // Added
       liquidityDate: new Date().toLocaleDateString('no-NO'),
       receivablesDate: new Date().toLocaleDateString('no-NO'),
       accountsPayableDate: new Date().toLocaleDateString('no-NO'),
+      publicFeesDate: new Date().toLocaleDateString('no-NO'), // Added
       comment: '',
       source: 'Manuell',
       reportDate: new Date().toISOString().split('T')[0]
@@ -307,9 +316,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
               liquidity: editingReport.liquidity ?? '',
               receivables: editingReport.receivables ?? '',
               accountsPayable: editingReport.accountsPayable ?? '',
+              publicFees: editingReport.publicFees ?? '', // Added
               liquidityDate: editingReport.liquidityDate || new Date().toLocaleDateString('no-NO'),
               receivablesDate: editingReport.receivablesDate || new Date().toLocaleDateString('no-NO'),
               accountsPayableDate: editingReport.accountsPayableDate || new Date().toLocaleDateString('no-NO'),
+              publicFeesDate: editingReport.publicFeesDate || new Date().toLocaleDateString('no-NO'), // Added
               comment: editingReport.comment,
               source: editingReport.source,
               reportDate: editingReport.date 
@@ -325,9 +336,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             liquidity: '',
             receivables: '',
             accountsPayable: '',
+            publicFees: '',
             liquidityDate: new Date().toLocaleDateString('no-NO'),
             receivablesDate: new Date().toLocaleDateString('no-NO'),
             accountsPayableDate: new Date().toLocaleDateString('no-NO'),
+            publicFeesDate: new Date().toLocaleDateString('no-NO'),
             comment: '',
             source: 'Manuell',
             reportDate: new Date().toISOString().split('T')[0]
@@ -382,6 +395,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           liquidity: formData.liquidity === '' ? undefined : Number(formData.liquidity),
           receivables: formData.receivables === '' ? undefined : Number(formData.receivables),
           accountsPayable: formData.accountsPayable === '' ? undefined : Number(formData.accountsPayable),
+          publicFees: formData.publicFees === '' ? undefined : Number(formData.publicFees), // Added
           id: editingReport ? editingReport.id : undefined
       };
       
@@ -434,7 +448,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       if (report.liquidity != null) items.push({ label: 'Likviditet', value: report.liquidity });
       if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
       if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
-      if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
+      if (report.accountsPayable != null) items.push({ label: 'Lev.Gjeld', value: report.accountsPayable });
+      if (report.publicFees != null) items.push({ label: 'Off.Avg', value: report.publicFees }); // Added
 
       if (items.length === 0) return <span className="text-sm text-slate-400 italic">Ingen tall rapportert</span>;
 
@@ -498,11 +513,16 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 />
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
-                <StatCard icon={ArrowDownRight} label="Leverandørgjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
-                <StatCard icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Likviditet + (Fordringer - Gjeld)" />
+                <StatCard icon={ArrowDownRight} label="Lev.Gjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
+                <StatCard icon={Landmark} label="Off.Avg" value={company.publicFees} subText={company.publicFeesDate} />
+                
+                {/* Arbeidskapital takes up full width on mobile if needed, or flows nicely */}
+                <div className="col-span-2 lg:col-span-1">
+                    <StatCard icon={Activity} label="Arb.Kapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Likviditet + Fordringer - Gjeld" />
+                </div>
             </div>
         </div>
 
@@ -851,6 +871,26 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     />
                                 </div>
                             </div>
+                            
+                            {/* Offentlige Avgifter Input Row */}
+                            <div className="grid grid-cols-2 gap-4 items-end">
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Offentlige Avgifter (MVA/Skatt)</label>
+                                    <input type="number" disabled={isReadOnly} className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
+                                        value={formData.publicFees} onChange={e => setFormData({...formData, publicFees: e.target.value})} placeholder="0" />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                    <input 
+                                        type="date" 
+                                        disabled={isReadOnly}
+                                        className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm disabled:bg-slate-100 disabled:text-slate-500 dark:disabled:bg-slate-700" 
+                                        value={toInputDate(formData.publicFeesDate)} 
+                                        onChange={e => setFormData({...formData, publicFeesDate: fromInputDate(e.target.value)})} 
+                                    />
+                                </div>
+                            </div>
+
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">

@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem, UserData } from '../types';
 import { formatCurrency } from '../constants';
@@ -87,9 +91,11 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
         liquidity: 0,
         receivables: 0,
         accountsPayable: 0,
+        publicFees: 0,
         liquidityDate: new Date().toLocaleDateString('no-NO'),
         receivablesDate: new Date().toLocaleDateString('no-NO'),
         accountsPayableDate: new Date().toLocaleDateString('no-NO'),
+        publicFeesDate: new Date().toLocaleDateString('no-NO'),
         lastReportDate: new Date().toLocaleDateString('no-NO'),
         lastReportBy: '',
         comment: '',
@@ -115,10 +121,12 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
               liquidity: editingReport.liquidity ?? '',
               receivables: editingReport.receivables ?? '',
               accountsPayable: editingReport.accountsPayable ?? '',
+              publicFees: editingReport.publicFees ?? '',
               
               liquidityDate: editingReport.liquidityDate || new Date().toLocaleDateString('no-NO'),
               receivablesDate: editingReport.receivablesDate || new Date().toLocaleDateString('no-NO'),
               accountsPayableDate: editingReport.accountsPayableDate || new Date().toLocaleDateString('no-NO'),
+              publicFeesDate: editingReport.publicFeesDate || new Date().toLocaleDateString('no-NO'),
               
               comment: editingReport.comment,
               source: editingReport.source,
@@ -170,6 +178,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
           liquidity: reportFormData.liquidity === '' ? undefined : Number(reportFormData.liquidity),
           receivables: reportFormData.receivables === '' ? undefined : Number(reportFormData.receivables),
           accountsPayable: reportFormData.accountsPayable === '' ? undefined : Number(reportFormData.accountsPayable),
+          publicFees: reportFormData.publicFees === '' ? undefined : Number(reportFormData.publicFees),
           id: editingReport ? editingReport.id : undefined,
           companyId: editingReport ? editingReport.companyId : undefined // Ensure ID is passed
       };
@@ -263,6 +272,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
       if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
       if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
       if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
+      if (report.publicFees != null) items.push({ label: 'Off.Avg', value: report.publicFees });
       
       if (items.length === 0) return <span className="text-xs text-slate-400 italic">Ingen tall</span>;
 
@@ -744,6 +754,24 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
                                     className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
                                     value={toInputDate(reportFormData.accountsPayableDate)} 
                                     onChange={e => setReportFormData({...reportFormData, accountsPayableDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+
+                        {/* Public Fees Row */}
+                         <div className="grid grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Off. Avgifter</label>
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    value={reportFormData.publicFees} onChange={e => setReportFormData({...reportFormData, publicFees: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={toInputDate(reportFormData.publicFeesDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, publicFeesDate: fromInputDate(e.target.value)})} 
                                 />
                             </div>
                         </div>

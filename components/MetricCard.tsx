@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -13,7 +17,8 @@ import {
   Target, 
   ArrowRight,
   BarChart3,
-  GripHorizontal
+  GripHorizontal,
+  Landmark
 } from 'lucide-react';
 import { 
   AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart 
@@ -124,7 +129,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
   // Status Calculation
-  const statusValue = (data.receivables - data.accountsPayable) + data.liquidity;
+  // Formula: (Liquidity + Receivables) - (Payables + PublicFees)
+  const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0));
 
   const handleClick = (e: React.MouseEvent) => {
     if (isSortMode) {
@@ -215,7 +221,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   // --- NORMAL VIEW (Existing) ---
   return (
     <div 
-      className={`h-[420px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      className={`h-[450px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
       draggable={isSortMode}
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
@@ -277,6 +283,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
                   <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
+                  <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />
+                  
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
                   <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />
               </div>
