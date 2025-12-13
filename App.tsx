@@ -1376,7 +1376,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               <div className="hidden sm:flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity">
                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Powered by</span>
                  <a href="https://www.attentio.no" target="_blank" rel="noreferrer">
-                     <img src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" alt="Attentio" className="h-4 w-auto grayscale hover:grayscale-0 transition-all" />
+                     {/* Light Mode Logo */}
+                     <img 
+                        src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
+                        alt="Attentio" 
+                        className="h-4 w-auto grayscale hover:grayscale-0 transition-all dark:hidden" 
+                     />
+                     {/* Dark Mode Logo */}
+                     <img 
+                        src="https://ucarecdn.com/6db62825-75c5-487d-a4cb-ce1b9721b707/Attentiologohvit.png" 
+                        alt="Attentio" 
+                        className="h-4 w-auto hidden dark:block transition-all" 
+                     />
                  </a>
               </div>
           </div>
