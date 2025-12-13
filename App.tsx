@@ -32,7 +32,9 @@ import {
   Grid2X2,
   LayoutTemplate,
   RefreshCw,
-  FileText
+  FileText,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 
 interface UserProfile {
@@ -69,6 +71,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
   const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  
+  // ZOOM STATE
+  const [zoomLevel, setZoomLevel] = useState<number>(100);
 
   const [demoRole, setDemoRole] = useState<'controller' | 'leader'>(userProfile.role);
   const effectiveRole = isDemo ? demoRole : userProfile.role;
@@ -112,6 +117,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       return () => clearInterval(interval);
   }, [isDemo, selectedCompany, viewMode]);
+
+
+  // --- ZOOM HANDLERS ---
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 10, 120));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 10, 60));
+
+  // Determine grid columns based on zoom level (Applies primarily to XL screens)
+  const getGridColumnClass = () => {
+      if (zoomLevel >= 110) return 'xl:grid-cols-2 gap-8';
+      if (zoomLevel === 100) return 'xl:grid-cols-3 gap-6'; // Standard
+      if (zoomLevel >= 80) return 'xl:grid-cols-4 gap-4';
+      return 'xl:grid-cols-5 gap-3'; // 60-70%
+  };
 
 
   // --- SORT MODE HANDLERS ---
@@ -1237,7 +1255,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         
                         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
                         
-                        {/* REFRESH BUTTON ADDED HERE */}
+                        {/* REFRESH BUTTON */}
                         <button 
                             onClick={handleGlobalRefresh}
                             className={`p-2 rounded-lg transition-all ${isGlobalRefreshing ? 'bg-slate-100 dark:bg-slate-700 text-sky-600' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
@@ -1245,6 +1263,31 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         >
                             <RefreshCw size={16} className={isGlobalRefreshing ? 'animate-spin' : ''} />
                         </button>
+
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                        {/* ZOOM CONTROLS */}
+                        <div className="flex items-center gap-1">
+                            <button 
+                                onClick={handleZoomOut} 
+                                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                                title="Zoom ut"
+                            >
+                                <ZoomOut size={16} />
+                            </button>
+                            {zoomLevel !== 100 && (
+                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-8 text-center tabular-nums">
+                                    {zoomLevel}%
+                                </span>
+                            )}
+                            <button 
+                                onClick={handleZoomIn} 
+                                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                                title="Zoom inn"
+                            >
+                                <ZoomIn size={16} />
+                            </button>
+                        </div>
 
                         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
 
@@ -1280,7 +1323,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                             <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
                         )}
                         
-                        <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${cardSize === 'compact' ? 'xl:grid-cols-4 gap-3' : 'xl:grid-cols-3 gap-6'} pb-24`}>
+                        <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 ${getGridColumnClass()} pb-24 transition-all duration-500 ease-in-out`}>
                             {sortedData.map((company, index) => (
                                 <MetricCard 
                                     key={company.id} 
