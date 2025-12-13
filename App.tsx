@@ -1105,6 +1105,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
 
+  // --- FOOTER CHIP HELPER ---
+  const MetricChip = ({ label, value, bgClass, textClass }: { label: string, value: number, bgClass: string, textClass?: string }) => {
+        const isNeg = value < 0;
+        return (
+            <div className={`flex flex-col justify-center px-3 py-1.5 rounded-xl border border-opacity-60 shadow-sm min-w-[90px] backdrop-blur-sm ${bgClass}`}>
+                <span className={`text-[9px] uppercase font-bold tracking-wider mb-0.5 ${textClass || 'text-slate-500 dark:text-slate-400'}`}>{label}</span>
+                <span className={`text-xs sm:text-sm font-bold tabular-nums leading-tight ${isNeg ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
+                    {formatCurrency(value)}
+                </span>
+            </div>
+        );
+  };
+
   if (selectedCompany) {
     return (
       <CompanyDetailView 
@@ -1402,16 +1415,62 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               {/* Aggregates - Optimized for mobile */}
               {!isAdminMode && (
                 <div className="flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide w-full sm:w-auto">
-                     <div className="flex gap-3 sm:gap-6 text-center sm:text-left px-1 py-1">
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Omsetning</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalRevenue)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Kostnader</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalExpenses)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Resultat</span><span className={`text-[10px] sm:text-xs font-bold ${totalResult >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>{formatCurrency(totalResult)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Budsjett</span><span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400">{formatCurrency(totalBudgetYTD)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Likviditet</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalLiquidity)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Fordringer</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalReceivables)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Lev.Gjeld</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPayables)}</span></div>
-                        <div className="flex flex-col px-2 border-r border-slate-100 dark:border-slate-700 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Off.Avg</span><span className="text-[10px] sm:text-xs font-bold text-slate-900 dark:text-white">{formatCurrency(totalPublicFees)}</span></div>
-                        <div className="flex flex-col px-2 min-w-[60px]"><span className="text-[8px] sm:text-[9px] uppercase font-bold text-slate-400">Arb.Kapital</span><span className="text-[10px] sm:text-xs font-bold text-sky-600 dark:text-sky-400">{formatCurrency(totalWorkingCapital)}</span></div>
+                     <div className="flex gap-2 px-1 py-1">
+                        <MetricChip 
+                            label="Omsetning" 
+                            value={totalRevenue} 
+                            bgClass="bg-blue-50/80 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800" 
+                            textClass="text-blue-700 dark:text-blue-300"
+                        />
+                        <MetricChip 
+                            label="Kostnader" 
+                            value={totalExpenses} 
+                            bgClass="bg-slate-50/80 border-slate-100 dark:bg-slate-800/50 dark:border-slate-700" 
+                        />
+                        <MetricChip 
+                            label="Resultat" 
+                            value={totalResult} 
+                            bgClass="bg-indigo-50/80 border-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800" 
+                            textClass="text-indigo-700 dark:text-indigo-300"
+                        />
+                        <MetricChip 
+                            label="Budsjett" 
+                            value={totalBudgetYTD} 
+                            bgClass="bg-violet-50/80 border-violet-100 dark:bg-violet-900/20 dark:border-violet-800" 
+                            textClass="text-violet-700 dark:text-violet-300"
+                        />
+                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                        <MetricChip 
+                            label="Likviditet" 
+                            value={totalLiquidity} 
+                            bgClass="bg-emerald-50/80 border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-800" 
+                            textClass="text-emerald-700 dark:text-emerald-300"
+                        />
+                        <MetricChip 
+                            label="Fordringer" 
+                            value={totalReceivables} 
+                            bgClass="bg-sky-50/80 border-sky-100 dark:bg-sky-900/20 dark:border-sky-800" 
+                            textClass="text-sky-700 dark:text-sky-300"
+                        />
+                        <MetricChip 
+                            label="Lev.Gjeld" 
+                            value={totalPayables} 
+                            bgClass="bg-amber-50/80 border-amber-100 dark:bg-amber-900/20 dark:border-amber-800" 
+                            textClass="text-amber-700 dark:text-amber-300"
+                        />
+                        <MetricChip 
+                            label="Off.Avg" 
+                            value={totalPublicFees} 
+                            bgClass="bg-orange-50/80 border-orange-100 dark:bg-orange-900/20 dark:border-orange-800" 
+                            textClass="text-orange-700 dark:text-orange-300"
+                        />
+                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                        <MetricChip 
+                            label="Arb.Kapital" 
+                            value={totalWorkingCapital} 
+                            bgClass="bg-teal-50/80 border-teal-100 dark:bg-teal-900/20 dark:border-teal-800" 
+                            textClass="text-teal-700 dark:text-teal-300"
+                        />
                      </div>
                 </div>
               )}
