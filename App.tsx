@@ -893,6 +893,35 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       } catch(e) {}
   };
   
+  const handleAdminSelectCompany = (companyId: number) => {
+      const raw = companies.find(c => c.id === companyId);
+      if (!raw) return;
+
+      const now = new Date();
+      const currentMonthIndex = now.getMonth(); 
+      const dayOfMonth = now.getDate();
+      const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+      
+      let targetBudget = 0;
+      const bMonths = raw.budgetMonths || Array(12).fill(0);
+
+      if (isTodayMode) {
+          for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+          targetBudget += (Number(bMonths[currentMonthIndex] || 0) / daysInCurrentMonth) * dayOfMonth;
+      } else {
+          for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+      }
+
+      const deviation = raw.resultYTD - targetBudget;
+      const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
+
+      setSelectedCompany({
+          ...raw,
+          calculatedBudgetYTD: targetBudget,
+          calculatedDeviationPercent: deviationPercent
+      });
+  };
+
   // --- REFRESH HANDLERS ---
   const handleGlobalRefresh = async () => {
       setIsGlobalRefreshing(true);
@@ -1250,6 +1279,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                onApproveReport={handleApproveReport}
                onUnlockReport={handleUnlockReport}
                onDeleteReport={handleDeleteReport}
+               onSelectCompany={handleAdminSelectCompany}
            />
         )}
         

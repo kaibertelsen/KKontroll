@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem, UserData } from '../types';
 import { formatCurrency } from '../constants';
-import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock, CheckCircle, Clock, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
+import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock, CheckCircle, Clock, Wallet, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 
 interface AdminViewProps {
   currentView: 'companies' | 'reports';
@@ -17,6 +17,7 @@ interface AdminViewProps {
   onApproveReport: (reportId: number) => void;
   onUnlockReport: (reportId: number) => void;
   onDeleteReport: (reportId: number) => void;
+  onSelectCompany: (companyId: number) => void;
 }
 
 // Helpers for Date Conversion (Same as CompanyDetailView)
@@ -35,7 +36,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
+const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onSelectCompany }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   
@@ -355,9 +356,18 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                     {companies.map((company) => (
                         <tr key={company.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
-                        <td className="p-4">
-                            <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
-                            <div className="text-xs text-slate-500">{company.fullName}</div>
+                        <td 
+                            className="p-4 cursor-pointer group" 
+                            onClick={() => onSelectCompany(company.id)}
+                            title="Gå til selskapsdetaljer"
+                        >
+                            <div className="flex items-center gap-2">
+                                <div>
+                                    <div className="font-bold text-slate-900 dark:text-white group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">{company.name}</div>
+                                    <div className="text-xs text-slate-500">{company.fullName}</div>
+                                </div>
+                                <ArrowRight className="w-4 h-4 text-sky-600 dark:text-sky-400 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0" />
+                            </div>
                         </td>
                         <td className="p-4 text-slate-600 dark:text-slate-300 max-w-xs truncate" title={company.manager}>
                             {company.manager || '-'}
