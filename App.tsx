@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
@@ -35,7 +30,8 @@ import {
   Save,
   KeyRound,
   Grid2X2,
-  LayoutTemplate
+  LayoutTemplate,
+  RefreshCw
 } from 'lucide-react';
 
 interface UserProfile {
@@ -94,6 +90,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // PASSWORD CHANGE STATE
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
+
+  // REFRESH STATE
+  const [isGlobalRefreshing, setIsGlobalRefreshing] = useState(false);
 
   // --- DATA POLLING ---
   useEffect(() => {
@@ -251,6 +250,22 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
       } catch (e) { console.error("Fetch company reports error", e); }
   };
+  
+  const fetchForecasts = async (companyId: number) => {
+       try {
+            const res = await getNEON({ table: 'forecasts', where: { companyId } });
+            if(res.rows) {
+                const mappedForecasts = res.rows.map((f: any) => ({
+                    id: f.id,
+                    companyId: f.companyId || f.company_id,
+                    month: f.month,
+                    estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
+                    estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
+                }));
+                setForecasts(mappedForecasts);
+            }
+       } catch (err) { console.error("Error fetching forecasts", err); }
+  };
 
   const mapReports = (rows: any[]) => {
       const sortedRows = rows.sort((a: any, b: any) => {
@@ -290,21 +305,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
       if (!isDemo) {
           fetchCompanyReports(selectedCompany.id);
-          
-          getNEON({ table: 'forecasts', where: { companyId: selectedCompany.id } })
-            .then(res => {
-                if(res.rows) {
-                    const mappedForecasts = res.rows.map((f: any) => ({
-                        id: f.id,
-                        companyId: f.companyId || f.company_id,
-                        month: f.month,
-                        estimatedReceivables: f.estimatedReceivables || f.estimated_receivables || 0,
-                        estimatedPayables: f.estimatedPayables || f.estimated_payables || 0
-                    }));
-                    setForecasts(mappedForecasts);
-                }
-            })
-            .catch(err => console.error("Error fetching forecasts", err));
+          fetchForecasts(selectedCompany.id);
       } else {
           setReports([
               { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023', companyId: 1 },
@@ -387,7 +388,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-                    publicFees: Number(c.publicFees || c.public_fees || 0), // LOAD NEW FIELD
+                    publicFees: Number(c.publicFees || c.public_fees || 0), // LOAD NEW field
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
@@ -615,8 +616,31 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c));
           }
           
+          // Force immediate calculation update in selectedCompany to avoid stale data in detail view
           if (selectedCompany && selectedCompany.id === updatedCompany.id) {
-               setSelectedCompany(prev => prev ? { ...prev, ...updatedCompany } : null);
+               const now = new Date();
+               const currentMonthIndex = now.getMonth();
+               const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+               
+               let targetBudget = 0;
+               const bMonths = updatedCompany.budgetMonths || Array(12).fill(0);
+               
+               if (isTodayMode) {
+                    for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+                    targetBudget += (Number(bMonths[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
+               } else {
+                    for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+               }
+               
+               const deviation = updatedCompany.resultYTD - targetBudget;
+               const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
+
+               setSelectedCompany(prev => prev ? { 
+                   ...prev, 
+                   ...updatedCompany,
+                   calculatedBudgetYTD: targetBudget,
+                   calculatedDeviationPercent: deviationPercent
+               } : null);
           }
 
       } catch (e) {
@@ -845,9 +869,27 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           }
           logActivity(userProfile.id, 'UPDATE_FORECAST', 'forecasts', undefined, 'Oppdaterte likviditetsprognose');
           if(selectedCompany) {
-             // ... fetch forecast ...
+             fetchForecasts(selectedCompany.id);
           }
       } catch(e) {}
+  };
+  
+  // --- REFRESH HANDLERS ---
+  const handleGlobalRefresh = async () => {
+      setIsGlobalRefreshing(true);
+      await reloadCompanies();
+      if (viewMode === ViewMode.ADMIN) await fetchAllReports();
+      // Artificial delay for UI feedback
+      await new Promise(r => setTimeout(r, 600));
+      setIsGlobalRefreshing(false);
+  };
+  
+  const handleCompanyRefresh = async (companyId: number) => {
+      await reloadCompanies();
+      await fetchCompanyReports(companyId);
+      await fetchForecasts(companyId);
+      // Small delay for UI inside the child
+      await new Promise(r => setTimeout(r, 600));
   };
 
   // --- USER HANDLERS (MULTI-COMPANY SUPPORT) ---
@@ -1058,6 +1100,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         onDeleteReport={handleDeleteReport} 
         onForecastSubmit={handleForecastSubmit}
         onUpdateCompany={handleUpdateCompany}
+        onRefresh={async () => await handleCompanyRefresh(selectedCompany.id)}
       />
     );
   }
@@ -1186,6 +1229,17 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                         
                         <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
                         
+                        {/* REFRESH BUTTON ADDED HERE */}
+                        <button 
+                            onClick={handleGlobalRefresh}
+                            className={`p-2 rounded-lg transition-all ${isGlobalRefreshing ? 'bg-slate-100 dark:bg-slate-700 text-sky-600' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Oppdater tall"
+                        >
+                            <RefreshCw size={16} className={isGlobalRefreshing ? 'animate-spin' : ''} />
+                        </button>
+
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
                         <button 
                             onClick={() => setCardSize('normal')} 
                             className={`p-2 rounded-lg transition-all ${cardSize === 'normal' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
