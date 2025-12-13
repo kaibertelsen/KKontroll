@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
@@ -37,6 +32,7 @@ interface MetricCardProps {
   
   // New Prop
   cardSize?: 'normal' | 'compact';
+  zoomLevel?: number; // Added zoomLevel prop
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ 
@@ -47,7 +43,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   onDragEnter,
   onDragEnd,
   index,
-  cardSize = 'normal'
+  cardSize = 'normal',
+  zoomLevel = 100
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -144,25 +141,40 @@ const MetricCard: React.FC<MetricCardProps> = ({
     setIsFlipped(!isFlipped);
   };
 
+  // --- DYNAMIC SCALING LOGIC ---
+  const heightClass = useMemo(() => {
+      if (cardSize === 'compact') return 'h-48';
+      if (zoomLevel >= 110) return 'h-[500px]'; // Zoomed In
+      if (zoomLevel >= 100) return 'h-[450px]'; // Standard
+      if (zoomLevel >= 80) return 'h-[400px]';  // Slightly zoomed out
+      return 'h-[340px]';                       // Fully zoomed out
+  }, [zoomLevel, cardSize]);
+
+  // Adjust padding and text size for smaller zoom levels
+  const contentPadding = zoomLevel < 80 ? 'p-3' : 'p-3 md:p-5';
+  const textSizeClass = zoomLevel < 80 ? 'text-xs' : 'text-sm';
+  const subTextSizeClass = zoomLevel < 80 ? 'text-[9px]' : 'text-[10px]';
+  const headerSizeClass = zoomLevel < 80 ? 'text-sm' : 'text-lg';
+
   const RowItem = ({ icon: Icon, label, subLabel, value, highlight, extra, valueColor }: any) => (
-    <div className="flex justify-between items-center h-7">
+    <div className={`flex justify-between items-center ${zoomLevel < 80 ? 'h-6' : 'h-7'}`}>
       <div className="flex items-center gap-2 overflow-hidden">
-        <Icon size={14} className="text-slate-400 dark:text-slate-500 shrink-0" />
+        <Icon size={zoomLevel < 80 ? 12 : 14} className="text-slate-400 dark:text-slate-500 shrink-0" />
         <div className="flex items-baseline gap-1 truncate">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</span>
-            {subLabel && <span className="text-[10px] text-slate-400 dark:text-slate-600">{subLabel}</span>}
+            <span className={`${textSizeClass} font-medium text-slate-600 dark:text-slate-400`}>{label}</span>
+            {subLabel && <span className={`${subTextSizeClass} text-slate-400 dark:text-slate-600`}>{subLabel}</span>}
         </div>
       </div>
       <div className="flex items-center gap-2">
         {extra}
-        <span className={`text-sm font-bold tabular-nums ${valueColor ? valueColor : (highlight ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300')}`}>
+        <span className={`${textSizeClass} font-bold tabular-nums ${valueColor ? valueColor : (highlight ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-slate-300')}`}>
             {formatCurrency(value)}
         </span>
       </div>
     </div>
   );
   
-  // --- COMPACT VIEW (New Requirement) ---
+  // --- COMPACT VIEW ---
   if (cardSize === 'compact') {
       return (
         <div 
@@ -218,10 +230,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
       );
   }
 
-  // --- NORMAL VIEW (Existing) ---
+  // --- NORMAL VIEW (Scaled) ---
   return (
     <div 
-      className={`h-[450px] perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      className={`${heightClass} perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
       onClick={handleClick}
       draggable={isSortMode}
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
@@ -251,14 +263,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
             className="absolute inset-0 w-full h-full [backface-visibility:hidden]"
             style={{ pointerEvents: isFlipped ? 'none' : 'auto' }}
           >
-            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border p-3 md:p-5 flex flex-col h-full overflow-hidden transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
+            <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border ${contentPadding} flex flex-col h-full overflow-hidden transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
-              <div className="flex justify-between items-start mb-3 shrink-0">
+              <div className={`flex justify-between items-start ${zoomLevel < 80 ? 'mb-2' : 'mb-3'} shrink-0`}>
                 <div className="overflow-hidden w-full">
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white leading-tight truncate pr-1" title={data.fullName || data.name}>
+                  <h3 className={`${headerSizeClass} font-bold text-slate-900 dark:text-white leading-tight truncate pr-1`} title={data.fullName || data.name}>
                       {index + 1}. {data.fullName || data.name}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{data.manager}</p>
+                  <p className={`${subTextSizeClass} text-slate-500 dark:text-slate-400 font-medium`}>{data.manager}</p>
                 </div>
               </div>
 
@@ -291,7 +303,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
               <div className="mt-2 shrink-0">
                 <div className="flex justify-end mb-1">
-                    <span className={`text-xs font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                    <span className={`${subTextSizeClass} font-bold ${data.calculatedDeviationPercent < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                         Avvik {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(1)}%
                     </span>
                 </div>

@@ -1335,6 +1335,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                                     onDragEnd={onDragEnd}
                                     index={index}
                                     cardSize={cardSize}
+                                    zoomLevel={zoomLevel} // Pass zoom level
                                 />
                             ))}
                         </AnimatedGrid>
