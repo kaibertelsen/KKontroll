@@ -767,19 +767,6 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
                     {/* Meta Data */}
                     <div className="grid grid-cols-1 gap-4">
                         <div>
-                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kilde</label>
-                            <select 
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
-                                value={reportFormData.source}
-                                onChange={e => setReportFormData({...reportFormData, source: e.target.value})}
-                            >
-                                <option value="Manuell">Manuell registrering</option>
-                                <option value="Tripletex">Tripletex Eksport</option>
-                                <option value="PowerOffice">PowerOffice Eksport</option>
-                                <option value="Visma">Visma eAccounting</option>
-                            </select>
-                        </div>
-                        <div>
                             <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kommentar / Status</label>
                             <textarea rows={3} className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
                                 value={reportFormData.comment} onChange={e => setReportFormData({...reportFormData, comment: e.target.value})} placeholder="Kort beskrivelse..." />
