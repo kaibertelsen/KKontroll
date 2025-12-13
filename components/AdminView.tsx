@@ -1,14 +1,10 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { CompanyData, ReportLogItem, UserData } from '../types';
 import { formatCurrency } from '../constants';
 import { Trash2, Edit, Plus, Save, X, AlertCircle, Calendar, BarChart2, Lock, FileText, Search, Filter, Building2, Eye, Unlock, CheckCircle, Clock, Wallet, TrendingUp, TrendingDown } from 'lucide-react';
 
 interface AdminViewProps {
+  currentView: 'companies' | 'reports';
   companies: CompanyData[];
   users: UserData[];
   allReports?: ReportLogItem[]; 
@@ -39,10 +35,9 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
+const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, allReports = [], onAdd, onUpdate, onDelete, onViewReport, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
-  const [activeTab, setActiveTab] = useState<'companies' | 'reports'>('companies');
   
   // Form State
   const [formData, setFormData] = useState<Partial<CompanyData>>({});
@@ -327,35 +322,27 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
             <p className="text-slate-500 dark:text-slate-400 text-sm">Administrer selskaper, rapporter og konserninnstillinger.</p>
         </div>
         
-        <div className="flex gap-3">
-            <button 
-            onClick={openAddModal}
-            className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition-colors"
-            >
-            <Plus className="w-4 h-4" />
-            Nytt Selskap
-            </button>
-        </div>
+        {currentView === 'companies' && (
+            <div className="flex gap-3">
+                <button 
+                onClick={openAddModal}
+                className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 text-sm font-bold transition-colors"
+                >
+                <Plus className="w-4 h-4" />
+                Nytt Selskap
+                </button>
+            </div>
+        )}
       </div>
       
-      {/* TABS */}
-      <div className="flex gap-6 border-b border-slate-200 dark:border-slate-700 mb-6">
-          <button onClick={() => setActiveTab('companies')} className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'companies' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-              <Building2 size={16} /> Selskaper ({companies.length})
-          </button>
-          <button onClick={() => setActiveTab('reports')} className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'reports' ? 'border-sky-600 text-sky-600 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-              <FileText size={16} /> Innkommende Rapporter ({allReports.length})
-          </button>
-      </div>
-
-      {activeTab === 'companies' && (
+      {currentView === 'companies' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
             
             {/* DESKTOP TABLE VIEW */}
             <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                    <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 text-xs uppercase tracking-wider text-slate-50 dark:text-slate-400 font-semibold">
                         <th className="p-4">Navn</th>
                         <th className="p-4">Leder</th>
                         <th className="p-4 text-right">Budsjett</th>
@@ -436,7 +423,7 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
       )}
 
       {/* Reports View */}
-      {activeTab === 'reports' && (
+      {currentView === 'reports' && (
            <div className="space-y-4">
                {/* Filter Bar */}
                <div className="flex gap-4 bg-white dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -822,9 +809,6 @@ const AdminView: React.FC<AdminViewProps> = ({ companies, users, allReports = []
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-6 h-6" /></button>
             </div>
             
-             <div className="flex border-b border-slate-200 dark:border-slate-700 px-6">
-                <button onClick={() => setActiveTab('companies')} className={`py-3 px-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${true ? 'border-sky-600 text-sky-600 dark:text-sky-400' : ''}`}>Generelt & Status</button>
-            </div>
             <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
                 <div className="p-6 space-y-6 flex-grow">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

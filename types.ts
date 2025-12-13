@@ -1,11 +1,3 @@
-
-
-
-
-
-
-
-
 export interface CompanyData {
   id: number;
   name: string; 
@@ -102,6 +94,7 @@ export enum ViewMode {
   ANALYTICS = 'ANALYTICS',
   CONTROL = 'CONTROL',
   ADMIN = 'ADMIN',
+  ADMIN_REPORTS = 'ADMIN_REPORTS',
   USER_ADMIN = 'USER_ADMIN'
 }
 

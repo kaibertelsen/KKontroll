@@ -31,7 +31,8 @@ import {
   KeyRound,
   Grid2X2,
   LayoutTemplate,
-  RefreshCw
+  RefreshCw,
+  FileText
 } from 'lucide-react';
 
 interface UserProfile {
@@ -101,7 +102,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       const interval = setInterval(async () => {
           console.log("Polling data...");
           await reloadCompanies();
-          if (viewMode === ViewMode.ADMIN) {
+          if (viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS) {
               fetchAllReports();
           }
           if (selectedCompany) {
@@ -184,7 +185,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   // --- FETCH USERS (Admin) ---
   useEffect(() => {
-      if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN)) {
+      if (!isDemo && effectiveRole === 'controller' && (viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN)) {
           fetchUsers();
           fetchAllReports();
       }
@@ -1105,7 +1106,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     );
   }
 
-  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.USER_ADMIN;
+  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN;
 
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
@@ -1182,6 +1183,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             <div className="flex justify-center mb-6 animate-in slide-in-from-top-2">
                 <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-full md:w-auto">
                     <button 
+                        onClick={() => setViewMode(ViewMode.ADMIN_REPORTS)} 
+                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.ADMIN_REPORTS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                        <FileText size={16} /> Rapporter
+                    </button>
+                    <button 
                         onClick={() => setViewMode(ViewMode.ADMIN)} 
                         className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
                     >
@@ -1197,8 +1204,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             </div>
         )}
 
-        {viewMode === ViewMode.ADMIN && effectiveRole === 'controller' && (
+        {(viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS) && effectiveRole === 'controller' && (
            <AdminView 
+               currentView={viewMode === ViewMode.ADMIN_REPORTS ? 'reports' : 'companies'}
                companies={companies} 
                users={users}
                allReports={allReports}

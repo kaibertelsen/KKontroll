@@ -1042,7 +1042,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     <input 
                                         type="number" 
                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
-                                        value={budgetFormData.annual}
+                                        value={budgetFormData.annual || ''}
                                         onChange={(e) => setBudgetFormData({...budgetFormData, annual: parseFloat(e.target.value) || 0})}
                                     />
                                     <p className="text-[10px] text-slate-400 mt-1">Beløpet fordeles automatisk med 1/12 per måned. Du kan justere avvik i siste måned om nødvendig.</p>
@@ -1057,7 +1057,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                             <input 
                                                 type="number"
                                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
-                                                value={budgetFormData.quarterly[q]}
+                                                value={budgetFormData.quarterly[q] || ''}
                                                 onChange={(e) => {
                                                     const newQ = [...budgetFormData.quarterly];
                                                     newQ[q] = parseFloat(e.target.value) || 0;
@@ -1077,7 +1077,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                             <input 
                                                 type="number"
                                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-2 py-1.5 text-slate-900 dark:text-white text-xs"
-                                                value={budgetFormData.monthly[i]}
+                                                value={budgetFormData.monthly[i] || ''}
                                                 onChange={(e) => {
                                                     const newM = [...budgetFormData.monthly];
                                                     newM[i] = parseFloat(e.target.value) || 0;
