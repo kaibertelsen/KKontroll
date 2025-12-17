@@ -13,7 +13,8 @@ import {
   ArrowRight,
   BarChart3,
   GripHorizontal,
-  Landmark
+  Landmark,
+  Banknote
 } from 'lucide-react';
 import { 
   AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart 
@@ -145,9 +146,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const heightClass = useMemo(() => {
       if (cardSize === 'compact') return 'h-48';
       if (zoomLevel >= 110) return 'h-[500px]'; // Zoomed In
-      if (zoomLevel >= 100) return 'h-[450px]'; // Standard
-      if (zoomLevel >= 80) return 'h-[400px]';  // Slightly zoomed out
-      return 'h-[340px]';                       // Fully zoomed out
+      if (zoomLevel >= 100) return 'h-[470px]'; // Standard (increased slightly for extra row)
+      if (zoomLevel >= 80) return 'h-[420px]';  // Slightly zoomed out
+      return 'h-[360px]';                       // Fully zoomed out
   }, [zoomLevel, cardSize]);
 
   // Adjust padding and text size for smaller zoom levels
@@ -295,6 +296,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
                   <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
+                  <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />
                   <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />
                   
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>

@@ -307,10 +307,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
          receivables: r.receivables,
          accountsPayable: r.accountsPayable || r.accounts_payable,
          publicFees: r.publicFees || r.public_fees,
+         salaryExpenses: r.salaryExpenses || r.salary_expenses, // New field
          liquidityDate: r.liquidityDate || r.liquidity_date || '',
          receivablesDate: r.receivablesDate || r.receivables_date || '',
          accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
          publicFeesDate: r.publicFeesDate || r.public_fees_date || '',
+         salaryExpensesDate: r.salaryExpensesDate || r.salary_expenses_date || '', // New field
          source: r.source || 'Manuell',
          approvedBy: r.approvedByUserId || r.approved_by_user_id ? 'Kontroller' : undefined,
          approvedAt: r.approvedAt || r.approved_at ? new Date(r.approvedAt || r.approved_at).toLocaleDateString('no-NO') : undefined,
@@ -407,7 +409,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-                    publicFees: Number(c.publicFees || c.public_fees || 0), // LOAD NEW field
+                    publicFees: Number(c.publicFees || c.public_fees || 0), 
+                    salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0), // LOAD NEW field
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
@@ -420,7 +423,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     liquidityDate: c.liquidityDate || c.liquidity_date || '',
                     receivablesDate: c.receivablesDate || c.receivables_date || '',
                     accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
-                    publicFeesDate: c.publicFeesDate || c.public_fees_date || '', // LOAD NEW FIELD DATE
+                    publicFeesDate: c.publicFeesDate || c.public_fees_date || '', 
+                    salaryExpensesDate: c.salaryExpensesDate || c.salary_expenses_date || '', // LOAD NEW FIELD DATE
                     lastReportDate: c.lastReportDate || c.last_report_date || '',
                     lastReportBy: c.lastReportBy || c.last_report_by || '',
                     comment: c.currentComment || c.current_comment || '',
@@ -576,11 +580,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               receivables: newCompany.receivables,
               accountsPayable: newCompany.accountsPayable,
               publicFees: newCompany.publicFees,
+              salaryExpenses: newCompany.salaryExpenses, // New
               pnlDate: newCompany.pnlDate,
               liquidityDate: newCompany.liquidityDate,
               receivablesDate: newCompany.receivablesDate,
               accountsPayableDate: newCompany.accountsPayableDate,
               publicFeesDate: newCompany.publicFeesDate,
+              salaryExpensesDate: newCompany.salaryExpensesDate, // New
               trendHistory: newCompany.trendHistory
           };
           
@@ -619,11 +625,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               receivables: updatedCompany.receivables,
               accountsPayable: updatedCompany.accountsPayable,
               publicFees: updatedCompany.publicFees,
+              salaryExpenses: updatedCompany.salaryExpenses, // New
               pnlDate: updatedCompany.pnlDate,
               liquidityDate: updatedCompany.liquidityDate,
               receivablesDate: updatedCompany.receivablesDate,
               accountsPayableDate: updatedCompany.accountsPayableDate,
               publicFeesDate: updatedCompany.publicFeesDate,
+              salaryExpensesDate: updatedCompany.salaryExpensesDate, // New
               trendHistory: updatedCompany.trendHistory
           };
 
@@ -744,6 +752,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               if(reportData.publicFeesDate) reportPayload.publicFeesDate = reportData.publicFeesDate;
           }
 
+          if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
+              reportPayload.salaryExpenses = Number(reportData.salaryExpenses);
+              if(reportData.salaryExpensesDate) reportPayload.salaryExpensesDate = reportData.salaryExpensesDate;
+          }
+
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
               logActivity(userProfile.id, 'UPDATE_REPORT', 'reports', reportData.id, `Oppdaterte rapport. Status: submitted`);
@@ -782,6 +795,11 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
               companyUpdate.publicFees = Number(reportData.publicFees);
               if(reportData.publicFeesDate) companyUpdate.publicFeesDate = reportData.publicFeesDate;
+          }
+
+          if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
+              companyUpdate.salaryExpenses = Number(reportData.salaryExpenses);
+              if(reportData.salaryExpensesDate) companyUpdate.salaryExpensesDate = reportData.salaryExpensesDate;
           }
 
           companyUpdate.lastReportDate = new Date().toLocaleDateString('no-NO');
@@ -1127,6 +1145,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
   const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
   const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
+  const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0); // New Aggregation
   
   // Updated Working Capital: Liquidity + Receivables - Payables - PublicFees
   const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees);
@@ -1487,6 +1506,13 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                             value={totalPayables} 
                             bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50" 
                             textClass="text-amber-600 dark:text-amber-400"
+                        />
+                        {/* New Salary Chip */}
+                        <MetricChip 
+                            label="Lønn" 
+                            value={totalSalaryExpenses} 
+                            bgClass="bg-pink-50/50 border-pink-100/50 dark:bg-pink-900/10 dark:border-pink-800/50" 
+                            textClass="text-pink-600 dark:text-pink-400"
                         />
                         <MetricChip 
                             label="Off.Avg" 

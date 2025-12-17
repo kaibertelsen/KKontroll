@@ -88,10 +88,12 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
         receivables: 0,
         accountsPayable: 0,
         publicFees: 0,
+        salaryExpenses: 0,
         liquidityDate: new Date().toLocaleDateString('no-NO'),
         receivablesDate: new Date().toLocaleDateString('no-NO'),
         accountsPayableDate: new Date().toLocaleDateString('no-NO'),
         publicFeesDate: new Date().toLocaleDateString('no-NO'),
+        salaryExpensesDate: new Date().toLocaleDateString('no-NO'),
         lastReportDate: new Date().toLocaleDateString('no-NO'),
         lastReportBy: '',
         comment: '',
@@ -118,11 +120,13 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
               receivables: editingReport.receivables ?? '',
               accountsPayable: editingReport.accountsPayable ?? '',
               publicFees: editingReport.publicFees ?? '',
+              salaryExpenses: editingReport.salaryExpenses ?? '',
               
               liquidityDate: editingReport.liquidityDate || new Date().toLocaleDateString('no-NO'),
               receivablesDate: editingReport.receivablesDate || new Date().toLocaleDateString('no-NO'),
               accountsPayableDate: editingReport.accountsPayableDate || new Date().toLocaleDateString('no-NO'),
               publicFeesDate: editingReport.publicFeesDate || new Date().toLocaleDateString('no-NO'),
+              salaryExpensesDate: editingReport.salaryExpensesDate || new Date().toLocaleDateString('no-NO'),
               
               comment: editingReport.comment,
               source: editingReport.source,
@@ -175,6 +179,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
           receivables: reportFormData.receivables === '' ? undefined : Number(reportFormData.receivables),
           accountsPayable: reportFormData.accountsPayable === '' ? undefined : Number(reportFormData.accountsPayable),
           publicFees: reportFormData.publicFees === '' ? undefined : Number(reportFormData.publicFees),
+          salaryExpenses: reportFormData.salaryExpenses === '' ? undefined : Number(reportFormData.salaryExpenses),
           id: editingReport ? editingReport.id : undefined,
           companyId: editingReport ? editingReport.companyId : undefined // Ensure ID is passed
       };
@@ -268,6 +273,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
       if (report.revenue != null) items.push({ label: 'Omsetning', value: report.revenue });
       if (report.receivables != null) items.push({ label: 'Fordringer', value: report.receivables });
       if (report.accountsPayable != null) items.push({ label: 'Gjeld', value: report.accountsPayable });
+      if (report.salaryExpenses != null) items.push({ label: 'Lønn', value: report.salaryExpenses });
       if (report.publicFees != null) items.push({ label: 'Off.Avg', value: report.publicFees });
       
       if (items.length === 0) return <span className="text-xs text-slate-400 italic">Ingen tall</span>;
@@ -755,6 +761,24 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
                             </div>
                         </div>
 
+                        {/* Salary Expenses Row - Added */}
+                        <div className="grid grid-cols-2 gap-4 items-end">
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Lønnskostnad</label>
+                                <input type="number" className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm font-mono" 
+                                    value={reportFormData.salaryExpenses} onChange={e => setReportFormData({...reportFormData, salaryExpenses: e.target.value})} placeholder="0" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 flex items-center gap-1"><Calendar size={10}/> Dato</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm" 
+                                    value={toInputDate(reportFormData.salaryExpensesDate)} 
+                                    onChange={e => setReportFormData({...reportFormData, salaryExpensesDate: fromInputDate(e.target.value)})} 
+                                />
+                            </div>
+                        </div>
+
                         {/* Public Fees Row */}
                          <div className="grid grid-cols-2 gap-4 items-end">
                             <div>
@@ -784,72 +808,17 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
                     </div>
 
                     <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700">
-                        <button type="submit" className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md flex items-center gap-2 transition-transform active:scale-95">
-                            <Save size={18} /> 
-                            Lagre endringer
+                        <button 
+                            type="submit"
+                            className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2"
+                        >
+                            <Save className="w-4 h-4" />
+                            {editingReport ? 'Lagre Endringer' : 'Lagre Rapport'}
                         </button>
                     </div>
+
                 </form>
             </div>
-        </div>
-      )}
-
-      {/* Add/Edit Company Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-3xl border border-slate-200 dark:border-slate-700 max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200 flex flex-col">
-            
-            <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">
-                    {editingCompany ? `Rediger ${editingCompany.name}` : 'Legg til nytt selskap'}
-                </h3>
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-6 h-6" /></button>
-            </div>
-            
-            <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
-                <div className="p-6 space-y-6 flex-grow">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Navn (Initialer)</label>
-                            <input name="name" type="text" required className="w-full border rounded px-3 py-2" value={formData.name} onChange={handleInputChange} />
-                        </div>
-                         <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Fullt Navn</label>
-                            <input name="fullName" type="text" className="w-full border rounded px-3 py-2" value={formData.fullName || ''} onChange={handleInputChange} />
-                        </div>
-                        
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-500">Leder (Daglig leder)</label>
-                            {/* REPLACED INPUT WITH DYNAMIC LIST */}
-                            <div className="w-full border rounded px-3 py-2 min-h-[42px] bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-600 flex items-center">
-                                {companyLeaders.length > 0 ? (
-                                    <div className="flex flex-wrap gap-1">
-                                        {companyLeaders.map(u => (
-                                            <span key={u.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded px-1.5 py-0.5 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                                {u.fullName}
-                                            </span>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <span className="text-slate-400 text-xs italic">Ingen leder tildelt</span>
-                                )}
-                            </div>
-                            <p className="text-[10px] text-slate-400">Ledere tildeles via "Brukere"-fanen.</p>
-                        </div>
-
-                    </div>
-                     {/* Financials (Read Only) */}
-                     <div className="grid grid-cols-2 gap-6">
-                        <ReadOnlyInput label="Omsetning YTD" value={formData.revenue} />
-                        <ReadOnlyInput label="Kostnader YTD" value={formData.expenses} />
-                    </div>
-                </div>
-                <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border rounded">Avbryt</button>
-                    <button type="submit" className="px-6 py-2 bg-sky-600 text-white rounded">Lagre</button>
-                </div>
-            </form>
-          </div>
         </div>
       )}
     </div>

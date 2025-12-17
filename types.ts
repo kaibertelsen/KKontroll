@@ -1,3 +1,4 @@
+
 export interface CompanyData {
   id: number;
   name: string; 
@@ -14,11 +15,13 @@ export interface CompanyData {
   liquidity: number;
   receivables: number; 
   accountsPayable: number;
-  publicFees: number; // New field for Offentlige Avgifter
+  publicFees: number; 
+  salaryExpenses: number; // New field for Lønnskostnad
   liquidityDate: string; 
   receivablesDate?: string; 
   accountsPayableDate?: string;
-  publicFeesDate?: string; // New field
+  publicFeesDate?: string; 
+  salaryExpensesDate?: string; // New field for Lønnskostnad date
   lastReportDate: string;
   lastReportBy: string;
   comment: string;
@@ -61,12 +64,14 @@ export interface ReportLogItem {
 
   receivables?: number | null;
   accountsPayable?: number | null;
-  publicFees?: number | null; // New field
+  publicFees?: number | null; 
+  salaryExpenses?: number | null; // New field
   
   liquidityDate?: string;
   receivablesDate?: string;
   accountsPayableDate?: string;
-  publicFeesDate?: string; // New field
+  publicFeesDate?: string; 
+  salaryExpensesDate?: string; // New field
   
   source: string;
   approvedBy?: string;
