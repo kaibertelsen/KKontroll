@@ -127,8 +127,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
   // Status Calculation
-  // Formula: (Liquidity + Receivables) - (Payables + PublicFees)
-  const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0));
+  // Formula: (Liquidity + Receivables) - (Payables + PublicFees + SalaryExpenses)
+  const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0) + (data.salaryExpenses || 0));
 
   const handleClick = (e: React.MouseEvent) => {
     if (isSortMode) {
@@ -146,9 +146,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const heightClass = useMemo(() => {
       if (cardSize === 'compact') return 'h-48';
       if (zoomLevel >= 110) return 'h-[500px]'; // Zoomed In
-      if (zoomLevel >= 100) return 'h-[470px]'; // Standard (increased slightly for extra row)
-      if (zoomLevel >= 80) return 'h-[420px]';  // Slightly zoomed out
-      return 'h-[360px]';                       // Fully zoomed out
+      if (zoomLevel >= 100) return 'h-[460px]'; // Standard (Reduced slightly for tighter rows)
+      if (zoomLevel >= 80) return 'h-[410px]';  // Slightly zoomed out
+      return 'h-[350px]';                       // Fully zoomed out
   }, [zoomLevel, cardSize]);
 
   // Adjust padding and text size for smaller zoom levels
@@ -157,8 +157,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const subTextSizeClass = zoomLevel < 80 ? 'text-[9px]' : 'text-[10px]';
   const headerSizeClass = zoomLevel < 80 ? 'text-sm' : 'text-lg';
 
+  // REDUCED ROW HEIGHT (h-6 -> h-6 / h-5)
   const RowItem = ({ icon: Icon, label, subLabel, value, highlight, extra, valueColor }: any) => (
-    <div className={`flex justify-between items-center ${zoomLevel < 80 ? 'h-6' : 'h-7'}`}>
+    <div className={`flex justify-between items-center ${zoomLevel < 80 ? 'h-5' : 'h-6'}`}>
       <div className="flex items-center gap-2 overflow-hidden">
         <Icon size={zoomLevel < 80 ? 12 : 14} className="text-slate-400 dark:text-slate-500 shrink-0" />
         <div className="flex items-baseline gap-1 truncate">
@@ -275,7 +276,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
                 </div>
               </div>
 
-              <div className="flex flex-col gap-0.5 flex-grow">
+              {/* Reduced gap from 0.5 to 0 for tighter packing */}
+              <div className="flex flex-col gap-0 flex-grow">
                   <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />
                   <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
@@ -296,8 +298,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
                   <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
-                  <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />
+                  {/* Reordered: Public Fees, then Salary */}
                   <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />
+                  <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />
                   
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
                   <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />

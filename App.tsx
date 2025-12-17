@@ -1147,8 +1147,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
   const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0); // New Aggregation
   
-  // Updated Working Capital: Liquidity + Receivables - Payables - PublicFees
-  const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees);
+  // Updated Working Capital: Liquidity + Receivables - Payables - PublicFees - SalaryExpenses
+  const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees + totalSalaryExpenses);
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
@@ -1202,355 +1202,177 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                 }}
                 className="flex items-center gap-3 group focus:outline-none"
             >
-               <div className="bg-white/10 p-1.5 rounded-lg">
-                  <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Attentio" className="h-8 w-8 rounded-lg shadow-sm" />
+               <div className="bg-white/10 p-2 rounded-lg group-hover:bg-white/20 transition-colors">
+                  <img 
+                      src="https://ucarecdn.com/b3e83749-8c8a-4382-b28b-fe1d988eff42/Attentioshlogo.png" 
+                      alt="Logo" 
+                      className="h-8 w-auto"
+                  />
                </div>
-               <div className="hidden sm:block text-left">
-                  <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{userProfile.groupName || 'Konsernoversikt'}</h1>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Powered by Attentio</p>
+               <div>
+                  <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">KonsernKontroll</h1>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium uppercase tracking-widest">{userProfile.groupName}</p>
                </div>
             </button>
 
-            {/* Desktop Admin Navigation (Moved to main area for mobile) */}
-            
-            <div className="flex items-center space-x-4 md:space-x-6">
-              {isDemo && (
-                  <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <button onClick={() => setDemoRole('controller')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'controller' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-400'}`}>Controller</button>
-                      <button onClick={() => { setDemoRole('leader'); setViewMode(ViewMode.GRID); }} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'leader' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-300 shadow-sm' : 'text-slate-400'}`}>Leder</button>
-                  </div>
-              )}
-
-              <button onClick={toggleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isDemo ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'}`} title={isDemo ? "Klikk for å koble til Database" : "Klikk for å se demo-data"}>{isDemo ? <MonitorPlay size={14}/> : <Database size={14}/>}<span>{isDemo ? 'DEMO' : 'LIVE'}</span></button>
-
-              <button 
-                onClick={() => setIsPasswordModalOpen(true)}
-                className="hidden md:flex items-center text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                title="Endre passord"
-              >
-                  <UserCircle className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />
-                  <span className="hidden lg:inline">{userProfile.fullName || 'Bruker'}</span>
-              </button>
-              
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
-              <button onClick={handleLogout} className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors" title="Logg ut"><LogOut className="w-5 h-5" /></button>
-
-              {effectiveRole === 'controller' && (
-                <button onClick={() => setViewMode(isAdminMode ? ViewMode.GRID : ViewMode.ADMIN)} className={`p-2 rounded-full transition-colors ${isAdminMode ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Admin / Innstillinger"><Settings className="w-5 h-5" /></button>
-              )}
+            {/* Right Side Actions */}
+            <div className="flex items-center gap-4">
+                {/* View Modes */}
+                <div className="flex bg-slate-100 dark:bg-slate-700/50 p-1 rounded-lg">
+                    <button onClick={() => setViewMode(ViewMode.GRID)} className={`p-2 rounded-md transition-all ${viewMode === ViewMode.GRID ? 'bg-white dark:bg-slate-600 shadow-sm text-sky-600 dark:text-sky-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`} title="Kortvisning">
+                        <LayoutGrid size={18} />
+                    </button>
+                    <button onClick={() => setViewMode(ViewMode.ANALYTICS)} className={`p-2 rounded-md transition-all ${viewMode === ViewMode.ANALYTICS ? 'bg-white dark:bg-slate-600 shadow-sm text-sky-600 dark:text-sky-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`} title="Analyse">
+                        <BarChart3 size={18} />
+                    </button>
+                     {effectiveRole === 'controller' && (
+                        <button onClick={() => setViewMode(ViewMode.ADMIN)} className={`p-2 rounded-md transition-all ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 shadow-sm text-sky-600 dark:text-sky-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`} title="Admin">
+                            <Settings size={18} />
+                        </button>
+                    )}
+                </div>
+                
+                 {/* User Menu */}
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 dark:border-slate-700">
+                     <div className="text-right hidden sm:block">
+                        <div className="text-sm font-bold text-slate-900 dark:text-white">{userProfile.fullName}</div>
+                        <div className="text-xs text-slate-500 capitalize">{userProfile.role}</div>
+                     </div>
+                     <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 transition-colors" title="Logg ut">
+                        <LogOut size={18} />
+                     </button>
+                </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* Sort overlay */}
-        {isSortMode && (
-            <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 animate-in slide-in-from-bottom-10 duration-300">
-                <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-4 border border-slate-700">
-                    <span className="text-sm font-bold animate-pulse">Sorteringsmodus</span>
-                    <div className="h-4 w-px bg-slate-600"></div>
-                    <button onClick={saveSort} className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold text-sm"><Check size={16}/> Lagre</button>
-                    <button onClick={cancelSort} className="flex items-center gap-1 text-rose-400 hover:text-rose-300 font-bold text-sm"><X size={16}/> Avbryt</button>
-                </div>
-            </div>
-        )}
-
-        {/* MOBILE & DESKTOP ADMIN NAV - Placed in Main Content for better mobile visibility */}
-        {isAdminMode && (
-            <div className="flex justify-center mb-6 animate-in slide-in-from-top-2">
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-full md:w-auto">
-                    <button 
-                        onClick={() => setViewMode(ViewMode.ADMIN_REPORTS)} 
-                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.ADMIN_REPORTS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                    >
-                        <FileText size={16} /> Rapporter
-                    </button>
-                    <button 
-                        onClick={() => setViewMode(ViewMode.ADMIN)} 
-                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                    >
-                        <Building2 size={16} /> Selskaper
-                    </button>
-                    <button 
-                        onClick={() => setViewMode(ViewMode.USER_ADMIN)} 
-                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.USER_ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
-                    >
-                        <Users size={16} /> Brukere
-                    </button>
-                </div>
-            </div>
-        )}
-
-        {(viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS) && effectiveRole === 'controller' && (
-           <AdminView 
-               currentView={viewMode === ViewMode.ADMIN_REPORTS ? 'reports' : 'companies'}
-               companies={companies} 
-               users={users}
-               allReports={allReports}
-               onAdd={handleAddCompany} 
-               onUpdate={handleUpdateCompany} 
-               onDelete={handleDeleteCompany}
-               // Removed onLogoUpload
-               onViewReport={(r) => {}} 
-               onReportSubmit={handleSubmitReport}
-               onApproveReport={handleApproveReport}
-               onUnlockReport={handleUnlockReport}
-               onDeleteReport={handleDeleteReport}
-               onSelectCompany={handleAdminSelectCompany}
-           />
-        )}
-        
-        {viewMode === ViewMode.USER_ADMIN && effectiveRole === 'controller' && (
-            <UserAdminView users={users} companies={companies} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} />
-        )}
-        
-        {!isAdminMode && (
-            <>
-                {/* ... (Dashboard buttons / filters logic remains) ... */}
-                <div className={`flex flex-col md:flex-row justify-between items-center mb-8 gap-4 transition-opacity duration-300 ${isSortMode ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
-                    <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm transition-colors duration-300">
-                        <button onClick={() => setIsTodayMode(false)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>Siste mnd <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({lastMonthDisplay})</span></button>
-                        <div className="w-2"></div>
-                        <button onClick={() => setIsTodayMode(true)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}>I dag <span className="hidden xl:inline text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({currentDateDisplay})</span></button>
-                        
-                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-                        
-                        {/* REFRESH BUTTON */}
-                        <button 
-                            onClick={handleGlobalRefresh}
-                            className={`p-2 rounded-lg transition-all ${isGlobalRefreshing ? 'bg-slate-100 dark:bg-slate-700 text-sky-600' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            title="Oppdater tall"
-                        >
-                            <RefreshCw size={16} className={isGlobalRefreshing ? 'animate-spin' : ''} />
+         {/* Main Content Switch */}
+         {viewMode === ViewMode.GRID && (
+             <>
+                <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setIsTodayMode(!isTodayMode)} className={`text-xs font-bold px-3 py-1.5 rounded-full border transition-all ${isTodayMode ? 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800' : 'bg-white text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'}`}>
+                            {isTodayMode ? 'Visning: Hittil i dag' : 'Visning: Hittil i måneden'}
                         </button>
-
-                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-
-                        {/* ZOOM CONTROLS */}
-                        <div className="flex items-center gap-1">
-                            <button 
-                                onClick={handleZoomOut} 
-                                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                                title="Zoom ut"
-                            >
-                                <ZoomOut size={16} />
-                            </button>
-                            {zoomLevel !== 100 && (
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 w-8 text-center tabular-nums">
-                                    {zoomLevel}%
-                                </span>
-                            )}
-                            <button 
-                                onClick={handleZoomIn} 
-                                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                                title="Zoom inn"
-                            >
-                                <ZoomIn size={16} />
-                            </button>
+                        
+                        <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
+                            <button onClick={handleZoomOut} className="p-1 text-slate-400 hover:text-slate-600"><ZoomOut size={14} /></button>
+                            <span className="text-xs font-mono text-slate-500 w-8 text-center">{zoomLevel}%</span>
+                            <button onClick={handleZoomIn} className="p-1 text-slate-400 hover:text-slate-600"><ZoomIn size={14} /></button>
                         </div>
-
-                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-
-                        <button 
-                            onClick={() => setCardSize('normal')} 
-                            className={`p-2 rounded-lg transition-all ${cardSize === 'normal' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            title="Stor visning"
-                        >
-                            <Grid2X2 size={16} />
-                        </button>
-                        <button 
-                            onClick={() => setCardSize('compact')} 
-                            className={`p-2 rounded-lg transition-all ${cardSize === 'compact' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
-                            title="Kompakt visning"
-                        >
-                            <LayoutTemplate size={16} />
-                        </button>
                     </div>
-
-                    <div className="flex bg-slate-200/60 dark:bg-slate-800 p-1 rounded-lg self-end md:self-auto transition-colors duration-300">
-                        <button onClick={() => setViewMode(ViewMode.GRID)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.GRID ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><LayoutGrid className="w-3.5 h-3.5 mr-1.5" />Kort</button>
-                        <button onClick={() => setViewMode(ViewMode.ANALYTICS)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.ANALYTICS ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5 mr-1.5" />Analyse</button>
-                        <button onClick={() => setViewMode(ViewMode.CONTROL)} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === ViewMode.CONTROL ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}><ShieldAlert className="w-3.5 h-3.5 mr-1.5" />Kontroll</button>
-                        <button onClick={handleSortToggle} className={`flex items-center px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white`}><ArrowUpDown className="w-3.5 h-3.5 mr-1.5" />Sort</button>
+                    
+                    <div className="flex gap-2">
+                        <button onClick={handleSortToggle} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${isSortMode ? 'bg-amber-100 text-amber-700' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                            <ArrowUpDown size={14} /> {isSortMode ? 'Lagre Rekkefølge' : 'Sorter'}
+                        </button>
                     </div>
                 </div>
-                
-                {viewMode === ViewMode.ANALYTICS ? (
-                    <AnalyticsView data={sortedData} />
-                ) : (
-                    <>
-                        {viewMode === ViewMode.CONTROL && displayedData.length === 0 && (
-                            <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
-                        )}
-                        
-                        <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 ${getGridColumnClass()} pb-24 transition-all duration-500 ease-in-out`}>
-                            {sortedData.map((company, index) => (
-                                <MetricCard 
-                                    key={company.id} 
-                                    data={company} 
-                                    onSelect={setSelectedCompany}
-                                    isSortMode={isSortMode}
-                                    onDragStart={onDragStart}
-                                    onDragEnter={onDragEnter}
-                                    onDragEnd={onDragEnd}
-                                    index={index}
-                                    cardSize={cardSize}
-                                    zoomLevel={zoomLevel} // Pass zoom level
-                                />
-                            ))}
-                        </AnimatedGrid>
-                    </>
-                )}
-            </>
-        )}
+
+                <AnimatedGrid className={`grid grid-cols-1 md:grid-cols-2 ${getGridColumnClass()} transition-all duration-300`}>
+                    {sortedData.map((company, index) => (
+                        <MetricCard 
+                            key={company.id} 
+                            index={index}
+                            data={company} 
+                            onSelect={setSelectedCompany}
+                            isSortMode={isSortMode}
+                            onDragStart={onDragStart}
+                            onDragEnter={onDragEnter}
+                            onDragEnd={onDragEnd}
+                            cardSize={cardSize}
+                            zoomLevel={zoomLevel}
+                        />
+                    ))}
+                </AnimatedGrid>
+             </>
+         )}
+
+         {viewMode === ViewMode.ANALYTICS && (
+             <AnalyticsView data={computedData} />
+         )}
+
+         {(viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS) && (
+             <AdminView 
+                currentView={viewMode === ViewMode.ADMIN ? 'companies' : 'reports'}
+                companies={companies}
+                users={users}
+                allReports={allReports}
+                onAdd={handleAddCompany}
+                onUpdate={handleUpdateCompany}
+                onDelete={handleDeleteCompany}
+                onViewReport={(r) => {}} 
+                onReportSubmit={handleSubmitReport}
+                onApproveReport={handleApproveReport}
+                onUnlockReport={handleUnlockReport}
+                onDeleteReport={handleDeleteReport}
+                onSelectCompany={handleAdminSelectCompany}
+             />
+         )}
+         
+         {viewMode === ViewMode.USER_ADMIN && (
+             <UserAdminView 
+                users={users} 
+                companies={companies}
+                onAdd={handleAddUser}
+                onUpdate={handleUpdateUser}
+                onDelete={handleDeleteUser}
+             />
+         )}
+
       </main>
-      
-      {/* Password Change Modal */}
-      {isPasswordModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
-                <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2"><KeyRound size={18}/> Endre Passord</h3>
-                    <button onClick={() => setIsPasswordModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-                <form onSubmit={handleChangePassword} className="p-6 space-y-4">
-                    <div>
-                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Gammelt Passord</label>
-                        <input 
-                            type="password"
-                            required
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
-                            value={passwordForm.oldPassword}
-                            onChange={e => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Nytt Passord</label>
-                        <input 
-                            type="password"
-                            required
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
-                            value={passwordForm.newPassword}
-                            onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                        />
-                    </div>
-                     <div>
-                        <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Bekreft Nytt Passord</label>
-                        <input 
-                            type="password"
-                            required
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
-                            value={passwordForm.confirmPassword}
-                            onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                        />
-                    </div>
-                    <div className="pt-2">
-                        <button type="submit" className="w-full bg-sky-600 hover:bg-sky-500 text-white rounded-lg py-2 font-bold shadow-md transition-all">
-                            Oppdater Passord
-                        </button>
-                    </div>
-                </form>
-            </div>
+
+      {/* Footer Summary */}
+      {!isAdminMode && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 z-20 shadow-lg">
+              <div className="max-w-7xl mx-auto flex flex-nowrap overflow-x-auto gap-4 md:justify-center pb-2 md:pb-0 scrollbar-hide">
+                    <MetricChip label="Total Omsetning" value={totalRevenue} bgClass="bg-slate-100 dark:bg-slate-800" />
+                    <MetricChip label="Total Resultat" value={totalResult} bgClass="bg-emerald-50 dark:bg-emerald-900/20" textClass="text-emerald-600 dark:text-emerald-400" />
+                    <MetricChip label="Total Likviditet" value={totalLiquidity} bgClass="bg-blue-50 dark:bg-blue-900/20" textClass="text-blue-600 dark:text-blue-400" />
+                    <MetricChip label="Arbeidskapital" value={totalWorkingCapital} bgClass="bg-indigo-50 dark:bg-indigo-900/20" textClass="text-indigo-600 dark:text-indigo-400" />
+              </div>
           </div>
       )}
 
-      {/* Footer - REBUILT FOR MOBILE OPTIMIZATION */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center">
-              {/* Aggregates - Centered */}
-              {!isAdminMode && (
-                <div className="overflow-x-auto whitespace-nowrap scrollbar-hide w-full flex justify-start md:justify-center items-center pb-1 sm:pb-0">
-                     <div className="flex gap-3 px-2">
-                        <MetricChip 
-                            label="Omsetning" 
-                            value={totalRevenue} 
-                            bgClass="bg-blue-50/50 border-blue-100/50 dark:bg-blue-900/10 dark:border-blue-800/50" 
-                            textClass="text-blue-600 dark:text-blue-400"
-                        />
-                        <MetricChip 
-                            label="Kostnader" 
-                            value={totalExpenses} 
-                            bgClass="bg-slate-50/50 border-slate-100/50 dark:bg-slate-800/30 dark:border-slate-700/50" 
-                        />
-                        <MetricChip 
-                            label="Resultat" 
-                            value={totalResult} 
-                            bgClass="bg-indigo-50/50 border-indigo-100/50 dark:bg-indigo-900/10 dark:border-indigo-800/50" 
-                            textClass="text-indigo-600 dark:text-indigo-400"
-                        />
-                        <MetricChip 
-                            label="Budsjett" 
-                            value={totalBudgetYTD} 
-                            bgClass="bg-violet-50/50 border-violet-100/50 dark:bg-violet-900/10 dark:border-violet-800/50" 
-                            textClass="text-violet-600 dark:text-violet-400"
-                        />
-                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                        <MetricChip 
-                            label="Likviditet" 
-                            value={totalLiquidity} 
-                            bgClass="bg-emerald-50/50 border-emerald-100/50 dark:bg-emerald-900/10 dark:border-emerald-800/50" 
-                            textClass="text-emerald-600 dark:text-emerald-400"
-                        />
-                        <MetricChip 
-                            label="Fordringer" 
-                            value={totalReceivables} 
-                            bgClass="bg-sky-50/50 border-sky-100/50 dark:bg-sky-900/10 dark:border-sky-800/50" 
-                            textClass="text-sky-600 dark:text-sky-400"
-                        />
-                        <MetricChip 
-                            label="Lev.Gjeld" 
-                            value={totalPayables} 
-                            bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50" 
-                            textClass="text-amber-600 dark:text-amber-400"
-                        />
-                        {/* New Salary Chip */}
-                        <MetricChip 
-                            label="Lønn" 
-                            value={totalSalaryExpenses} 
-                            bgClass="bg-pink-50/50 border-pink-100/50 dark:bg-pink-900/10 dark:border-pink-800/50" 
-                            textClass="text-pink-600 dark:text-pink-400"
-                        />
-                        <MetricChip 
-                            label="Off.Avg" 
-                            value={totalPublicFees} 
-                            bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50" 
-                            textClass="text-orange-600 dark:text-orange-400"
-                        />
-                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                        <MetricChip 
-                            label="Arb.Kapital" 
-                            value={totalWorkingCapital} 
-                            bgClass="bg-teal-50/50 border-teal-100/50 dark:bg-teal-900/10 dark:border-teal-800/50" 
-                            textClass="text-teal-600 dark:text-teal-400"
-                        />
-                     </div>
-                </div>
-              )}
-              
-              {/* Attentio Footer Branding - Absolute Right & Discreet */}
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden xl:flex items-center gap-2 opacity-30 hover:opacity-100 transition-all duration-500 grayscale hover:grayscale-0">
-                 <span className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Powered by</span>
-                 <a href="https://www.attentio.no" target="_blank" rel="noreferrer">
-                     {/* Light Mode Logo */}
-                     <img 
-                        src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
-                        alt="Attentio" 
-                        className="h-3 w-auto dark:hidden" 
-                     />
-                     {/* Dark Mode Logo */}
-                     <img 
-                        src="https://ucarecdn.com/6db62825-75c5-487d-a4cb-ce1b9721b707/Attentiologohvit.png" 
-                        alt="Attentio" 
-                        className="h-3 w-auto hidden dark:block" 
-                     />
-                 </a>
+      {/* Password Modal */}
+      {isPasswordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700 p-6 animate-in zoom-in-95">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Bytt Passord</h3>
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                      <input 
+                        type="password" 
+                        placeholder="Gammelt passord" 
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                        value={passwordForm.oldPassword}
+                        onChange={e => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Nytt passord" 
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                        value={passwordForm.newPassword}
+                        onChange={e => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                      />
+                      <input 
+                        type="password" 
+                        placeholder="Bekreft nytt passord" 
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+                        value={passwordForm.confirmPassword}
+                        onChange={e => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                      />
+                      <div className="flex gap-2 pt-2">
+                          <button type="button" onClick={() => setIsPasswordModalOpen(false)} className="flex-1 py-2 text-slate-500 text-sm font-bold">Avbryt</button>
+                          <button type="submit" className="flex-1 py-2 bg-sky-600 text-white rounded-lg text-sm font-bold shadow-md hover:bg-sky-500">Lagre</button>
+                      </div>
+                  </form>
               </div>
           </div>
-      </div>
+      )}
+
     </div>
   );
 }
