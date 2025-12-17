@@ -1,40 +1,31 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { formatCurrency } from './constants';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
-import MetricCard from './components/MetricCard';
 import AnalyticsView from './components/AnalyticsView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
-import AnimatedGrid from './components/AnimatedGrid';
+import Header from './components/layout/Header';
+import Footer from './components/layout/Footer';
+import DashboardGrid from './components/layout/DashboardGrid';
 import { postNEON, patchNEON, deleteNEON, getNEON } from './utils/neon';
 import { hashPassword } from './utils/crypto';
 import { logActivity } from './utils/logging';
 import { 
-  LayoutGrid, 
-  BarChart3, 
   ArrowUpDown, 
-  UserCircle, 
-  Moon,
-  Sun,
-  Building2, 
   ShieldAlert,
-  Settings,
-  Database,
-  MonitorPlay,
-  Users,
-  LogOut,
   Check,
   X,
-  Lock,
-  Save,
   KeyRound,
   Grid2X2,
   LayoutTemplate,
   RefreshCw,
   FileText,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  LayoutGrid,
+  BarChart3,
+  Building2,
+  Users
 } from 'lucide-react';
 
 interface UserProfile {
@@ -44,7 +35,7 @@ interface UserProfile {
     groupId: number;
     groupName: string;
     logoUrl?: string;
-    companyIds?: number[]; // Updated to support multiple companies
+    companyIds?: number[]; 
 }
 
 interface AppProps {
@@ -122,15 +113,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   // --- ZOOM HANDLERS ---
   const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 10, 120));
   const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 10, 60));
-
-  // Determine grid columns based on zoom level (Applies primarily to XL screens)
-  const getGridColumnClass = () => {
-      if (zoomLevel >= 110) return 'xl:grid-cols-2 gap-8';
-      if (zoomLevel === 100) return 'xl:grid-cols-3 gap-6'; // Standard
-      if (zoomLevel >= 80) return 'xl:grid-cols-4 gap-4';
-      return 'xl:grid-cols-5 gap-3'; // 60-70%
-  };
-
 
   // --- SORT MODE HANDLERS ---
   const handleSortToggle = () => {
@@ -213,17 +195,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
         const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
         if(res.rows) {
-            // For each user, we also need to fetch their multi-company access
             const accessRes = await getNEON({ table: 'usercompanyaccess' });
             const allAccess = accessRes.rows || [];
 
             const mappedUsers = res.rows.map((u: any) => {
-                // Find all company IDs for this user
                 const userAccess = allAccess
                     .filter((a: any) => (a.userId || a.user_id) === u.id)
                     .map((a: any) => a.companyId || a.company_id);
                 
-                // Fallback to legacy
                 const legacyId = u.companyId || u.company_id;
                 if(userAccess.length === 0 && legacyId) {
                     userAccess.push(legacyId);
@@ -235,8 +214,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     fullName: u.fullName || u.full_name,
                     role: u.role,
                     groupId: u.groupId || u.group_id,
-                    companyId: legacyId, // keep legacy prop populated just in case
-                    companyIds: userAccess // Populate the array
+                    companyId: legacyId, 
+                    companyIds: userAccess 
                 };
             });
             setUsers(mappedUsers);
@@ -306,12 +285,12 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
          receivables: r.receivables,
          accountsPayable: r.accountsPayable || r.accounts_payable,
          publicFees: r.publicFees || r.public_fees,
-         salaryExpenses: r.salaryExpenses || r.salary_expenses, // New field
+         salaryExpenses: r.salaryExpenses || r.salary_expenses, 
          liquidityDate: r.liquidityDate || r.liquidity_date || '',
          receivablesDate: r.receivablesDate || r.receivables_date || '',
          accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
          publicFeesDate: r.publicFeesDate || r.public_fees_date || '',
-         salaryExpensesDate: r.salaryExpensesDate || r.salary_expenses_date || '', // New field
+         salaryExpensesDate: r.salaryExpensesDate || r.salary_expenses_date || '', 
          source: r.source || 'Manuell',
          approvedBy: r.approvedByUserId || r.approved_by_user_id ? 'Kontroller' : undefined,
          approvedAt: r.approvedAt || r.approved_at ? new Date(r.approvedAt || r.approved_at).toLocaleDateString('no-NO') : undefined,
@@ -360,7 +339,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
             const mapped = filteredRows.map((c: any) => {
                 let bMonths: number[] = [];
                 const rawMonths = c.budgetMonths ?? c.budget_months; 
-                
                 try {
                     if (Array.isArray(rawMonths)) {
                         bMonths = rawMonths.map(Number);
@@ -412,7 +390,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
                     name: c.name || '',
                     fullName: c.fullName || c.full_name || '', 
-                    manager: c.manager || 'Ingen leder', // Fallback
+                    manager: c.manager || 'Ingen leder', 
                     sortOrder: Number(c.sortOrder || c.sort_order || 0),
                     revenue: Number(c.revenue || 0),
                     expenses: Number(c.expenses || 0),
@@ -427,19 +405,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     pnlDate: c.pnlDate || c.pnl_date || ''
                 };
             });
-            
-            // SORT
             mapped.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
-
             setCompanies(mapped);
-            
             if (selectedCompany) {
                 const updated = mapped.find((c: any) => c.id === selectedCompany.id);
                 if (updated) {
                     const now = new Date();
                     const currentMonthIndex = now.getMonth();
                     const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
-                    
                     let targetBudget = 0;
                     const bMonths = updated.budgetMonths;
                     if (isTodayMode) {
@@ -450,7 +423,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     }
                     const deviation = updated.resultYTD - targetBudget;
                     const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-
                     setSelectedCompany({
                         ...updated,
                         calculatedBudgetYTD: targetBudget,
@@ -465,31 +437,23 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const syncManagers = async (companyIds: number[]) => {
       if (companyIds.length === 0) return;
       const uniqueIds = [...new Set(companyIds)];
-      
       try {
         const lRes = await getNEON({ table: 'users', where: { role: 'leader' } });
         const allLeaders = lRes.rows || [];
-        
         const aRes = await getNEON({ table: 'usercompanyaccess' });
         const allAccess = aRes.rows || [];
-
         for (const cid of uniqueIds) {
             const linkedUserIds = allAccess
                 .filter((a: any) => (a.companyId === cid || a.company_id === cid))
                 .map((a: any) => a.userId || a.user_id);
-            
             const legacyLeaders = allLeaders.filter((u:any) => 
                 (u.companyId === cid || u.company_id === cid) && !linkedUserIds.includes(u.id)
             );
-            
             const linkedLeaders = allLeaders.filter((u: any) => linkedUserIds.includes(u.id));
             const combinedLeaders = [...linkedLeaders, ...legacyLeaders];
-
             const uniqueLeaders = Array.from(new Set(combinedLeaders.map((u:any) => u.id)))
                 .map(id => combinedLeaders.find((u:any) => u.id === id));
-
             const managerStr = uniqueLeaders.map((u: any) => u.fullName || u.full_name).join(', ') || 'Ingen leder';
-            
             await patchNEON({ table: 'companies', data: { id: cid, manager: managerStr } });
         }
         await reloadCompanies();
@@ -510,19 +474,15 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           const res = await getNEON({ table: 'users', where: { id: userProfile.id } });
           const user = res.rows[0];
-          
           if (!user) { alert("Feil: Fant ikke bruker."); return; }
-
           const oldHash = await hashPassword(passwordForm.oldPassword);
           if (user.password !== passwordForm.oldPassword && user.password !== oldHash) {
                alert("Gammelt passord er feil.");
                return;
           }
-
           const newHash = await hashPassword(passwordForm.newPassword);
           await patchNEON({ table: 'users', data: { id: user.id, password: newHash } });
           logActivity(user.id, 'CHANGE_PASSWORD', 'users', user.id, 'Endret eget passord');
-          
           alert("Passord endret!");
           setIsPasswordModalOpen(false);
           setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
@@ -621,10 +581,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                const now = new Date();
                const currentMonthIndex = now.getMonth();
                const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
-               
                let targetBudget = 0;
                const bMonths = updatedCompany.budgetMonths || Array(12).fill(0);
-               
                if (isTodayMode) {
                     for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
                     targetBudget += (Number(bMonths[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
@@ -633,7 +591,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                }
                const deviation = updatedCompany.resultYTD - targetBudget;
                const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-
                setSelectedCompany(prev => prev ? { 
                    ...prev, 
                    ...updatedCompany,
@@ -671,7 +628,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
       try {
           const targetCompanyId = selectedCompany?.id || reportData.companyId;
           if (!targetCompanyId) return;
-
           if (isDemo) return;
 
           const reportPayload: any = {
@@ -699,22 +655,18 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              reportPayload.liquidity = Number(reportData.liquidity);
              if(reportData.liquidityDate) reportPayload.liquidityDate = reportData.liquidityDate;
           }
-          
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               reportPayload.receivables = Number(reportData.receivables);
               if(reportData.receivablesDate) reportPayload.receivablesDate = reportData.receivablesDate;
           }
-          
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
               reportPayload.accountsPayable = Number(reportData.accountsPayable);
               if(reportData.accountsPayableDate) reportPayload.accountsPayableDate = reportData.accountsPayableDate;
           }
-          
           if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
               reportPayload.publicFees = Number(reportData.publicFees);
               if(reportData.publicFeesDate) reportPayload.publicFeesDate = reportData.publicFeesDate;
           }
-
           if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
               reportPayload.salaryExpenses = Number(reportData.salaryExpenses);
               if(reportData.salaryExpensesDate) reportPayload.salaryExpensesDate = reportData.salaryExpensesDate;
@@ -728,9 +680,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               logActivity(userProfile.id, 'SUBMIT_REPORT', 'reports', res.inserted?.[0]?.id, `Sendte inn ny rapport`);
           }
 
-          // 2. UPDATE COMPANY SNAPSHOT
           const companyUpdate: any = { id: targetCompanyId };
-          
           if (hasRevenue || hasExpenses) {
              const r = Number(reportData.revenue || 0);
              const e = Number(reportData.expenses || 0);
@@ -739,7 +689,6 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
              companyUpdate.resultYtd = r - e;
              if(reportData.pnlDate) companyUpdate.pnlDate = reportData.pnlDate;
           }
-
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              companyUpdate.liquidity = Number(reportData.liquidity);
              if(reportData.liquidityDate) companyUpdate.liquidityDate = reportData.liquidityDate;
@@ -767,10 +716,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
           await patchNEON({ table: 'companies', data: companyUpdate });
           await reloadCompanies();
-
           if (selectedCompany) fetchCompanyReports(selectedCompany.id);
           fetchAllReports();
-
       } catch (e) {
           console.error("Report submit error", e);
           alert("Feil ved innsending av rapport.");
@@ -999,25 +946,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
   const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
   const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0); 
-  
-  // Net Working Capital: Liquidity + Receivables - Payables - PublicFees - SalaryExpenses
   const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees + totalSalaryExpenses);
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
-
-  // --- FOOTER CHIP HELPER ---
-  const MetricChip = ({ label, value, bgClass, textClass }: { label: string, value: number, bgClass: string, textClass?: string }) => {
-        const isNeg = value < 0;
-        return (
-            <div className={`flex flex-col justify-center px-3 py-1.5 rounded-xl border border-opacity-60 shadow-sm min-w-[90px] backdrop-blur-sm ${bgClass}`}>
-                <span className={`text-[9px] uppercase font-bold tracking-wider mb-0.5 ${textClass || 'text-slate-500 dark:text-slate-400'}`}>{label}</span>
-                <span className={`text-xs sm:text-sm font-bold tabular-nums leading-tight ${isNeg ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
-                    {formatCurrency(value)}
-                </span>
-            </div>
-        );
-  };
 
   if (selectedCompany) {
     return (
@@ -1043,55 +975,22 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
       
-      <header className="bg-white/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20 shadow-sm backdrop-blur-md transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            
-            <button 
-                onClick={() => {
-                    setViewMode(ViewMode.GRID);
-                    setSelectedCompany(null);
-                }}
-                className="flex items-center gap-3 group focus:outline-none"
-            >
-               <div className="bg-white/10 p-1.5 rounded-lg">
-                  <img src="https://ucarecdn.com/4eb31f4f-55eb-4331-bfe6-f98fbdf6f01b/meetingicon.png" alt="Attentio" className="h-8 w-8 rounded-lg shadow-sm" />
-               </div>
-               <div className="hidden sm:block text-left">
-                  <h1 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{userProfile.groupName || 'Konsernoversikt'}</h1>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wider font-semibold">Powered by Attentio</p>
-               </div>
-            </button>
-
-            <div className="flex items-center space-x-4 md:space-x-6">
-              {isDemo && (
-                  <div className="hidden lg:flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <button onClick={() => setDemoRole('controller')} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'controller' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-400'}`}>Controller</button>
-                      <button onClick={() => { setDemoRole('leader'); setViewMode(ViewMode.GRID); }} className={`px-2 py-1 text-[10px] uppercase font-bold rounded-md transition-all ${demoRole === 'leader' ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-300 shadow-sm' : 'text-slate-400'}`}>Leder</button>
-                  </div>
-              )}
-
-              <button onClick={toggleMode} className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${isDemo ? 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-200'}`} title={isDemo ? "Klikk for å koble til Database" : "Klikk for å se demo-data"}>{isDemo ? <MonitorPlay size={14}/> : <Database size={14}/>}<span>{isDemo ? 'DEMO' : 'LIVE'}</span></button>
-
-              <button 
-                onClick={() => setIsPasswordModalOpen(true)}
-                className="hidden md:flex items-center text-slate-500 dark:text-slate-400 text-sm font-medium bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                title="Endre passord"
-              >
-                  <UserCircle className="w-4 h-4 mr-2 text-slate-400 dark:text-slate-500" />
-                  <span className="hidden lg:inline">{userProfile.fullName || 'Bruker'}</span>
-              </button>
-              
-              <button onClick={() => setIsDarkMode(!isDarkMode)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">{isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}</button>
-              <button onClick={handleLogout} className="p-2 rounded-full text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors" title="Logg ut"><LogOut className="w-5 h-5" /></button>
-
-              {effectiveRole === 'controller' && (
-                <button onClick={() => setViewMode(isAdminMode ? ViewMode.GRID : ViewMode.ADMIN)} className={`p-2 rounded-full transition-colors ${isAdminMode ? 'bg-sky-100 text-sky-600 dark:bg-sky-900/50 dark:text-sky-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Admin / Innstillinger"><Settings className="w-5 h-5" /></button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      <Header 
+        userProfile={userProfile}
+        isDemo={isDemo}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        demoRole={demoRole}
+        setDemoRole={setDemoRole}
+        handleLogout={handleLogout}
+        toggleMode={toggleMode}
+        setIsPasswordModalOpen={setIsPasswordModalOpen}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        effectiveRole={effectiveRole}
+        isAdminMode={isAdminMode}
+        onResetView={() => { setViewMode(ViewMode.GRID); setSelectedCompany(null); }}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
         
@@ -1229,22 +1128,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                             <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
                         )}
                         
-                        <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 ${getGridColumnClass()} pb-24 transition-all duration-500 ease-in-out`}>
-                            {sortedData.map((company, index) => (
-                                <MetricCard 
-                                    key={company.id} 
-                                    data={company} 
-                                    onSelect={setSelectedCompany}
-                                    isSortMode={isSortMode}
-                                    onDragStart={onDragStart}
-                                    onDragEnter={onDragEnter}
-                                    onDragEnd={onDragEnd}
-                                    index={index}
-                                    cardSize={cardSize}
-                                    zoomLevel={zoomLevel} // Pass zoom level
-                                />
-                            ))}
-                        </AnimatedGrid>
+                        <DashboardGrid 
+                            sortedData={sortedData}
+                            isSortMode={isSortMode}
+                            cardSize={cardSize}
+                            zoomLevel={zoomLevel}
+                            onSelectCompany={setSelectedCompany}
+                            onDragStart={onDragStart}
+                            onDragEnter={onDragEnter}
+                            onDragEnd={onDragEnd}
+                        />
                     </>
                 )}
             </>
@@ -1302,97 +1195,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           </div>
       )}
 
-      {/* Footer - RESTORED FULL FUNCTIONALITY */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-slate-800/95 backdrop-blur border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-20 transition-colors duration-300">
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-center">
-              {/* Aggregates - Centered */}
-              {!isAdminMode && (
-                <div className="overflow-x-auto whitespace-nowrap scrollbar-hide w-full flex justify-start md:justify-center items-center pb-1 sm:pb-0">
-                     <div className="flex gap-3 px-2">
-                        <MetricChip 
-                            label="Omsetning" 
-                            value={totalRevenue} 
-                            bgClass="bg-blue-50/50 border-blue-100/50 dark:bg-blue-900/10 dark:border-blue-800/50" 
-                            textClass="text-blue-600 dark:text-blue-400"
-                        />
-                        <MetricChip 
-                            label="Kostnader" 
-                            value={totalExpenses} 
-                            bgClass="bg-slate-50/50 border-slate-100/50 dark:bg-slate-800/30 dark:border-slate-700/50" 
-                        />
-                        <MetricChip 
-                            label="Resultat" 
-                            value={totalResult} 
-                            bgClass="bg-indigo-50/50 border-indigo-100/50 dark:bg-indigo-900/10 dark:border-indigo-800/50" 
-                            textClass="text-indigo-600 dark:text-indigo-400"
-                        />
-                        <MetricChip 
-                            label="Budsjett" 
-                            value={totalBudgetYTD} 
-                            bgClass="bg-violet-50/50 border-violet-100/50 dark:bg-violet-900/10 dark:border-violet-800/50" 
-                            textClass="text-violet-600 dark:text-violet-400"
-                        />
-                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                        <MetricChip 
-                            label="Likviditet" 
-                            value={totalLiquidity} 
-                            bgClass="bg-emerald-50/50 border-emerald-100/50 dark:bg-emerald-900/10 dark:border-emerald-800/50" 
-                            textClass="text-emerald-600 dark:text-emerald-400"
-                        />
-                        <MetricChip 
-                            label="Fordringer" 
-                            value={totalReceivables} 
-                            bgClass="bg-sky-50/50 border-sky-100/50 dark:bg-sky-900/10 dark:border-sky-800/50" 
-                            textClass="text-sky-600 dark:text-sky-400"
-                        />
-                        <MetricChip 
-                            label="Lev.Gjeld" 
-                            value={totalPayables} 
-                            bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50" 
-                            textClass="text-amber-600 dark:text-amber-400"
-                        />
-                        {/* Salary Chip */}
-                        <MetricChip 
-                            label="Lønn" 
-                            value={totalSalaryExpenses} 
-                            bgClass="bg-pink-50/50 border-pink-100/50 dark:bg-pink-900/10 dark:border-pink-800/50" 
-                            textClass="text-pink-600 dark:text-pink-400"
-                        />
-                        <MetricChip 
-                            label="Off.Avg" 
-                            value={totalPublicFees} 
-                            bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50" 
-                            textClass="text-orange-600 dark:text-orange-400"
-                        />
-                        <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                        <MetricChip 
-                            label="Arb.Kapital" 
-                            value={totalWorkingCapital} 
-                            bgClass="bg-teal-50/50 border-teal-100/50 dark:bg-teal-900/10 dark:border-teal-800/50" 
-                            textClass="text-teal-600 dark:text-teal-400"
-                        />
-                     </div>
-                </div>
-              )}
-              
-              {/* Attentio Footer Branding */}
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 hidden xl:flex items-center gap-2 opacity-30 hover:opacity-100 transition-all duration-500 grayscale hover:grayscale-0">
-                 <span className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Powered by</span>
-                 <a href="https://www.attentio.no" target="_blank" rel="noreferrer">
-                     <img 
-                        src="https://ucarecdn.com/a57dd98f-5b74-4f56-8480-2ff70d700b09/667bf8f6e052ebdb5596b770_Logo1.png" 
-                        alt="Attentio" 
-                        className="h-3 w-auto dark:hidden" 
-                     />
-                     <img 
-                        src="https://ucarecdn.com/6db62825-75c5-487d-a4cb-ce1b9721b707/Attentiologohvit.png" 
-                        alt="Attentio" 
-                        className="h-3 w-auto hidden dark:block" 
-                     />
-                 </a>
-              </div>
-          </div>
-      </div>
+      <Footer 
+        totalRevenue={totalRevenue}
+        totalExpenses={totalExpenses}
+        totalResult={totalResult}
+        totalBudgetYTD={totalBudgetYTD}
+        totalLiquidity={totalLiquidity}
+        totalReceivables={totalReceivables}
+        totalPayables={totalPayables}
+        totalPublicFees={totalPublicFees}
+        totalSalaryExpenses={totalSalaryExpenses}
+        totalWorkingCapital={totalWorkingCapital}
+        isAdminMode={isAdminMode}
+      />
     </div>
   );
 }
