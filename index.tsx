@@ -1,10 +1,10 @@
-import React, { useState, useEffect, ErrorInfo, ReactNode, Component } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LoginScreen from './components/LoginScreen';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
-import { MonitorPlay, Loader2, XCircle, RefreshCw, LogOut } from 'lucide-react';
+import { MonitorPlay, XCircle, RefreshCw, LogOut } from 'lucide-react';
 
 console.log("KonsernKontroll Script Loaded");
 
@@ -27,7 +27,7 @@ interface ErrorBoundaryState {
   error: string;
 }
 
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false, error: '' };
 
   static getDerivedStateFromError(error: any): ErrorBoundaryState {
