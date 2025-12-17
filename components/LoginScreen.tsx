@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Lock, Bug, User, Loader2 } from 'lucide-react';
 import { getNEON, patchNEON } from '../utils/neon';
@@ -168,12 +167,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onDemoStart }
                         <button type="submit" className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 rounded-lg transition-all">Start Demo</button>
                     </form>
                 )}
-
-                <div className="mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
-                    <button onClick={() => { setShowDemoInput(!showDemoInput); setDemoError(''); setError(''); }} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">
-                        {showDemoInput ? 'Tilbake til innlogging' : 'Har du en demo-kode?'}
-                    </button>
-                </div>
             </div>
 
             <div className="mt-4 text-slate-600 text-[10px] uppercase tracking-wider font-semibold">
