@@ -145,10 +145,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
   // --- DYNAMIC SCALING LOGIC ---
   const heightClass = useMemo(() => {
       if (cardSize === 'compact') return 'h-48';
-      if (zoomLevel >= 110) return 'h-[500px]'; // Zoomed In
-      if (zoomLevel >= 100) return 'h-[460px]'; // Standard (Reduced slightly for tighter rows)
-      if (zoomLevel >= 80) return 'h-[410px]';  // Slightly zoomed out
-      return 'h-[350px]';                       // Fully zoomed out
+      if (zoomLevel >= 110) return 'h-[460px]'; // Zoomed In (Was 500)
+      if (zoomLevel >= 100) return 'h-[420px]'; // Standard (Was 460)
+      if (zoomLevel >= 80) return 'h-[380px]';  // Slightly zoomed out (Was 410)
+      return 'h-[330px]';                       // Fully zoomed out (Was 350)
   }, [zoomLevel, cardSize]);
 
   // Adjust padding and text size for smaller zoom levels

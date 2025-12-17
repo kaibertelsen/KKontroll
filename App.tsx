@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem } from './types';
+import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile } from './types';
 import AnalyticsView from './components/AnalyticsView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
@@ -27,16 +27,6 @@ import {
   Building2,
   Users
 } from 'lucide-react';
-
-interface UserProfile {
-    id: number;
-    fullName: string;
-    role: 'controller' | 'leader';
-    groupId: number;
-    groupName: string;
-    logoUrl?: string;
-    companyIds?: number[]; 
-}
 
 interface AppProps {
     userProfile: UserProfile;

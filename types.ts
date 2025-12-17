@@ -1,4 +1,5 @@
 
+
 export interface CompanyData {
   id: number;
   name: string; 
@@ -104,3 +105,13 @@ export enum ViewMode {
 }
 
 export type StatusType = 'success' | 'warning' | 'danger';
+
+export interface UserProfile {
+    id: number;
+    fullName: string;
+    role: 'controller' | 'leader';
+    groupId: number;
+    groupName: string;
+    logoUrl?: string;
+    companyIds?: number[]; 
+}
