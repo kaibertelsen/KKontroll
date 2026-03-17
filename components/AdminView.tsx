@@ -821,6 +821,121 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
             </div>
         </div>
       )}
+
+      {/* COMPANY ADD/EDIT MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                {editingCompany ? 'Rediger Selskap' : 'Nytt Selskap'}
+              </h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kortnavn *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="BPS"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                    value={formData.name || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Fullt Navn</label>
+                  <input
+                    type="text"
+                    placeholder="Bergen Prosjektservice AS"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                    value={formData.fullName || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Leder</label>
+                <input
+                  type="text"
+                  placeholder="Ola Nordmann"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                  value={formData.manager || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, manager: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-2 block">Budsjett</label>
+                <div className="flex gap-1 mb-3 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+                  {(['annual', 'quarterly', 'monthly'] as const).map(mode => (
+                    <button key={mode} type="button"
+                      onClick={() => setBudgetInputMode(mode)}
+                      className={`flex-1 py-1.5 rounded-md text-xs font-bold transition-all ${budgetInputMode === mode ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
+                    >
+                      {mode === 'annual' ? 'År' : mode === 'quarterly' ? 'Kvartal' : 'Måned'}
+                    </button>
+                  ))}
+                </div>
+
+                {budgetInputMode === 'annual' && (
+                  <input type="number" placeholder="0"
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none"
+                    value={annualBudget || ''}
+                    onChange={e => setAnnualBudget(Number(e.target.value))}
+                  />
+                )}
+                {budgetInputMode === 'quarterly' && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {['Q1','Q2','Q3','Q4'].map((q, i) => (
+                      <div key={q}>
+                        <label className="text-[10px] text-slate-500 mb-1 block text-center">{q}</label>
+                        <input type="number" placeholder="0"
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-2 py-2 text-slate-900 dark:text-white text-sm text-center focus:ring-2 focus:ring-sky-500 outline-none"
+                          value={quarterlyBudget[i] || ''}
+                          onChange={e => { const q2 = [...quarterlyBudget]; q2[i] = Number(e.target.value); setQuarterlyBudget(q2); }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {budgetInputMode === 'monthly' && (
+                  <div className="grid grid-cols-6 gap-2">
+                    {['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'].map((m, i) => (
+                      <div key={m}>
+                        <label className="text-[10px] text-slate-500 mb-1 block text-center">{m}</label>
+                        <input type="number" placeholder="0"
+                          className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-1 py-1.5 text-slate-900 dark:text-white text-xs text-center focus:ring-2 focus:ring-sky-500 outline-none"
+                          value={monthlyBudget[i] || ''}
+                          onChange={e => { const m2 = [...monthlyBudget]; m2[i] = Number(e.target.value); setMonthlyBudget(m2); }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
+                <button type="button" onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors">
+                  Avbryt
+                </button>
+                <button type="submit"
+                  className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2">
+                  <Save className="w-4 h-4" />
+                  {editingCompany ? 'Lagre Endringer' : 'Opprett Selskap'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
