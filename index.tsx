@@ -2,6 +2,8 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import LoginScreen from './components/LoginScreen';
+import GroupSelectionScreen from './components/GroupSelectionScreen';
+import SuperAdminView from './components/SuperAdminView';
 import { getNEON } from './utils/neon';
 import { INITIAL_DATA } from './constants';
 import { MonitorPlay, XCircle, RefreshCw, LogOut } from 'lucide-react';

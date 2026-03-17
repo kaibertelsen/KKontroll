@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const ALLOWED_TABLES = new Set([
-  'groups', 'companies', 'users', 'usercompanyaccess',
+  'groups', 'companies', 'users', 'usercompanyaccess', 'usergroupaccess',
   'reports', 'forecasts', 'logs'
 ]);
 

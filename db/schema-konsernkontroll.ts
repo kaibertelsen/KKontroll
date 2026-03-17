@@ -95,6 +95,7 @@ export const users = pgTable("users", {
   groupId: integer("group_id").references(() => groups.id).notNull(),
   companyId: integer("company_id").references(() => companies.id), // Kept for legacy support, but usercompanyaccess is preferred
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  isSuperAdmin: boolean("is_super_admin").default(false),
 });
 
 /* -------------------------------------------------
@@ -105,6 +106,15 @@ export const usercompanyaccess = pgTable("usercompanyaccess", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   companyId: integer("company_id").references(() => companies.id).notNull(),
+});
+
+/* -------------------------------------------------
+   3.6 USER_GROUP_ACCESS (Many-to-Many)
+---------------------------------------------------*/
+export const usergroupaccess = pgTable("usergroupaccess", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  groupId: integer("group_id").references(() => groups.id).notNull(),
 });
 
 /* -------------------------------------------------
@@ -188,6 +198,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     references: [companies.id],
   }),
   companyAccess: many(usercompanyaccess),
+  groupAccess: many(usergroupaccess),
   reports: many(reports),
   logs: many(logs),
 }));
@@ -240,5 +251,16 @@ export const logsRelations = relations(logs, ({ one }) => ({
   user: one(users, {
     fields: [logs.userId],
     references: [users.id],
+  }),
+}));
+
+export const usergroupaccessRelations = relations(usergroupaccess, ({ one }) => ({
+  user: one(users, {
+    fields: [usergroupaccess.userId],
+    references: [users.id],
+  }),
+  group: one(groups, {
+    fields: [usergroupaccess.groupId],
+    references: [groups.id],
   }),
 }));

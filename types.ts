@@ -113,5 +113,6 @@ export interface UserProfile {
     groupId: number;
     groupName: string;
     logoUrl?: string;
-    companyIds?: number[]; 
+    companyIds?: number[];
+    isSuperAdmin?: boolean;
 }
