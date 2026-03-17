@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getNEON, patchNEON, postNEON, deleteNEON } from '../utils/neon';
 import { ProjectData, ProjectLog } from '../types';
-import { ArrowLeft, Save, Loader2, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProjectDetailViewProps {
   project: ProjectData;
@@ -190,6 +190,8 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, companyN
     log_date: todayNorStr(), varekost: 0, arbeid: 0, fremmedytelse: 0, andre: 0, notes: '',
   });
   const [addingLog, setAddingLog] = useState(false);
+  const isFilled = !!(form.name && form.responsible && form.startDate && form.endDate);
+  const [infoExpanded, setInfoExpanded] = useState(!isFilled);
 
   const mapLog = (r: any): ProjectLog => ({
     id: r.id,
@@ -318,33 +320,59 @@ const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, companyN
           <div className="flex-1 space-y-4">
 
             {/* Info card */}
-            <div className="bg-slate-800 rounded-xl p-5 border border-slate-700">
-              <input
-                className="w-full bg-transparent text-white text-xl font-bold outline-none border-b border-slate-600 focus:border-sky-500 pb-1 mb-3"
-                value={form.name} onChange={e => set('name', e.target.value)} placeholder="Prosjektnavn" />
-              <input
-                className="w-full bg-transparent text-slate-400 text-sm outline-none border-b border-slate-700 focus:border-sky-500 pb-1 mb-4"
-                value={form.responsible || ''} onChange={e => set('responsible', e.target.value)} placeholder="Ansvarlig" />
-              <p className="text-xs text-slate-500 font-semibold mb-3">{companyName}</p>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                {([
-                  { label: 'Opprettet', key: 'createdDate' as const },
-                  { label: 'Start',     key: 'startDate'   as const },
-                  { label: 'Ferdig',    key: 'endDate'     as const },
-                ]).map(({ label, key }) => (
-                  <div key={key}>
-                    <label className="text-[10px] uppercase text-slate-500 block mb-1">{label}</label>
-                    <input type="text"
-                      className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:ring-1 focus:ring-sky-500 outline-none"
-                      placeholder="DD.MM.ÅÅÅÅ" value={form[key] || ''} onChange={e => set(key, e.target.value)} />
+            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+              {/* Always-visible summary row */}
+              <button
+                onClick={() => setInfoExpanded(p => !p)}
+                className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-700/40 transition-colors text-left"
+              >
+                <div className="flex items-center gap-4 min-w-0">
+                  <span className="font-bold text-white truncate">{form.name || 'Prosjektnavn'}</span>
+                  {form.responsible && (
+                    <span className="text-slate-400 text-sm shrink-0">{form.responsible}</span>
+                  )}
+                  {(form.startDate || form.endDate) && (
+                    <span className="text-slate-500 text-xs shrink-0">
+                      {form.startDate || '—'} → {form.endDate || '—'}
+                    </span>
+                  )}
+                </div>
+                {infoExpanded
+                  ? <ChevronUp size={16} className="text-slate-500 shrink-0" />
+                  : <ChevronDown size={16} className="text-slate-500 shrink-0" />}
+              </button>
+
+              {/* Expandable details */}
+              {infoExpanded && (
+                <div className="px-5 pb-5 border-t border-slate-700 pt-4">
+                  <input
+                    className="w-full bg-transparent text-white text-xl font-bold outline-none border-b border-slate-600 focus:border-sky-500 pb-1 mb-3"
+                    value={form.name} onChange={e => set('name', e.target.value)} placeholder="Prosjektnavn" />
+                  <input
+                    className="w-full bg-transparent text-slate-400 text-sm outline-none border-b border-slate-700 focus:border-sky-500 pb-1 mb-4"
+                    value={form.responsible || ''} onChange={e => set('responsible', e.target.value)} placeholder="Ansvarlig" />
+                  <p className="text-xs text-slate-500 font-semibold mb-3">{companyName}</p>
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    {([
+                      { label: 'Opprettet', key: 'createdDate' as const },
+                      { label: 'Start',     key: 'startDate'   as const },
+                      { label: 'Ferdig',    key: 'endDate'     as const },
+                    ]).map(({ label, key }) => (
+                      <div key={key}>
+                        <label className="text-[10px] uppercase text-slate-500 block mb-1">{label}</label>
+                        <input type="text"
+                          className="w-full bg-slate-700 border border-slate-600 rounded px-2 py-1 text-white text-xs focus:ring-1 focus:ring-sky-500 outline-none"
+                          placeholder="DD.MM.ÅÅÅÅ" value={form[key] || ''} onChange={e => set(key, e.target.value)} />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <select
-                className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none w-full"
-                value={form.status} onChange={e => set('status', e.target.value as ProjectData['status'])}>
-                {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+                  <select
+                    className="bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white text-sm focus:ring-2 focus:ring-sky-500 outline-none w-full"
+                    value={form.status} onChange={e => set('status', e.target.value as ProjectData['status'])}>
+                    {Object.entries(STATUS_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Burn chart */}
