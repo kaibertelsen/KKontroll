@@ -185,33 +185,45 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const fetchUsers = async () => {
       try {
-        const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
-        if(res.rows) {
-            const accessRes = await getNEON({ table: 'usercompanyaccess' });
-            const allAccess = accessRes.rows || [];
+        // Fetch users who have access to current group via usergroupaccess
+        const groupAccessRes = await getNEON({ table: 'usergroupaccess', where: { group_id: userProfile.groupId } });
+        const groupAccessRows = groupAccessRes.rows || [];
+        const userIdsInGroup = [...new Set(groupAccessRows.map((r: any) => r.user_id || r.userId))] as number[];
 
-            const mappedUsers = res.rows.map((u: any) => {
-                const userAccess = allAccess
-                    .filter((a: any) => (a.userId || a.user_id) === u.id)
-                    .map((a: any) => a.companyId || a.company_id);
-                
-                const legacyId = u.companyId || u.company_id;
-                if(userAccess.length === 0 && legacyId) {
-                    userAccess.push(legacyId);
-                }
-
-                return {
-                    id: u.id,
-                    email: u.email,
-                    fullName: u.fullName || u.full_name,
-                    role: u.role,
-                    groupId: u.groupId || u.group_id,
-                    companyId: legacyId, 
-                    companyIds: userAccess 
-                };
-            });
-            setUsers(mappedUsers);
+        if (userIdsInGroup.length === 0) {
+            setUsers([]);
+            return;
         }
+
+        // Fetch all those users and company access in parallel
+        const [allUsersRes, companyAccessRes] = await Promise.all([
+            getNEON({ table: 'users' }),
+            getNEON({ table: 'usercompanyaccess' }),
+        ]);
+
+        const allUsers = (allUsersRes.rows || []).filter((u: any) => userIdsInGroup.includes(u.id));
+        const allAccess = companyAccessRes.rows || [];
+
+        const mappedUsers = allUsers.map((u: any) => {
+            const userAccess = allAccess
+                .filter((a: any) => (a.user_id || a.userId) === u.id)
+                .map((a: any) => a.company_id || a.companyId);
+
+            const legacyId = u.company_id || u.companyId;
+            if (userAccess.length === 0 && legacyId) userAccess.push(legacyId);
+
+            return {
+                id: u.id,
+                email: u.email,
+                fullName: u.fullName || u.full_name,
+                role: u.role,
+                groupId: u.groupId || u.group_id,
+                companyId: legacyId,
+                companyIds: userAccess,
+                is_super_admin: u.is_super_admin || false,
+            };
+        });
+        setUsers(mappedUsers);
       } catch(err) { console.error("Error fetching users", err); }
   };
 
@@ -814,6 +826,8 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const res = await postNEON({ table: 'users', data: payload });
           const createdUser = res.inserted[0];
           logActivity(userProfile.id, 'CREATE_USER', 'users', createdUser.id, `Opprettet bruker: ${user.email}`);
+          // Give new user access to current group
+          await postNEON({ table: 'usergroupaccess', data: { user_id: createdUser.id, group_id: userProfile.groupId } });
           if (user.companyIds && user.companyIds.length > 0) {
               const accessRows = user.companyIds.map(cid => ({ user_id: createdUser.id, company_id: cid }));
               await postNEON({ table: 'usercompanyaccess', data: accessRows });
