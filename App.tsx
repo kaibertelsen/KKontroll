@@ -5,6 +5,8 @@ import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
 import SuperAdminView from './components/SuperAdminView';
+import ProjectDashboard from './components/ProjectDashboard';
+import ProjectDetailView from './components/ProjectDetailView';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import DashboardGrid from './components/layout/DashboardGrid';
@@ -82,6 +84,10 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   // REFRESH STATE
   const [isGlobalRefreshing, setIsGlobalRefreshing] = useState(false);
+
+  // PROJECTS STATE
+  const [groupFeatures, setGroupFeatures] = useState<string[]>([]);
+  const [selectedProject, setSelectedProject] = useState<any | null>(null);
 
   // --- DATA POLLING ---
   useEffect(() => {
@@ -886,6 +892,19 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     else document.documentElement.classList.remove('dark');
   }, [isDarkMode]);
 
+  useEffect(() => {
+    if (!isDemo) {
+      getNEON({ table: 'group_features', where: { group_id: userProfile.groupId } })
+        .then(res => {
+          const enabled = (res.rows || [])
+            .filter((r: any) => r.enabled)
+            .map((r: any) => r.feature_key || r.featureKey);
+          setGroupFeatures(enabled);
+        })
+        .catch(() => {});
+    }
+  }, [userProfile.groupId, isDemo]);
+
   const visibleCompanies = useMemo(() => {
       if (effectiveRole === 'leader') {
           if (isDemo) return companies.filter(c => c.name === 'BCC' || c.name === 'PHR'); 
@@ -949,21 +968,46 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
 
+  if (selectedCompany && viewMode === ViewMode.PROJECTS && selectedProject) {
+    return (
+      <ProjectDetailView
+        project={selectedProject}
+        companyName={selectedCompany.name}
+        onBack={() => setSelectedProject(null)}
+        onUpdated={(updated) => setSelectedProject(updated)}
+      />
+    );
+  }
+
+  if (selectedCompany && viewMode === ViewMode.PROJECTS) {
+    return (
+      <ProjectDashboard
+        companyId={selectedCompany.id}
+        groupId={userProfile.groupId}
+        companyName={selectedCompany.name}
+        onBack={() => setViewMode(ViewMode.GRID)}
+        onSelectProject={(p) => setSelectedProject(p)}
+      />
+    );
+  }
+
   if (selectedCompany) {
     return (
-      <CompanyDetailView 
-        company={selectedCompany} 
+      <CompanyDetailView
+        company={selectedCompany}
         reports={reports}
         forecasts={forecasts}
         userRole={effectiveRole}
-        onBack={() => setSelectedCompany(null)} 
+        onBack={() => setSelectedCompany(null)}
         onReportSubmit={handleSubmitReport}
         onApproveReport={handleApproveReport}
         onUnlockReport={handleUnlockReport}
-        onDeleteReport={handleDeleteReport} 
+        onDeleteReport={handleDeleteReport}
         onForecastSubmit={handleForecastSubmit}
         onUpdateCompany={handleUpdateCompany}
         onRefresh={async () => await handleCompanyRefresh(selectedCompany.id)}
+        hasProjectsModule={groupFeatures.includes('projects')}
+        onOpenProjects={() => { setSelectedProject(null); setViewMode(ViewMode.PROJECTS); }}
       />
     );
   }

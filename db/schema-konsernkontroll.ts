@@ -180,6 +180,43 @@ export const logs = pgTable("logs", {
 });
 
 /* -------------------------------------------------
+   7. PROJECTS
+---------------------------------------------------*/
+export const projects = pgTable("projects", {
+  id: serial("id").primaryKey(),
+  companyId: integer("company_id").references(() => companies.id).notNull(),
+  groupId: integer("group_id").references(() => groups.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  responsible: varchar("responsible", { length: 255 }),
+  status: varchar("status", { length: 50 }).default("tilbud"),
+  createdDate: varchar("created_date", { length: 20 }),
+  startDate: varchar("start_date", { length: 20 }),
+  endDate: varchar("end_date", { length: 20 }),
+  projectRevenue: numeric("project_revenue", { precision: 15, scale: 2 }).default("0"),
+  estVarekost: numeric("est_varekost", { precision: 15, scale: 2 }).default("0"),
+  estArbeid: numeric("est_arbeid", { precision: 15, scale: 2 }).default("0"),
+  estFremmedytelse: numeric("est_fremmedytelse", { precision: 15, scale: 2 }).default("0"),
+  estAndre: numeric("est_andre", { precision: 15, scale: 2 }).default("0"),
+  actualVarekost: numeric("actual_varekost", { precision: 15, scale: 2 }).default("0"),
+  actualArbeid: numeric("actual_arbeid", { precision: 15, scale: 2 }).default("0"),
+  actualFremmedytelse: numeric("actual_fremmedytelse", { precision: 15, scale: 2 }).default("0"),
+  actualAndre: numeric("actual_andre", { precision: 15, scale: 2 }).default("0"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+/* -------------------------------------------------
+   8. GROUP FEATURES
+---------------------------------------------------*/
+export const groupFeatures = pgTable("group_features", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").references(() => groups.id).notNull(),
+  featureKey: varchar("feature_key", { length: 100 }).notNull(),
+  enabled: boolean("enabled").default(true),
+});
+
+/* -------------------------------------------------
    RELATIONS
 ---------------------------------------------------*/
 

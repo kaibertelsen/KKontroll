@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData } from '../types';
 import { formatCurrency } from '../constants';
-import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye, Landmark, RefreshCw, Banknote } from 'lucide-react';
+import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye, Landmark, RefreshCw, Banknote, FolderOpen } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
 } from 'recharts';
@@ -17,8 +17,10 @@ interface CompanyDetailViewProps {
   onUnlockReport?: (reportId: number) => void; 
   onDeleteReport: (reportId: number) => void; 
   onForecastSubmit: (forecasts: ForecastItem[]) => void;
-  onUpdateCompany: (company: CompanyData) => void; 
+  onUpdateCompany: (company: CompanyData) => void;
   onRefresh?: () => Promise<void>;
+  hasProjectsModule?: boolean;
+  onOpenProjects?: () => void;
 }
 
 const toInputDate = (dateStr: string) => {
@@ -36,7 +38,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh }) => {
+const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects }) => {
   
   console.log("CompanyDetailView rendering for:", company.name);
 
@@ -524,6 +526,15 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           </div>
           
           <div className="flex items-center gap-4">
+            {hasProjectsModule && onOpenProjects && (
+              <button
+                onClick={onOpenProjects}
+                className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-sm"
+              >
+                <FolderOpen size={16} />
+                Prosjekter
+              </button>
+            )}
             <div className="hidden sm:flex flex-col items-end text-sm mr-2">
                 <span className="text-slate-900 dark:text-white font-medium">{company.manager}</span>
                 <span className="text-slate-500 dark:text-slate-400 text-xs">Daglig leder</span>

@@ -10,6 +10,7 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onBack }) => {
   const [groups, setGroups] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [accessMap, setAccessMap] = useState<Record<string, number>>({});
+  const [featureMap, setFeatureMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [newGroupName, setNewGroupName] = useState('');
@@ -18,10 +19,11 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onBack }) => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [groupsRes, usersRes, accessRes] = await Promise.all([
+      const [groupsRes, usersRes, accessRes, featuresRes] = await Promise.all([
         getNEON({ table: 'groups' }),
         getNEON({ table: 'users' }),
         getNEON({ table: 'usergroupaccess' }),
+        getNEON({ table: 'group_features' }),
       ]);
       setGroups(groupsRes.rows || []);
       setUsers(usersRes.rows || []);
@@ -33,6 +35,14 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onBack }) => {
         map[`${uid}_${gid}`] = row.id;
       });
       setAccessMap(map);
+
+      const fmap: Record<string, number> = {};
+      (featuresRes.rows || []).forEach((row: any) => {
+        const gid = row.group_id || row.groupId;
+        const key = row.feature_key || row.featureKey;
+        if (row.enabled) fmap[`${gid}_${key}`] = row.id;
+      });
+      setFeatureMap(fmap);
     } catch (e) {
       console.error('SuperAdmin load error:', e);
     } finally {
@@ -56,6 +66,22 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onBack }) => {
       }
     } catch (e) {
       console.error('Toggle access error:', e);
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  const toggleFeature = async (groupId: number, featureKey: string, mapKey: string, hasFeature: boolean) => {
+    setSaving(mapKey);
+    try {
+      if (hasFeature) {
+        await deleteNEON({ table: 'group_features', data: featureMap[mapKey] });
+        setFeatureMap(prev => { const next = { ...prev }; delete next[mapKey]; return next; });
+      } else {
+        const res = await postNEON({ table: 'group_features', data: { group_id: groupId, feature_key: featureKey, enabled: true } });
+        const newId = res.inserted?.[0]?.id;
+        if (newId) setFeatureMap(prev => ({ ...prev, [mapKey]: newId }));
+      }
     } finally {
       setSaving(null);
     }
@@ -186,6 +212,48 @@ const SuperAdminView: React.FC<SuperAdminViewProps> = ({ onBack }) => {
                     })}
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Feature toggles */}
+        <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl overflow-hidden mt-6">
+          <div className="px-5 py-4 border-b border-slate-700/50">
+            <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Moduler per konsern</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-700/50">
+                  <th className="text-left px-5 py-3 text-slate-400 font-medium">Konsern</th>
+                  <th className="px-4 py-3 text-center text-slate-400 font-medium">Prosjektmodul</th>
+                </tr>
+              </thead>
+              <tbody>
+                {groups.map((group, idx) => {
+                  const featureKey = `${group.id}_projects`;
+                  const hasFeature = !!featureMap[featureKey];
+                  const isSaving = saving === featureKey;
+                  return (
+                    <tr key={group.id} className={`border-b border-slate-700/30 hover:bg-slate-700/20 transition-colors ${idx % 2 === 0 ? '' : 'bg-slate-800/20'}`}>
+                      <td className="px-5 py-3 font-medium text-white">{group.name}</td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => toggleFeature(group.id, 'projects', featureKey, hasFeature)}
+                          disabled={isSaving}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${hasFeature ? 'bg-sky-500' : 'bg-slate-600'}`}
+                        >
+                          {isSaving ? (
+                            <Loader2 size={12} className="animate-spin absolute inset-0 m-auto text-white" />
+                          ) : (
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${hasFeature ? 'translate-x-6' : 'translate-x-1'}`} />
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

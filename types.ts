@@ -83,10 +83,32 @@ export interface ReportLogItem {
 export interface ForecastItem {
   id?: number;
   companyId: number;
-  month: string; 
-  monthName?: string; 
+  month: string;
+  monthName?: string;
   estimatedReceivables: number;
   estimatedPayables: number;
+}
+
+export interface ProjectData {
+  id: number;
+  companyId: number;
+  groupId: number;
+  name: string;
+  responsible?: string;
+  status: 'tilbud' | 'akseptert' | 'under_arbeid' | 'ferdig' | 'tapt';
+  createdDate?: string;
+  startDate?: string;
+  endDate?: string;
+  projectRevenue: number;
+  estVarekost: number;
+  estArbeid: number;
+  estFremmedytelse: number;
+  estAndre: number;
+  actualVarekost: number;
+  actualArbeid: number;
+  actualFremmedytelse: number;
+  actualAndre: number;
+  notes?: string;
 }
 
 export enum SortField {
@@ -103,7 +125,8 @@ export enum ViewMode {
   ADMIN = 'ADMIN',
   ADMIN_REPORTS = 'ADMIN_REPORTS',
   USER_ADMIN = 'USER_ADMIN',
-  SUPER_ADMIN = 'SUPER_ADMIN'
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  PROJECTS = 'PROJECTS',
 }
 
 export type StatusType = 'success' | 'warning' | 'danger';
