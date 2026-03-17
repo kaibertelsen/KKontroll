@@ -270,229 +270,223 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
 
   try {
     addLog("Kobler til database...");
-    
-    const userWhere = { id: effectiveUserId };
-    
-    // We expect the headers in neon.ts to handle the "door key" (AppID/Key)
-    // Here we just fetch the user row to see if they exist and get their profile
-    const userRes = await getNEON({ table: 'users', where: userWhere });
+
+    const userRes = await getNEON({ table: 'users', where: { id: effectiveUserId } });
     const rawUser = userRes.rows[0];
 
     if (!rawUser) {
         addLog("Fant ikke bruker.", 'error');
-        
         renderLog([
-            {
-                label: "Logg ut / Prøv igjen",
-                icon: LogOut,
-                onClick: () => { 
-                    localStorage.removeItem("konsern_user_id");
-                    window.location.reload(); 
-                }
-            },
-             {
-                label: "Start Demo Modus",
-                icon: MonitorPlay,
-                variant: 'secondary',
-                onClick: () => window.initKonsernKontroll(undefined, true)
-            }
+            { label: "Logg ut / Prøv igjen", icon: LogOut, onClick: () => { localStorage.removeItem("konsern_user_id"); window.location.reload(); } },
+            { label: "Start Demo Modus", icon: MonitorPlay, variant: 'secondary', onClick: () => window.initKonsernKontroll(undefined, true) }
         ]);
         return;
     }
 
-    addLog(`Henter brukerdata...`, 'success');
-    localStorage.setItem('konsern_mode', 'live'); 
+    addLog("Henter tilganger...", 'success');
+    localStorage.setItem('konsern_mode', 'live');
 
-    // --- FETCH MULTI-COMPANY ACCESS ---
-    addLog("Henter selskaper...");
-    let accessList: number[] = [];
-    
+    const isSuperAdmin = !!(rawUser.is_super_admin || rawUser.isSuperAdmin);
+
+    // Fetch group access
+    let groupAccessRows: any[] = [];
     try {
+      const gaRes = await getNEON({ table: 'usergroupaccess', where: { user_id: rawUser.id } });
+      groupAccessRows = gaRes.rows || [];
+    } catch (e) {
+      console.warn('usergroupaccess fetch failed, falling back', e);
+    }
+    if (groupAccessRows.length === 0) {
+      const legacyGid = rawUser.groupId || rawUser.group_id;
+      if (legacyGid) groupAccessRows = [{ group_id: legacyGid }];
+    }
+
+    // Helper: render the full app for a selected group
+    const renderAppForGroup = async (selectedGroupId: number) => {
+      addLog("Henter selskaper...");
+
+      // Fetch group info
+      let groupName = "Mitt Konsern";
+      let logoUrl: string | undefined;
+      const groupRes = await getNEON({ table: 'groups', where: { id: selectedGroupId } });
+      if (groupRes.rows[0]) {
+        groupName = groupRes.rows[0].name;
+        logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url;
+      }
+
+      // Fetch company access list
+      let accessList: number[] = [];
+      try {
         const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: rawUser.id } });
         if (accessRes.rows && accessRes.rows.length > 0) {
-            accessList = accessRes.rows.map((r: any) => r.companyId || r.company_id);
+          accessList = accessRes.rows.map((r: any) => r.companyId || r.company_id);
         } else {
-            // Fallback to legacy single company ID
-            const legacyId = rawUser.companyId || rawUser.company_id;
-            if (legacyId) {
-                accessList = [legacyId];
-            }
+          const legacyId = rawUser.companyId || rawUser.company_id;
+          if (legacyId) accessList = [legacyId];
         }
-    } catch (e) {
-        console.warn("Failed to fetch user access table, falling back to legacy", e);
+      } catch (e) {
         const legacyId = rawUser.companyId || rawUser.company_id;
-        if(legacyId) accessList = [legacyId];
-    }
+        if (legacyId) accessList = [legacyId];
+      }
 
-    // --- FETCH GROUP ---
-    let groupName = "Mitt Konsern";
-    let logoUrl = undefined;
+      const compRes = await getNEON({ table: 'companies', where: { group_id: selectedGroupId } });
+      const rawCompanies = compRes.rows || [];
 
-    const groupId = rawUser.groupId || rawUser.group_id;
-    
-    if (groupId) {
-        const groupRes = await getNEON({ table: 'groups', where: { id: groupId } });
-        if(groupRes.rows[0]) {
-            groupName = groupRes.rows[0].name;
-            logoUrl = groupRes.rows[0].logoUrl || groupRes.rows[0].logo_url;
-        }
-    }
+      addLog("Klargjør dashboard...");
 
-    // --- FETCH COMPANIES ---
-    let companyWhere: any = {};
-    const userRole = rawUser.role;
-
-    if (userRole === 'leader' && accessList.length > 0) {
-        companyWhere = { group_id: groupId };
-    } else {
-        companyWhere = { group_id: groupId };
-    }
-    
-    const compRes = await getNEON({ table: 'companies', where: companyWhere });
-    const rawCompanies = compRes.rows || [];
-
-    addLog("Klargjør dashboard...");
-    
-    const mappedCompanies = rawCompanies.map((c: any) => {
-        // AGGRESSIVE BUDGET EXTRACTION & PARSING
+      const mappedCompanies = rawCompanies.map((c: any) => {
         let bMonths: number[] = [];
-        const rawMonths = c.budgetMonths ?? c.budget_months; 
-        
+        const rawMonths = c.budgetMonths ?? c.budget_months;
         try {
-            if (Array.isArray(rawMonths)) {
-                bMonths = rawMonths.map(Number);
-            } else if (typeof rawMonths === 'object' && rawMonths !== null) {
-                bMonths = Object.values(rawMonths).map(Number);
-            } else if (typeof rawMonths === 'string') {
-                let cleanStr = rawMonths.trim();
-                if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
-                    cleanStr = cleanStr.replace('{', '[').replace('}', ']');
-                }
-                
-                try {
-                    const parsed = JSON.parse(cleanStr);
-                    if (Array.isArray(parsed)) bMonths = parsed.map(Number);
-                } catch (jsonErr) {
-                    const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
-                    if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
-                        bMonths = parts.map(Number);
-                    }
-                }
+          if (Array.isArray(rawMonths)) {
+            bMonths = rawMonths.map(Number);
+          } else if (typeof rawMonths === 'object' && rawMonths !== null) {
+            bMonths = Object.values(rawMonths).map(Number);
+          } else if (typeof rawMonths === 'string') {
+            let cleanStr = rawMonths.trim();
+            if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
+              cleanStr = cleanStr.replace('{', '[').replace('}', ']');
             }
-        } catch(e) { console.warn("Budget parse fail", e); }
+            try {
+              const parsed = JSON.parse(cleanStr);
+              if (Array.isArray(parsed)) bMonths = parsed.map(Number);
+            } catch (jsonErr) {
+              const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
+              if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
+                bMonths = parts.map(Number);
+              }
+            }
+          }
+        } catch (e) { console.warn("Budget parse fail", e); }
 
         if (!bMonths || bMonths.length !== 12 || bMonths.some(isNaN)) {
-             bMonths = Array(12).fill(0);
+          bMonths = Array(12).fill(0);
         }
 
         const bTotal = Number(c.budgetTotal || c.budget_total || 0);
         const sumMonths = bMonths.reduce((a, b) => a + b, 0);
-
         if ((sumMonths === 0 || isNaN(sumMonths)) && bTotal > 0) {
-                const perMonth = Math.round(bTotal / 12);
-                bMonths = Array(12).fill(perMonth);
-                bMonths[11] += (bTotal - (perMonth * 12));
+          const perMonth = Math.round(bTotal / 12);
+          bMonths = Array(12).fill(perMonth);
+          bMonths[11] += (bTotal - (perMonth * 12));
         }
 
         return {
-            ...c,
-            resultYTD: Number(c.resultYtd || c.result_ytd || 0),
-            budgetTotal: bTotal,
-            budgetMode: c.budgetMode || c.budget_mode || 'annual',
-            budgetMonths: bMonths,
-            liquidity: Number(c.liquidity || 0),
-            receivables: Number(c.receivables || 0),
-            accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-            trendHistory: Number(c.trendHistory || c.trend_history || 0),
-            prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
-            prevDeviation: Number(c.prev_trend || c.prev_trend || 0),
-            name: c.name || '',
-            fullName: c.fullName || c.full_name || '', 
-            manager: c.manager || '',
-            sortOrder: Number(c.sortOrder || c.sort_order || 0),
-            revenue: Number(c.revenue || 0),
-            expenses: Number(c.expenses || 0),
-            liquidityDate: c.liquidity_date || c.liquidityDate || '',
-            receivablesDate: c.receivables_date || c.receivablesDate || '',
-            accountsPayableDate: c.accountsPayable_date || c.accountsPayableDate || '',
-            lastReportDate: c.last_report_date || c.lastReportDate || '',
-            lastReportBy: c.last_report_by || c.lastReportBy || '',
-            comment: c.current_comment || c.currentComment || '',
-            pnlDate: c.pnl_date || c.pnlDate || ''
+          ...c,
+          resultYTD: Number(c.resultYtd || c.result_ytd || 0),
+          budgetTotal: bTotal,
+          budgetMode: c.budgetMode || c.budget_mode || 'annual',
+          budgetMonths: bMonths,
+          liquidity: Number(c.liquidity || 0),
+          receivables: Number(c.receivables || 0),
+          accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
+          trendHistory: Number(c.trendHistory || c.trend_history || 0),
+          prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
+          prevDeviation: Number(c.prev_trend || c.prev_trend || 0),
+          name: c.name || '',
+          fullName: c.fullName || c.full_name || '',
+          manager: c.manager || '',
+          sortOrder: Number(c.sortOrder || c.sort_order || 0),
+          revenue: Number(c.revenue || 0),
+          expenses: Number(c.expenses || 0),
+          liquidityDate: c.liquidity_date || c.liquidityDate || '',
+          receivablesDate: c.receivables_date || c.receivablesDate || '',
+          accountsPayableDate: c.accountsPayable_date || c.accountsPayableDate || '',
+          lastReportDate: c.last_report_date || c.lastReportDate || '',
+          lastReportBy: c.last_report_by || c.lastReportBy || '',
+          comment: c.current_comment || c.currentComment || '',
+          pnlDate: c.pnl_date || c.pnlDate || ''
         };
-    });
+      });
 
-    mappedCompanies.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      mappedCompanies.sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
-    const userProfile = {
+      const userProfile = {
         id: rawUser.id,
         fullName: rawUser.fullName || rawUser.full_name,
         role: rawUser.role as 'controller' | 'leader',
-        groupId: groupId,
-        groupName: groupName,
-        logoUrl: logoUrl,
-        companyIds: accessList // NEW: Pass the list of accessible company IDs
+        groupId: selectedGroupId,
+        groupName,
+        logoUrl,
+        companyIds: accessList,
+        isSuperAdmin,
+      };
+
+      addLog("Alt klart.", 'success');
+
+      setTimeout(() => {
+        root.render(
+          <React.StrictMode>
+            <ErrorBoundary>
+              <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
+            </ErrorBoundary>
+          </React.StrictMode>
+        );
+      }, 500);
     };
 
-    addLog("Alt klart.", 'success');
-    
-    setTimeout(() => {
-        root.render(
+    const renderSuperAdmin = () => {
+      root.render(
         <React.StrictMode>
-            <ErrorBoundary>
-                <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
-            </ErrorBoundary>
+          <SuperAdminView onBack={showGroupSelectionOrContinue} />
         </React.StrictMode>
-        );
-    }, 500);
+      );
+    };
+
+    const showGroupSelectionOrContinue = async () => {
+      const shouldShowSelection = isSuperAdmin || groupAccessRows.length > 1;
+
+      if (!shouldShowSelection) {
+        const singleGroupId = groupAccessRows[0]?.group_id || groupAccessRows[0]?.groupId || rawUser.group_id || rawUser.groupId;
+        await renderAppForGroup(singleGroupId);
+        return;
+      }
+
+      addLog("Henter konsernliste...");
+
+      let groups: any[] = [];
+      if (isSuperAdmin) {
+        const allRes = await getNEON({ table: 'groups' });
+        groups = allRes.rows || [];
+      } else {
+        const groupIds = groupAccessRows.map((r: any) => r.group_id || r.groupId);
+        const results = await Promise.all(groupIds.map((gid: number) => getNEON({ table: 'groups', where: { id: gid } })));
+        groups = results.flatMap(r => r.rows || []);
+      }
+
+      root.render(
+        <React.StrictMode>
+          <GroupSelectionScreen
+            groups={groups}
+            isSuperAdmin={isSuperAdmin}
+            userName={rawUser.fullName || rawUser.full_name || rawUser.email}
+            onSelectGroup={(groupId) => renderAppForGroup(groupId)}
+            onAdminView={renderSuperAdmin}
+            onLogout={() => { localStorage.removeItem("konsern_user_id"); window.location.reload(); }}
+          />
+        </React.StrictMode>
+      );
+    };
+
+    await showGroupSelectionOrContinue();
 
   } catch (e: any) {
     console.error("Init Error:", e);
     let msg = e.message || String(e);
-    
     if (msg.includes("Failed to fetch")) {
-        msg = "Kan ikke koble til serveren.";
-        addLog(`${msg}`, 'error');
-        
-        // Show retry button
-        renderLog([
-            {
-                label: "Prøv igjen",
-                icon: RefreshCw,
-                onClick: () => window.initKonsernKontroll()
-            },
-            {
-                label: "Start Demo",
-                icon: MonitorPlay,
-                variant: 'secondary',
-                onClick: () => window.initKonsernKontroll(undefined, true)
-            }
-        ]);
-        return;
+      msg = "Kan ikke koble til serveren.";
+      addLog(`${msg}`, 'error');
+      renderLog([
+        { label: "Prøv igjen", icon: RefreshCw, onClick: () => window.initKonsernKontroll() },
+        { label: "Start Demo", icon: MonitorPlay, variant: 'secondary', onClick: () => window.initKonsernKontroll(undefined, true) }
+      ]);
+      return;
     }
-    
     addLog(`${msg}`, 'error');
-    
     renderLog([
-        {
-            label: "Prøv igjen",
-            icon: RefreshCw,
-            onClick: () => window.initKonsernKontroll()
-        },
-        {
-            label: "Logg ut",
-            icon: LogOut,
-            onClick: () => {
-                localStorage.removeItem("konsern_user_id");
-                window.location.reload(); 
-            }
-        },
-        {
-            label: "Start Demo Modus",
-            icon: MonitorPlay,
-            variant: 'secondary',
-            onClick: () => window.initKonsernKontroll(undefined, true)
-        }
+      { label: "Prøv igjen", icon: RefreshCw, onClick: () => window.initKonsernKontroll() },
+      { label: "Logg ut", icon: LogOut, onClick: () => { localStorage.removeItem("konsern_user_id"); window.location.reload(); } },
+      { label: "Start Demo Modus", icon: MonitorPlay, variant: 'secondary', onClick: () => window.initKonsernKontroll(undefined, true) }
     ]);
   }
 };
