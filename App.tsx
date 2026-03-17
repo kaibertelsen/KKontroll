@@ -4,6 +4,7 @@ import AnalyticsView from './components/AnalyticsView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
+import SuperAdminView from './components/SuperAdminView';
 import Header from './components/layout/Header';
 import Footer from './components/layout/Footer';
 import DashboardGrid from './components/layout/DashboardGrid';
@@ -13,6 +14,7 @@ import { logActivity } from './utils/logging';
 import { 
   ArrowUpDown, 
   ShieldAlert,
+  Shield,
   Check,
   X,
   KeyRound,
@@ -960,7 +962,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     );
   }
 
-  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN;
+  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN || viewMode === ViewMode.SUPER_ADMIN;
 
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
@@ -1016,6 +1018,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
                     >
                         <Users size={16} /> Brukere
                     </button>
+                    {userProfile.isSuperAdmin && (
+                        <button
+                            onClick={() => setViewMode(ViewMode.SUPER_ADMIN)}
+                            className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.SUPER_ADMIN ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                        >
+                            <Shield size={16} /> Konsern
+                        </button>
+                    )}
                 </div>
             </div>
         )}
@@ -1040,6 +1050,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
         
         {viewMode === ViewMode.USER_ADMIN && effectiveRole === 'controller' && (
             <UserAdminView users={users} companies={companies} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} />
+        )}
+        {viewMode === ViewMode.SUPER_ADMIN && userProfile.isSuperAdmin && (
+            <SuperAdminView onBack={() => setViewMode(ViewMode.ADMIN)} />
         )}
         
         {!isAdminMode && (

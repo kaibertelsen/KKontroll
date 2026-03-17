@@ -46,6 +46,7 @@ export interface UserData {
   groupId: number;
   companyId?: number | null; // Legacy single company
   companyIds?: number[]; // New multi-company support
+  is_super_admin?: boolean;
 }
 
 export interface ReportLogItem {
@@ -101,7 +102,8 @@ export enum ViewMode {
   CONTROL = 'CONTROL',
   ADMIN = 'ADMIN',
   ADMIN_REPORTS = 'ADMIN_REPORTS',
-  USER_ADMIN = 'USER_ADMIN'
+  USER_ADMIN = 'USER_ADMIN',
+  SUPER_ADMIN = 'SUPER_ADMIN'
 }
 
 export type StatusType = 'success' | 'warning' | 'danger';

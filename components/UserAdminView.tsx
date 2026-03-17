@@ -36,7 +36,8 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
         fullName: '',
         role: 'leader',
         companyId: null,
-        companyIds: []
+        companyIds: [],
+        is_super_admin: false
       });
     }
   }, [editingUser, isModalOpen]);
@@ -144,6 +145,7 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                 <th className="p-4">E-post</th>
                 <th className="p-4">Rolle</th>
                 <th className="p-4">Tilknyttede Selskaper</th>
+                <th className="p-4 text-center">Super Admin</th>
                 <th className="p-4 text-center">Handlinger</th>
               </tr>
             </thead>
@@ -170,8 +172,17 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                   <td className="p-4 text-slate-600 dark:text-slate-400 max-w-xs truncate" title={getCompanyNames(user.companyIds)}>
                       {user.role === 'controller' ? <span className="text-slate-400 italic">Alle (Admin)</span> : getCompanyNames(user.companyIds)}
                   </td>
+                  <td className="p-4 text-center">
+                      {user.is_super_admin ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 text-xs font-medium">
+                              <Shield size={10} /> Ja
+                          </span>
+                      ) : (
+                          <span className="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                      )}
+                  </td>
                   <td className="p-4 flex justify-center gap-2">
-                    <button 
+                    <button
                       onClick={() => { setEditingUser(user); setIsModalOpen(true); }}
                       className="p-2 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-slate-700 rounded-lg transition-colors"
                       title="Rediger"
@@ -340,6 +351,22 @@ const UserAdminView: React.FC<UserAdminViewProps> = ({ users, companies, onAdd, 
                         <p className="text-[10px] text-slate-400 mt-1">Du kan velge flere selskaper.</p>
                     </div>
                 )}
+
+                <div className="flex items-center justify-between p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded-lg">
+                    <div>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                            <Shield size={14} className="text-amber-600" /> Super Admin
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Tilgang til konsernforvaltning og alle grupper</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, is_super_admin: !prev.is_super_admin }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${formData.is_super_admin ? 'bg-amber-500' : 'bg-slate-300 dark:bg-slate-600'}`}
+                    >
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${formData.is_super_admin ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                </div>
 
                 <div className="pt-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-3">
                     <button 
