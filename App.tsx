@@ -315,9 +315,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
     try {
         let companyWhere: any = {};
         if (effectiveRole === 'leader' && userProfile.companyIds && userProfile.companyIds.length > 0) {
-             companyWhere = { groupId: userProfile.groupId };
+             companyWhere = { group_id: userProfile.groupId };
         } else {
-            companyWhere = { groupId: userProfile.groupId };
+            companyWhere = { group_id: userProfile.groupId };
         }
 
         const compRes = await getNEON({ table: 'companies', where: companyWhere });
@@ -806,16 +806,16 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
           const payload = {
               email: user.email,
               password: user.password,
-              fullName: user.fullName,
+              full_name: user.fullName,
               role: user.role,
-              groupId: userProfile.groupId,
-              companyId: null
+              group_id: userProfile.groupId,
+              is_super_admin: user.is_super_admin ?? false
           };
           const res = await postNEON({ table: 'users', data: payload });
           const createdUser = res.inserted[0];
           logActivity(userProfile.id, 'CREATE_USER', 'users', createdUser.id, `Opprettet bruker: ${user.email}`);
           if (user.companyIds && user.companyIds.length > 0) {
-              const accessRows = user.companyIds.map(cid => ({ userId: createdUser.id, companyId: cid }));
+              const accessRows = user.companyIds.map(cid => ({ user_id: createdUser.id, company_id: cid }));
               await postNEON({ table: 'usercompanyaccess', data: accessRows });
           }
           fetchUsers();
@@ -825,17 +825,17 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleUpdateUser = async (user: UserData) => {
       try {
-          const payload: any = { id: user.id, email: user.email, fullName: user.fullName, role: user.role };
+          const payload: any = { id: user.id, email: user.email, full_name: user.fullName, role: user.role, is_super_admin: user.is_super_admin ?? false };
           if (user.password) payload.password = user.password;
           await patchNEON({ table: 'users', data: payload });
           
-          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: user.id } });
+          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { user_id: user.id } });
           const existingIds = (accessRes.rows || []).map((r:any) => r.id);
           const existingCompanyIds = (accessRes.rows || []).map((r:any) => r.companyId || r.company_id);
           if (existingIds.length > 0) await deleteNEON({ table: 'usercompanyaccess', data: existingIds });
-          
+
           if (user.companyIds && user.companyIds.length > 0) {
-              const accessRows = user.companyIds.map(cid => ({ userId: user.id, companyId: cid }));
+              const accessRows = user.companyIds.map(cid => ({ user_id: user.id, company_id: cid }));
               await postNEON({ table: 'usercompanyaccess', data: accessRows });
           }
           logActivity(userProfile.id, 'UPDATE_USER', 'users', user.id, `Oppdaterte bruker: ${user.email}`);
@@ -847,9 +847,9 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleDeleteUser = async (id: number) => {
        try {
-          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { userId: id } });
+          const accessRes = await getNEON({ table: 'usercompanyaccess', where: { user_id: id } });
           const existingCompanyIds = (accessRes.rows || []).map((r:any) => r.companyId || r.company_id);
-          await deleteNEON({ table: 'usercompanyaccess', data: id, field: 'userId' });
+          await deleteNEON({ table: 'usercompanyaccess', data: id, field: 'user_id' });
           await deleteNEON({ table: 'users', data: id });
           logActivity(userProfile.id, 'DELETE_USER', 'users', id, 'Slettet bruker');
           setUsers(users.filter(u => u.id !== id));
