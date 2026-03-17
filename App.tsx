@@ -139,7 +139,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
               for (const update of updates) {
                   await patchNEON({ 
                       table: 'companies', 
-                      data: { id: update.id, sortOrder: update.sortOrder } 
+                      data: { id: update.id, sort_order: update.sortOrder }
                   });
               }
               logActivity(userProfile.id, 'SORT_COMPANIES', 'companies', undefined, 'Lagret ny rekkefølge på kortene');

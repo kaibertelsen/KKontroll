@@ -16,11 +16,11 @@ export const logActivity = (
     postNEON({
         table: 'logs',
         data: {
-            userId,
+            user_id: userId,
             action,
             entity,
-            entityId,
-            details: details ? details.substring(0, 1000) : undefined // Truncate if too long
+            entity_id: entityId,
+            details: details ? details.substring(0, 1000) : undefined
         },
         public: false // Requires auth headers
     }).catch(err => {
