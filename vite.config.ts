@@ -6,5 +6,13 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'dist',
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://financehub.attentio.no',
+        changeOrigin: true,
+      }
+    }
   }
 })

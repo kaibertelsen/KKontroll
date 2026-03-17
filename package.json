@@ -14,7 +14,8 @@
     "react-dom": "^18.3.1",
     "lucide-react": "^0.378.0",
     "recharts": "^2.12.7",
-    "drizzle-orm": "^0.30.10"
+    "drizzle-orm": "^0.30.10",
+    "@neondatabase/serverless": "^0.10.4"
   },
   "devDependencies": {
     "@types/react": "^18.3.3",
@@ -24,6 +25,7 @@
     "vite": "^5.2.11",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^3.4.3",
+    "@vercel/node": "^5.0.2"
   }
 }

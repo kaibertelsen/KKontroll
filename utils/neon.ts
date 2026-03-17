@@ -2,7 +2,7 @@
 
 // API Client for Neon / AttentioCloud
 
-const API_BASE = "https://attentiocloud-api.vercel.app";
+const API_BASE = "";
 
 // --- CREDENTIALS MANAGEMENT ---
 
@@ -11,30 +11,19 @@ const API_BASE = "https://attentiocloud-api.vercel.app";
 // or set in LocalStorage for development.
 
 function getApiCredentials() {
-  // Check Vercel/Vite environment variables.
-  const envAppId = (import.meta as any).env.VITE_NEON_APP_ID;
-  const envApiKey = (import.meta as any).env.VITE_NEON_API_KEY;
-
-  const creds = {
-    appId: localStorage.getItem("neon_appId") || envAppId || "",
-    apiKey: localStorage.getItem("neon_apiKey") || envApiKey || "",
-  };
-  
-  if (!creds.appId || !creds.apiKey) {
-      console.warn("Mangler API-nøkler! Sørg for at VITE_NEON_APP_ID og VITE_NEON_API_KEY er satt i miljøvariabler.");
+  const apiKey = (import.meta as any).env.VITE_API_SECRET_KEY || localStorage.getItem("api_secret_key") || "";
+  if (!apiKey) {
+    console.warn("Mangler API-nøkkel! Sørg for at VITE_API_SECRET_KEY er satt i miljøvariabler.");
   }
-  
-  return creds;
+  return { apiKey };
 }
 
 // --- HEADERS ---
 
 function buildHeaders() {
-  const { appId, apiKey } = getApiCredentials();
-  
+  const { apiKey } = getApiCredentials();
   return {
     "Content-Type": "application/json",
-    "X-APP-ID": appId,
     "Authorization": `Bearer ${apiKey}`,
   };
 }
