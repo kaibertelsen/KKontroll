@@ -111,6 +111,17 @@ export interface ProjectData {
   notes?: string;
 }
 
+export interface ProjectLog {
+  id: number;
+  projectId: number;
+  logDate: string;
+  varekost: number;
+  arbeid: number;
+  fremmedytelse: number;
+  andre: number;
+  notes?: string;
+}
+
 export enum SortField {
   RESULT = 'RESULT',
   DEVIATION = 'DEVIATION',
