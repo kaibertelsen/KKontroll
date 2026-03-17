@@ -185,7 +185,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const fetchUsers = async () => {
       try {
-        const res = await getNEON({ table: 'users', where: { groupId: userProfile.groupId } });
+        const res = await getNEON({ table: 'users', where: { group_id: userProfile.groupId } });
         if(res.rows) {
             const accessRes = await getNEON({ table: 'usercompanyaccess' });
             const allAccess = accessRes.rows || [];
@@ -232,7 +232,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const fetchCompanyReports = async (companyId: number) => {
       try {
-          const res = await getNEON({ table: 'reports', where: { companyId } });
+          const res = await getNEON({ table: 'reports', where: { company_id: companyId } });
           if (res.rows) {
               const mapped = mapReports(res.rows);
               setReports(mapped);
@@ -242,7 +242,7 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
   
   const fetchForecasts = async (companyId: number) => {
        try {
-            const res = await getNEON({ table: 'forecasts', where: { companyId } });
+            const res = await getNEON({ table: 'forecasts', where: { company_id: companyId } });
             if(res.rows) {
                 const mappedForecasts = res.rows.map((f: any) => ({
                     id: f.id,
