@@ -79,38 +79,42 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       scenarioHighMonthly: Array(12).fill(0),
   });
 
-  // Initialize Budget Form Data
+  // Initialize Budget Form Data — only when modal OPENS (not on every company update)
   useEffect(() => {
-      if (isBudgetModalOpen) {
-          const bMonths = company.budgetMonths || Array(12).fill(0);
-          const total = company.budgetTotal || 0;
-          const q = [0,0,0,0];
-          for(let i=0; i<12; i++) q[Math.floor(i/3)] += Number(bMonths[i]) || 0;
+      if (!isBudgetModalOpen) return;
 
-          const lowMonths = (company.budgetMonthsLow || Array(12).fill(0)).map(Number);
-          const highMonths = (company.budgetMonthsHigh || Array(12).fill(0)).map(Number);
-          const lowTotal = lowMonths.reduce((a: number, b: number) => a + b, 0);
-          const highTotal = highMonths.reduce((a: number, b: number) => a + b, 0);
-          const lowQ = [0,0,0,0];
-          const highQ = [0,0,0,0];
-          for(let i=0; i<12; i++) { lowQ[Math.floor(i/3)] += lowMonths[i]; highQ[Math.floor(i/3)] += highMonths[i]; }
+      const bMonths = company.budgetMonths || Array(12).fill(0);
+      const total = company.budgetTotal || 0;
+      const q = [0,0,0,0];
+      for(let i=0; i<12; i++) q[Math.floor(i/3)] += Number(bMonths[i]) || 0;
 
-          const isScenario = company.budgetType === 'scenario';
-          setBudgetFormData({
-              budgetType: isScenario ? 'scenario' : 'standard',
-              entryMode: isScenario ? 'annual' : (company.budgetMode || 'annual'),
-              annual: total,
-              monthly: [...bMonths],
-              quarterly: q,
-              scenarioLowAnnual: lowTotal,
-              scenarioHighAnnual: highTotal,
-              scenarioLowQuarterly: lowQ,
-              scenarioHighQuarterly: highQ,
-              scenarioLowMonthly: [...lowMonths],
-              scenarioHighMonthly: [...highMonths],
-          });
-      }
-  }, [isBudgetModalOpen, company]);
+      const isScenario = company.budgetType === 'scenario';
+
+      // If scenario: use saved low/high. Otherwise: pre-fill realist with standard budget.
+      const lowMonths = isScenario
+          ? (company.budgetMonthsLow || Array(12).fill(0)).map(Number)
+          : [...bMonths];
+      const highMonths = (company.budgetMonthsHigh || Array(12).fill(0)).map(Number);
+      const lowTotal = lowMonths.reduce((a: number, b: number) => a + b, 0);
+      const highTotal = highMonths.reduce((a: number, b: number) => a + b, 0);
+      const lowQ = [0,0,0,0];
+      const highQ = [0,0,0,0];
+      for(let i=0; i<12; i++) { lowQ[Math.floor(i/3)] += lowMonths[i]; highQ[Math.floor(i/3)] += highMonths[i]; }
+
+      setBudgetFormData({
+          budgetType: isScenario ? 'scenario' : 'standard',
+          entryMode: company.budgetMode || 'annual',
+          annual: total,
+          monthly: [...bMonths],
+          quarterly: q,
+          scenarioLowAnnual: isScenario ? lowTotal : total,
+          scenarioHighAnnual: highTotal,
+          scenarioLowQuarterly: isScenario ? lowQ : [...q],
+          scenarioHighQuarterly: highQ,
+          scenarioLowMonthly: [...lowMonths],
+          scenarioHighMonthly: [...highMonths],
+      });
+  }, [isBudgetModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const distributeAnnual = (annual: number): number[] => {
       const perMonth = Math.round(annual / 12);
@@ -691,7 +695,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
                             {company.budgetType === 'scenario' ? (
                                 <>
-                                    <Line type="monotone" dataKey="cumBudgetLow" name="Pessimist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                                    <Line type="monotone" dataKey="cumBudgetLow" name="Realist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
                                     <Line type="monotone" dataKey="cumBudgetHigh" name="Optimist (Akk)" stroke="#34d399" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
                                 </>
                             ) : (
@@ -1173,7 +1177,17 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 Standard
                             </button>
                             <button type="button"
-                                onClick={() => setBudgetFormData({...budgetFormData, budgetType: 'scenario'})}
+                                onClick={() => {
+                                    // Pre-fill Realist fields with existing standard budget when switching to Scenario
+                                    const alreadyScenario = budgetFormData.budgetType === 'scenario';
+                                    setBudgetFormData({
+                                        ...budgetFormData,
+                                        budgetType: 'scenario',
+                                        scenarioLowAnnual: alreadyScenario ? budgetFormData.scenarioLowAnnual : budgetFormData.annual,
+                                        scenarioLowQuarterly: alreadyScenario ? budgetFormData.scenarioLowQuarterly : [...budgetFormData.quarterly],
+                                        scenarioLowMonthly: alreadyScenario ? budgetFormData.scenarioLowMonthly : [...budgetFormData.monthly],
+                                    });
+                                }}
                                 className={`py-2.5 text-sm font-bold rounded-xl border-2 transition-colors ${isScenario ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300'}`}>
                                 Scenariobudsjett
                             </button>
@@ -1209,7 +1223,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             {budgetFormData.entryMode === 'annual' && isScenario && (
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="text-xs font-bold uppercase text-rose-500 mb-1 block">Pessimist — Årsbudsjett</label>
+                                        <label className="text-xs font-bold uppercase text-rose-500 mb-1 block">Realist — Årsbudsjett</label>
                                         <input type="number" className={inputCls('rose')}
                                             value={budgetFormData.scenarioLowAnnual || ''}
                                             onChange={(e) => setBudgetFormData({...budgetFormData, scenarioLowAnnual: parseFloat(e.target.value) || 0})}
@@ -1249,7 +1263,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     <div className="col-span-4 grid grid-cols-4 gap-3">
                                         {[0,1,2,3].map(q => (
                                             <div key={q}>
-                                                <label className="text-[10px] font-bold uppercase text-rose-500 mb-1 block">Pessimist K{q+1}</label>
+                                                <label className="text-[10px] font-bold uppercase text-rose-500 mb-1 block">Realist K{q+1}</label>
                                                 <input type="number" className={inputCls('rose')}
                                                     value={budgetFormData.scenarioLowQuarterly[q] || ''}
                                                     onChange={(e) => { const nq=[...budgetFormData.scenarioLowQuarterly]; nq[q]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, scenarioLowQuarterly: nq}); }}
@@ -1295,9 +1309,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                         <div/>
                                         {MONTHS.map(m => <div key={m} className="text-[10px] font-bold uppercase text-slate-400 text-center">{m}</div>)}
                                     </div>
-                                    {/* Pessimist row */}
+                                    {/* Realist row */}
                                     <div className="grid gap-2 items-center" style={{gridTemplateColumns: '80px repeat(12, 1fr)'}}>
-                                        <span className="text-[10px] font-bold uppercase text-rose-500">Pessimist</span>
+                                        <span className="text-[10px] font-bold uppercase text-rose-500">Realist</span>
                                         {MONTHS.map((_, i) => (
                                             <input key={i} type="number" className={inputCls('rose')}
                                                 value={budgetFormData.scenarioLowMonthly[i] || ''}
