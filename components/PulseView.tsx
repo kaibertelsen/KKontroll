@@ -82,7 +82,7 @@ const PulseView: React.FC<PulseViewProps> = ({ companies, dateLabel, onSelectCom
         {/* Header */}
         <div className="flex items-start gap-2 mb-3">
           <span className="text-slate-300 dark:text-slate-600 text-[10px] font-bold min-w-[16px] mt-0.5">{idx + 1}</span>
-          <span className="text-slate-800 dark:text-slate-100 text-xs font-semibold leading-tight line-clamp-2">{company.name}</span>
+          <span className="text-slate-800 dark:text-slate-100 text-xs font-semibold leading-tight line-clamp-2">{company.fullName || company.name}</span>
         </div>
 
         {/* NEDRE | RESULTAT | ØVRE */}
