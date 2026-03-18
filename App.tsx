@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile, MonthlyEntryData } from './types';
 import AnalyticsView from './components/AnalyticsView';
+import PulseView from './components/PulseView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
@@ -29,7 +30,8 @@ import {
   LayoutGrid,
   BarChart3,
   Building2,
-  Users
+  Users,
+  Activity
 } from 'lucide-react';
 
 interface AppProps {
@@ -1273,12 +1275,22 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                         >
                             <Grid2X2 size={16} />
                         </button>
-                        <button 
-                            onClick={() => setCardSize('compact')} 
+                        <button
+                            onClick={() => setCardSize('compact')}
                             className={`p-2 rounded-lg transition-all ${cardSize === 'compact' ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
                             title="Kompakt visning"
                         >
                             <LayoutTemplate size={16} />
+                        </button>
+
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                        <button
+                            onClick={() => setViewMode(viewMode === ViewMode.PULSE ? ViewMode.GRID : ViewMode.PULSE)}
+                            className={`p-2 rounded-lg transition-all ${viewMode === ViewMode.PULSE ? 'bg-white dark:bg-slate-600 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}
+                            title="Puls – On Track / Off Track"
+                        >
+                            <Activity size={16} />
                         </button>
                     </div>
 
@@ -1290,7 +1302,13 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     </div>
                 </div>
                 
-                {viewMode === ViewMode.ANALYTICS ? (
+                {viewMode === ViewMode.PULSE ? (
+                    <PulseView
+                        companies={sortedData}
+                        dateLabel={isTodayMode ? currentDateDisplay : lastMonthDisplay}
+                        onSelectCompany={setSelectedCompany}
+                    />
+                ) : viewMode === ViewMode.ANALYTICS ? (
                     <AnalyticsView data={sortedData} />
                 ) : (
                     <>
