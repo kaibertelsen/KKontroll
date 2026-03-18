@@ -54,15 +54,19 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   // Budget Modal State
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [budgetFormData, setBudgetFormData] = useState<{
-      mode: 'annual' | 'quarterly' | 'monthly';
+      mode: 'annual' | 'quarterly' | 'monthly' | 'scenario';
       annual: number;
       quarterly: number[];
       monthly: number[];
+      scenarioLowAnnual: number;
+      scenarioHighAnnual: number;
   }>({
       mode: 'annual',
       annual: 0,
       quarterly: [0,0,0,0],
-      monthly: Array(12).fill(0)
+      monthly: Array(12).fill(0),
+      scenarioLowAnnual: 0,
+      scenarioHighAnnual: 0,
   });
 
   // Initialize Budget Form Data
@@ -70,31 +74,60 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       if (isBudgetModalOpen) {
           const bMonths = company.budgetMonths || Array(12).fill(0);
           const total = company.budgetTotal || 0;
-          
           const q = [0,0,0,0];
           for(let i=0; i<12; i++) q[Math.floor(i/3)] += Number(bMonths[i]) || 0;
 
+          const lowMonths = company.budgetMonthsLow || Array(12).fill(0);
+          const highMonths = company.budgetMonthsHigh || Array(12).fill(0);
+          const lowTotal = lowMonths.reduce((a: number, b: number) => a + b, 0);
+          const highTotal = highMonths.reduce((a: number, b: number) => a + b, 0);
+
           setBudgetFormData({
-              mode: company.budgetMode || 'annual',
+              mode: company.budgetType === 'scenario' ? 'scenario' : (company.budgetMode || 'annual'),
               annual: total,
               monthly: [...bMonths],
-              quarterly: q
+              quarterly: q,
+              scenarioLowAnnual: lowTotal,
+              scenarioHighAnnual: highTotal,
           });
       }
   }, [isBudgetModalOpen, company]);
 
+  const distributeAnnual = (annual: number): number[] => {
+      const perMonth = Math.round(annual / 12);
+      const months = Array(12).fill(perMonth);
+      months[11] += annual - perMonth * 12;
+      return months;
+  };
+
   const handleBudgetSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      
+
+      if (budgetFormData.mode === 'scenario') {
+          const lowMonths = distributeAnnual(budgetFormData.scenarioLowAnnual);
+          const highMonths = distributeAnnual(budgetFormData.scenarioHighAnnual);
+          const midTotal = (budgetFormData.scenarioLowAnnual + budgetFormData.scenarioHighAnnual) / 2;
+          const midMonths = distributeAnnual(midTotal);
+          const updatedCompany: CompanyData = {
+              ...company,
+              budgetType: 'scenario',
+              budgetMode: 'annual',
+              budgetTotal: midTotal,
+              budgetMonths: midMonths,
+              budgetMonthsLow: lowMonths,
+              budgetMonthsHigh: highMonths,
+          };
+          onUpdateCompany(updatedCompany);
+          setIsBudgetModalOpen(false);
+          return;
+      }
+
       let finalMonths = Array(12).fill(0);
       let finalTotal = 0;
 
       if (budgetFormData.mode === 'annual') {
           finalTotal = budgetFormData.annual;
-          const perMonth = Math.round(budgetFormData.annual / 12);
-          finalMonths = Array(12).fill(perMonth);
-          const sum = perMonth * 12;
-          finalMonths[11] += (budgetFormData.annual - sum);
+          finalMonths = distributeAnnual(finalTotal);
       } else if (budgetFormData.mode === 'quarterly') {
           finalTotal = budgetFormData.quarterly.reduce((a,b) => a+b, 0);
           for(let q=0; q<4; q++) {
@@ -111,9 +144,12 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
       const updatedCompany: CompanyData = {
           ...company,
+          budgetType: 'standard',
           budgetTotal: finalTotal,
-          budgetMode: budgetFormData.mode,
-          budgetMonths: finalMonths
+          budgetMode: budgetFormData.mode as 'annual' | 'quarterly' | 'monthly',
+          budgetMonths: finalMonths,
+          budgetMonthsLow: Array(12).fill(0),
+          budgetMonthsHigh: Array(12).fill(0),
       };
 
       onUpdateCompany(updatedCompany);
@@ -176,13 +212,19 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       
       const avgResultPerMonth = company.resultYTD / (currentMonthIndex + 1);
       
+      const isScenario = company.budgetType === 'scenario';
+      const bMonthsLow: number[] = (isScenario && company.budgetMonthsLow) ? company.budgetMonthsLow.map(x => Number(x) || 0) : Array(12).fill(0);
+      const bMonthsHigh: number[] = (isScenario && company.budgetMonthsHigh) ? company.budgetMonthsHigh.map(x => Number(x) || 0) : Array(12).fill(0);
+
       for (let i = 0; i <= currentMonthIndex; i++) {
-        const variance = 0.8 + Math.random() * 0.4; 
+        const variance = 0.8 + Math.random() * 0.4;
         const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(Number(bMonths[i]) || 0); 
-        
+        const budget = Math.round(Number(bMonths[i]) || 0);
+
         const prevResult = i > 0 ? data[i-1].cumResult : 0;
         const prevBudget = i > 0 ? data[i-1].cumBudget : 0;
+        const prevBudgetLow = i > 0 ? (data[i-1].cumBudgetLow ?? 0) : 0;
+        const prevBudgetHigh = i > 0 ? (data[i-1].cumBudgetHigh ?? 0) : 0;
 
         const liquidity = Math.round(company.liquidity * (0.9 + Math.random() * 0.2));
 
@@ -192,6 +234,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           budget: budget,
           cumResult: prevResult + result,
           cumBudget: prevBudget + budget,
+          cumBudgetLow: isScenario ? prevBudgetLow + Math.round(Number(bMonthsLow[i]) || 0) : undefined,
+          cumBudgetHigh: isScenario ? prevBudgetHigh + Math.round(Number(bMonthsHigh[i]) || 0) : undefined,
           liquidity: liquidity,
           type: 'history'
         });
@@ -550,13 +594,35 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
                 <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
-                <StatCard 
-                    icon={Target} 
-                    label="Budsjett YTD" 
-                    value={Math.round(company.calculatedBudgetYTD)} 
-                    subText={`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}
-                    onEdit={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
-                />
+                {company.budgetType === 'scenario' && company.calculatedBudgetYTDLow !== undefined && company.calculatedBudgetYTDHigh !== undefined ? (
+                    <div className="bg-white dark:bg-slate-800 p-3 sm:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full relative group transition-all">
+                        {userRole === 'controller' && (
+                            <button onClick={() => setIsBudgetModalOpen(true)} className="absolute top-2 right-2 sm:top-3 sm:right-3 text-slate-300 hover:text-sky-600 sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-all" title="Rediger">
+                                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            </button>
+                        )}
+                        <div>
+                            <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 dark:text-slate-400 mb-1 sm:mb-2">
+                                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Budsjett YTD</span>
+                            </div>
+                            <p className="text-base sm:text-xl font-bold tabular-nums truncate text-slate-900 dark:text-white">
+                                <span className="text-rose-500">{formatCurrency(Math.round(company.calculatedBudgetYTDLow))}</span>
+                                <span className="text-slate-400 mx-1">–</span>
+                                <span className="text-emerald-600">{formatCurrency(Math.round(company.calculatedBudgetYTDHigh))}</span>
+                            </p>
+                        </div>
+                        <p className="text-[10px] sm:text-xs mt-0.5 sm:mt-2 truncate text-purple-500">Scenariobudsjett</p>
+                    </div>
+                ) : (
+                    <StatCard
+                        icon={Target}
+                        label="Budsjett YTD"
+                        value={Math.round(company.calculatedBudgetYTD)}
+                        subText={`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}
+                        onEdit={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
+                    />
+                )}
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
@@ -591,7 +657,14 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
                             <Legend />
                             <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
-                            <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                            {company.budgetType === 'scenario' ? (
+                                <>
+                                    <Line type="monotone" dataKey="cumBudgetLow" name="Pessimist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                                    <Line type="monotone" dataKey="cumBudgetHigh" name="Optimist (Akk)" stroke="#34d399" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                                </>
+                            ) : (
+                                <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                            )}
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
@@ -1046,35 +1119,29 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     
                     <form onSubmit={handleBudgetSubmit} className="p-6 space-y-6">
                         <div className="bg-slate-50 dark:bg-slate-700/30 p-1 rounded-lg flex justify-center border border-slate-200 dark:border-slate-600">
-                             <button
-                                type="button"
-                                onClick={() => setBudgetFormData({...budgetFormData, mode: 'annual'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'annual' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
-                             >
-                                 Årlig
-                             </button>
-                             <button
-                                type="button"
-                                onClick={() => setBudgetFormData({...budgetFormData, mode: 'quarterly'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'quarterly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
-                             >
-                                 Kvartalsvis
-                             </button>
-                             <button
-                                type="button"
-                                onClick={() => setBudgetFormData({...budgetFormData, mode: 'monthly'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'monthly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}
-                             >
-                                 Månedlig
-                             </button>
+                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'annual'})}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'annual' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
+                                Årlig
+                            </button>
+                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'quarterly'})}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'quarterly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
+                                Kvartalsvis
+                            </button>
+                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'monthly'})}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'monthly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
+                                Månedlig
+                            </button>
+                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'scenario'})}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'scenario' ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
+                                Scenario
+                            </button>
                         </div>
 
                         <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
                             {budgetFormData.mode === 'annual' && (
                                 <div>
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Årsbudsjett</label>
-                                    <input 
-                                        type="number" 
+                                    <input type="number"
                                         className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
                                         value={budgetFormData.annual || ''}
                                         onChange={(e) => setBudgetFormData({...budgetFormData, annual: parseFloat(e.target.value) || 0})}
@@ -1088,8 +1155,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     {[0, 1, 2, 3].map(q => (
                                         <div key={q}>
                                             <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kvartal {q+1}</label>
-                                            <input 
-                                                type="number"
+                                            <input type="number"
                                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
                                                 value={budgetFormData.quarterly[q] || ''}
                                                 onChange={(e) => {
@@ -1108,8 +1174,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                     {['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'].map((m, i) => (
                                         <div key={i}>
                                             <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">{m}</label>
-                                            <input 
-                                                type="number"
+                                            <input type="number"
                                                 className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-2 py-1.5 text-slate-900 dark:text-white text-xs"
                                                 value={budgetFormData.monthly[i] || ''}
                                                 onChange={(e) => {
@@ -1120,6 +1185,37 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                             />
                                         </div>
                                     ))}
+                                </div>
+                            )}
+
+                            {budgetFormData.mode === 'scenario' && (
+                                <div className="space-y-5">
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg px-3 py-2">
+                                        <strong>Scenariobudsjett</strong> — sett et pessimistisk (nedre) og optimistisk (øvre) budsjett. Avvik beregnes fra midtpunktet.
+                                    </p>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-xs font-bold uppercase text-rose-500 mb-1 block">Pessimist (nedre)</label>
+                                            <input type="number"
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
+                                                value={budgetFormData.scenarioLowAnnual || ''}
+                                                onChange={(e) => setBudgetFormData({...budgetFormData, scenarioLowAnnual: parseFloat(e.target.value) || 0})}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs font-bold uppercase text-emerald-600 mb-1 block">Optimist (øvre)</label>
+                                            <input type="number"
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
+                                                value={budgetFormData.scenarioHighAnnual || ''}
+                                                onChange={(e) => setBudgetFormData({...budgetFormData, scenarioHighAnnual: parseFloat(e.target.value) || 0})}
+                                            />
+                                        </div>
+                                    </div>
+                                    {budgetFormData.scenarioLowAnnual > 0 && budgetFormData.scenarioHighAnnual > 0 && (
+                                        <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
+                                            Midtpunkt (brukes til avvik): <strong className="text-slate-700 dark:text-slate-200">{formatCurrency((budgetFormData.scenarioLowAnnual + budgetFormData.scenarioHighAnnual) / 2)}</strong>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

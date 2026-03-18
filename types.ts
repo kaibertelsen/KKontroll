@@ -2,14 +2,17 @@
 
 export interface CompanyData {
   id: number;
-  name: string; 
-  fullName?: string; 
-  manager: string; 
+  name: string;
+  fullName?: string;
+  manager: string;
   sortOrder?: number; // Added for ordering
   resultYTD: number;
-  budgetTotal: number; 
+  budgetTotal: number;
   budgetMode: 'annual' | 'quarterly' | 'monthly';
-  budgetMonths: number[]; 
+  budgetMonths: number[];
+  budgetType?: 'standard' | 'scenario';
+  budgetMonthsLow?: number[];
+  budgetMonthsHigh?: number[]; 
   revenue: number; 
   expenses: number; 
   pnlDate?: string; 
@@ -35,6 +38,8 @@ export interface CompanyData {
 export interface ComputedCompanyData extends CompanyData {
   calculatedBudgetYTD: number;
   calculatedDeviationPercent: number;
+  calculatedBudgetYTDLow?: number;
+  calculatedBudgetYTDHigh?: number;
 }
 
 export interface UserData {

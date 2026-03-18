@@ -303,7 +303,21 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         </div>
                     }
                   />
-                  <RowItem icon={Target} label="Budsjett YTD" value={data.calculatedBudgetYTD} valueColor="text-slate-500 dark:text-slate-400" />
+                  {data.budgetType === 'scenario' && data.calculatedBudgetYTDLow !== undefined && data.calculatedBudgetYTDHigh !== undefined ? (
+                    <div className={`flex justify-between items-center ${zoomLevel < 80 ? 'h-5' : 'h-6'}`}>
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <Target size={zoomLevel < 80 ? 12 : 14} className="text-slate-400 dark:text-slate-500 shrink-0" />
+                        <span className={`${textSizeClass} font-medium text-slate-600 dark:text-slate-400`}>Budsjett YTD</span>
+                      </div>
+                      <span className={`${textSizeClass} font-bold tabular-nums text-slate-500 dark:text-slate-400`}>
+                        <span className="text-rose-400">{formatCurrency(data.calculatedBudgetYTDLow)}</span>
+                        <span className="text-slate-400 mx-0.5">–</span>
+                        <span className="text-emerald-500">{formatCurrency(data.calculatedBudgetYTDHigh)}</span>
+                      </span>
+                    </div>
+                  ) : (
+                    <RowItem icon={Target} label="Budsjett YTD" value={data.calculatedBudgetYTD} valueColor="text-slate-500 dark:text-slate-400" />
+                  )}
                   <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
@@ -322,7 +336,13 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         Avvik {data.calculatedDeviationPercent > 0 ? '+' : ''}{data.calculatedDeviationPercent.toFixed(1)}%
                     </span>
                 </div>
-                <DeviationSlider value={data.calculatedDeviationPercent} />
+                <DeviationSlider
+                  value={data.calculatedDeviationPercent}
+                  isScenario={data.budgetType === 'scenario'}
+                  budgetYTDLow={data.calculatedBudgetYTDLow}
+                  budgetYTDHigh={data.calculatedBudgetYTDHigh}
+                  resultYTD={data.resultYTD}
+                />
               </div>
 
             </div>

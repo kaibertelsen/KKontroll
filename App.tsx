@@ -559,6 +559,9 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               budget_total: updatedCompany.budgetTotal,
               budget_mode: updatedCompany.budgetMode,
               budget_months: JSON.stringify(updatedCompany.budgetMonths),
+              budget_type: updatedCompany.budgetType || 'standard',
+              budget_months_low: JSON.stringify(updatedCompany.budgetMonthsLow || Array(12).fill(0)),
+              budget_months_high: JSON.stringify(updatedCompany.budgetMonthsHigh || Array(12).fill(0)),
               liquidity: updatedCompany.liquidity,
               receivables: updatedCompany.receivables,
               accounts_payable: updatedCompany.accountsPayable,
@@ -584,21 +587,31 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                const now = new Date();
                const currentMonthIndex = now.getMonth();
                const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+               const calcYTD = (months: number[]) => {
+                   let t = 0;
+                   for (let i = 0; i < currentMonthIndex; i++) t += Number(months[i] || 0);
+                   if (isTodayMode) t += (Number(months[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
+                   return t;
+               };
                let targetBudget = 0;
-               const bMonths = updatedCompany.budgetMonths || Array(12).fill(0);
-               if (isTodayMode) {
-                    for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
-                    targetBudget += (Number(bMonths[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
+               let calculatedBudgetYTDLow: number | undefined;
+               let calculatedBudgetYTDHigh: number | undefined;
+               if (updatedCompany.budgetType === 'scenario' && updatedCompany.budgetMonthsLow && updatedCompany.budgetMonthsHigh) {
+                   calculatedBudgetYTDLow = calcYTD(updatedCompany.budgetMonthsLow);
+                   calculatedBudgetYTDHigh = calcYTD(updatedCompany.budgetMonthsHigh);
+                   targetBudget = (calculatedBudgetYTDLow + calculatedBudgetYTDHigh) / 2;
                } else {
-                    for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+                   targetBudget = calcYTD(updatedCompany.budgetMonths || Array(12).fill(0));
                }
                const deviation = updatedCompany.resultYTD - targetBudget;
                const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-               setSelectedCompany(prev => prev ? { 
-                   ...prev, 
+               setSelectedCompany(prev => prev ? {
+                   ...prev,
                    ...updatedCompany,
                    calculatedBudgetYTD: targetBudget,
-                   calculatedDeviationPercent: deviationPercent
+                   calculatedDeviationPercent: deviationPercent,
+                   calculatedBudgetYTDLow,
+                   calculatedBudgetYTDHigh,
                } : null);
           }
       } catch (e) {
@@ -925,22 +938,34 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
 
   const computedData: ComputedCompanyData[] = useMemo(() => {
     const now = new Date();
-    const currentMonthIndex = now.getMonth(); 
+    const currentMonthIndex = now.getMonth();
     const dayOfMonth = now.getDate();
     const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
-    
+
+    const calcYTD = (months: number[]): number => {
+      let t = 0;
+      for (let i = 0; i < currentMonthIndex; i++) t += Number(months[i] || 0);
+      if (isTodayMode) t += (Number(months[currentMonthIndex] || 0) / daysInCurrentMonth) * dayOfMonth;
+      return t;
+    };
+
     return visibleCompanies.map(company => {
+        const isScenario = company.budgetType === 'scenario';
         let targetBudget = 0;
-        const bMonths = company.budgetMonths;
-        if (isTodayMode) {
-            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-            targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * dayOfMonth;
+        let calculatedBudgetYTDLow: number | undefined;
+        let calculatedBudgetYTDHigh: number | undefined;
+
+        if (isScenario && company.budgetMonthsLow && company.budgetMonthsHigh) {
+            calculatedBudgetYTDLow = calcYTD(company.budgetMonthsLow);
+            calculatedBudgetYTDHigh = calcYTD(company.budgetMonthsHigh);
+            targetBudget = (calculatedBudgetYTDLow + calculatedBudgetYTDHigh) / 2;
         } else {
-            for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+            targetBudget = calcYTD(company.budgetMonths);
         }
+
         const deviation = company.resultYTD - targetBudget;
         const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-        return { ...company, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent };
+        return { ...company, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent, calculatedBudgetYTDLow, calculatedBudgetYTDHigh };
     });
   }, [isTodayMode, visibleCompanies]);
 

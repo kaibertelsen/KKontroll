@@ -371,12 +371,32 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
           bMonths[11] += (bTotal - (perMonth * 12));
         }
 
+        // Parse budget_months_low
+        const parseBudgetArray = (raw: any): number[] => {
+          let arr: number[] = [];
+          try {
+            if (Array.isArray(raw)) arr = raw.map(Number);
+            else if (typeof raw === 'object' && raw !== null) arr = Object.values(raw).map(Number);
+            else if (typeof raw === 'string') {
+              let s = raw.trim();
+              if (s.startsWith('{') && s.endsWith('}')) s = s.replace('{', '[').replace('}', ']');
+              try { const p = JSON.parse(s); if (Array.isArray(p)) arr = p.map(Number); }
+              catch { arr = s.replace(/[\[\]\{\}]/g, '').split(',').map(Number); }
+            }
+          } catch {}
+          if (arr.length !== 12 || arr.some(isNaN)) arr = Array(12).fill(0);
+          return arr;
+        };
+
         return {
           ...c,
           resultYTD: Number(c.resultYtd || c.result_ytd || 0),
           budgetTotal: bTotal,
           budgetMode: c.budgetMode || c.budget_mode || 'annual',
           budgetMonths: bMonths,
+          budgetType: c.budget_type || c.budgetType || 'standard',
+          budgetMonthsLow: parseBudgetArray(c.budget_months_low || c.budgetMonthsLow),
+          budgetMonthsHigh: parseBudgetArray(c.budget_months_high || c.budgetMonthsHigh),
           liquidity: Number(c.liquidity || 0),
           receivables: Number(c.receivables || 0),
           accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
