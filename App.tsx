@@ -347,43 +347,37 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                 filteredRows = filteredRows.filter((c: any) => userProfile.companyIds!.includes(c.id));
             }
 
-            const mapped = filteredRows.map((c: any) => {
-                let bMonths: number[] = [];
-                const rawMonths = c.budgetMonths ?? c.budget_months; 
+            // Helper: parse a budget months array from any DB format
+            const parseBudgetArr = (raw: any): number[] => {
+                let arr: number[] = [];
                 try {
-                    if (Array.isArray(rawMonths)) {
-                        bMonths = rawMonths.map(Number);
-                    } else if (typeof rawMonths === 'object' && rawMonths !== null) {
-                        bMonths = Object.values(rawMonths).map(Number);
-                    } else if (typeof rawMonths === 'string') {
-                        let cleanStr = rawMonths.trim();
-                        if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
-                            cleanStr = cleanStr.replace('{', '[').replace('}', ']');
-                        }
-                        try {
-                            const parsed = JSON.parse(cleanStr);
-                            if (Array.isArray(parsed)) bMonths = parsed.map(Number);
-                        } catch (jsonErr) {
-                             const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
-                            if (parts.length > 0 && !parts.some(p => isNaN(Number(p)))) {
-                                bMonths = parts.map(Number);
-                            }
-                        }
+                    if (Array.isArray(raw)) arr = raw.map(Number);
+                    else if (typeof raw === 'object' && raw !== null) arr = Object.values(raw).map(Number);
+                    else if (typeof raw === 'string') {
+                        let s = raw.trim();
+                        if (s.startsWith('{') && s.endsWith('}')) s = s.replace('{', '[').replace('}', ']');
+                        try { const p = JSON.parse(s); if (Array.isArray(p)) arr = p.map(Number); }
+                        catch { arr = s.replace(/[\[\]\{\}]/g, '').split(',').map(Number); }
                     }
-                } catch(e) { console.warn("Budget parsing error in reload", e); }
+                } catch {}
+                if (!arr || arr.length !== 12 || arr.some(isNaN)) arr = Array(12).fill(0);
+                return arr;
+            };
 
-                if (!bMonths || bMonths.length !== 12 || bMonths.some(isNaN)) {
-                    bMonths = Array(12).fill(0);
-                }
+            const mapped = filteredRows.map((c: any) => {
+                let bMonths = parseBudgetArr(c.budgetMonths ?? c.budget_months);
 
                 const bTotal = Number(c.budgetTotal || c.budget_total || 0);
-                const sumMonths = bMonths.reduce((a, b) => a + b, 0);
-
+                const sumMonths = bMonths.reduce((a: number, b: number) => a + b, 0);
                 if ((sumMonths === 0 || isNaN(sumMonths)) && bTotal > 0) {
-                     const perMonth = Math.round(bTotal / 12);
-                     bMonths = Array(12).fill(perMonth);
-                     bMonths[11] += (bTotal - (perMonth * 12));
+                    const perMonth = Math.round(bTotal / 12);
+                    bMonths = Array(12).fill(perMonth);
+                    bMonths[11] += (bTotal - perMonth * 12);
                 }
+
+                const budgetType = c.budget_type || c.budgetType || 'standard';
+                const budgetMonthsLow = parseBudgetArr(c.budget_months_low ?? c.budgetMonthsLow);
+                const budgetMonthsHigh = parseBudgetArr(c.budget_months_high ?? c.budgetMonthsHigh);
 
                 return {
                     ...c,
@@ -391,25 +385,28 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     budgetTotal: bTotal,
                     budgetMode: c.budgetMode || c.budget_mode || 'annual',
                     budgetMonths: bMonths,
+                    budgetType,
+                    budgetMonthsLow,
+                    budgetMonthsHigh,
                     liquidity: Number(c.liquidity || 0),
                     receivables: Number(c.receivables || 0),
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
-                    publicFees: Number(c.publicFees || c.public_fees || 0), 
-                    salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0), 
+                    publicFees: Number(c.publicFees || c.public_fees || 0),
+                    salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0),
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
                     name: c.name || '',
-                    fullName: c.fullName || c.full_name || '', 
-                    manager: c.manager || 'Ingen leder', 
+                    fullName: c.fullName || c.full_name || '',
+                    manager: c.manager || 'Ingen leder',
                     sortOrder: Number(c.sortOrder || c.sort_order || 0),
                     revenue: Number(c.revenue || 0),
                     expenses: Number(c.expenses || 0),
                     liquidityDate: c.liquidityDate || c.liquidity_date || '',
                     receivablesDate: c.receivablesDate || c.receivables_date || '',
                     accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
-                    publicFeesDate: c.publicFeesDate || c.public_fees_date || '', 
-                    salaryExpensesDate: c.salaryExpensesDate || c.salary_expenses_date || '', 
+                    publicFeesDate: c.publicFeesDate || c.public_fees_date || '',
+                    salaryExpensesDate: c.salaryExpensesDate || c.salary_expenses_date || '',
                     lastReportDate: c.lastReportDate || c.last_report_date || '',
                     lastReportBy: c.lastReportBy || c.last_report_by || '',
                     comment: c.currentComment || c.current_comment || '',
@@ -424,20 +421,30 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     const now = new Date();
                     const currentMonthIndex = now.getMonth();
                     const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+                    const calcYTD = (months: number[]) => {
+                        let t = 0;
+                        for (let i = 0; i < currentMonthIndex; i++) t += Number(months[i] || 0);
+                        if (isTodayMode) t += (Number(months[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
+                        return t;
+                    };
                     let targetBudget = 0;
-                    const bMonths = updated.budgetMonths;
-                    if (isTodayMode) {
-                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
-                         targetBudget += (bMonths[currentMonthIndex] / daysInCurrentMonth) * now.getDate();
+                    let calculatedBudgetYTDLow: number | undefined;
+                    let calculatedBudgetYTDHigh: number | undefined;
+                    if (updated.budgetType === 'scenario' && updated.budgetMonthsLow && updated.budgetMonthsHigh) {
+                        calculatedBudgetYTDLow = calcYTD(updated.budgetMonthsLow);
+                        calculatedBudgetYTDHigh = calcYTD(updated.budgetMonthsHigh);
+                        targetBudget = (calculatedBudgetYTDLow + calculatedBudgetYTDHigh) / 2;
                     } else {
-                         for (let i = 0; i < currentMonthIndex; i++) targetBudget += bMonths[i];
+                        targetBudget = calcYTD(updated.budgetMonths);
                     }
                     const deviation = updated.resultYTD - targetBudget;
                     const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
                     setSelectedCompany({
                         ...updated,
                         calculatedBudgetYTD: targetBudget,
-                        calculatedDeviationPercent: deviationPercent
+                        calculatedDeviationPercent: deviationPercent,
+                        calculatedBudgetYTDLow,
+                        calculatedBudgetYTDHigh,
                     });
                 }
             }
@@ -798,20 +805,28 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
       const raw = companies.find(c => c.id === companyId);
       if (!raw) return;
       const now = new Date();
-      const currentMonthIndex = now.getMonth(); 
+      const currentMonthIndex = now.getMonth();
       const dayOfMonth = now.getDate();
       const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+      const calcYTD = (months: number[]) => {
+          let t = 0;
+          for (let i = 0; i < currentMonthIndex; i++) t += Number(months[i] || 0);
+          if (isTodayMode) t += (Number(months[currentMonthIndex] || 0) / daysInCurrentMonth) * dayOfMonth;
+          return t;
+      };
       let targetBudget = 0;
-      const bMonths = raw.budgetMonths || Array(12).fill(0);
-      if (isTodayMode) {
-          for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
-          targetBudget += (Number(bMonths[currentMonthIndex] || 0) / daysInCurrentMonth) * dayOfMonth;
+      let calculatedBudgetYTDLow: number | undefined;
+      let calculatedBudgetYTDHigh: number | undefined;
+      if (raw.budgetType === 'scenario' && raw.budgetMonthsLow && raw.budgetMonthsHigh) {
+          calculatedBudgetYTDLow = calcYTD(raw.budgetMonthsLow);
+          calculatedBudgetYTDHigh = calcYTD(raw.budgetMonthsHigh);
+          targetBudget = (calculatedBudgetYTDLow + calculatedBudgetYTDHigh) / 2;
       } else {
-          for (let i = 0; i < currentMonthIndex; i++) targetBudget += Number(bMonths[i] || 0);
+          targetBudget = calcYTD(raw.budgetMonths || Array(12).fill(0));
       }
       const deviation = raw.resultYTD - targetBudget;
       const deviationPercent = targetBudget !== 0 ? (deviation / targetBudget) * 100 : 0;
-      setSelectedCompany({ ...raw, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent });
+      setSelectedCompany({ ...raw, calculatedBudgetYTD: targetBudget, calculatedDeviationPercent: deviationPercent, calculatedBudgetYTDLow, calculatedBudgetYTDHigh });
   };
 
   // --- REFRESH HANDLERS ---
