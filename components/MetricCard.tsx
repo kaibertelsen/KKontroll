@@ -3,18 +3,19 @@ import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
 import DeviationSlider from './DeviationSlider';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  Wallet, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Activity, 
-  Target, 
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  Target,
   ArrowRight,
   BarChart3,
   GripHorizontal,
   Landmark,
-  Banknote
+  Banknote,
+  ExternalLink
 } from 'lucide-react';
 import { 
   AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart 
@@ -268,12 +269,21 @@ const MetricCard: React.FC<MetricCardProps> = ({
             <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm border ${contentPadding} flex flex-col h-full overflow-hidden transition-colors duration-300 ${isSortMode ? 'border-amber-300 dark:border-amber-700 opacity-90' : 'border-slate-200 dark:border-slate-700'}`}>
               
               <div className={`flex justify-between items-start ${zoomLevel < 80 ? 'mb-2' : 'mb-3'} shrink-0`}>
-                <div className="overflow-hidden w-full">
+                <div className="overflow-hidden flex-1 min-w-0">
                   <h3 className={`${headerSizeClass} font-bold text-slate-900 dark:text-white leading-tight truncate pr-1`} title={data.fullName || data.name}>
                       {index + 1}. {data.fullName || data.name}
                   </h3>
                   <p className={`${subTextSizeClass} text-slate-500 dark:text-slate-400 font-medium`}>{data.manager}</p>
                 </div>
+                {!isSortMode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onSelect(data); }}
+                    className="ml-2 shrink-0 p-1 rounded-md text-slate-400 hover:text-sky-600 hover:bg-sky-50 dark:hover:text-sky-400 dark:hover:bg-sky-900/30 transition-colors"
+                    title="Gå til firmaside"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {/* Reduced gap from 0.5 to 0 for tighter packing */}
