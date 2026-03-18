@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData, MonthlyEntryData } from '../types';
 import { formatCurrency } from '../constants';
 import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye, Landmark, RefreshCw, Banknote, FolderOpen } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, Line, ComposedChart, ReferenceLine
 } from 'recharts';
 
 interface CompanyDetailViewProps {
@@ -54,8 +54,14 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   // Refresh State
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Date mode toggle (local to this view)
+  const [isTodayMode, setIsTodayMode] = useState(false);
+
   // Full-year chart toggle
   const [showFullYear, setShowFullYear] = useState(false);
+
+  // Liquidity forecast chart toggle
+  const [showLiquidityChart, setShowLiquidityChart] = useState(false);
 
   // Forenklet Rapport Modal State
   const [isForenkletOpen, setIsForenkletOpen] = useState(false);
@@ -249,85 +255,133 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   const historyData = useMemo(() => {
       const data = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
-      
-      // SAFE PARSING OF BUDGET DATA
+
+      // Parse budget months array
       let bMonths: number[] = [];
       // @ts-ignore
       const raw = company.budgetMonths || company.budget_months;
-
       if (Array.isArray(raw)) {
           bMonths = raw.map(x => Number(x) || 0);
       } else if (typeof raw === 'object' && raw !== null) {
-          // Handle object case {0: 100, 1: 200}
           bMonths = Object.values(raw).map(Number);
       } else if (typeof raw === 'string') {
-          // Handle Postgres Array string "{100,200}" or JSON "[100,200]"
           let cleanStr = raw.trim();
-          if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
-              cleanStr = cleanStr.replace('{', '[').replace('}', ']');
-          }
-          try {
-              const parsed = JSON.parse(cleanStr);
-              if (Array.isArray(parsed)) bMonths = parsed.map(Number);
-          } catch(e) {
-              // Fallback split
-              const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
-              if (parts.length > 0) bMonths = parts.map(Number);
-          }
+          if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) cleanStr = cleanStr.replace('{', '[').replace('}', ']');
+          try { const p = JSON.parse(cleanStr); if (Array.isArray(p)) bMonths = p.map(Number); }
+          catch { bMonths = cleanStr.replace(/[\[\]\{\}]/g, '').split(',').map(Number); }
       }
-
       if (bMonths.length !== 12) bMonths = Array(12).fill(0);
-
-      // Force distribute total if months are empty or invalid
       const total = Number(company.budgetTotal || 0);
       const sum = bMonths.reduce((a, b) => a + b, 0);
-
       if ((sum === 0 || isNaN(sum)) && total > 0) {
           const perMonth = Math.round(total / 12);
           bMonths = Array(12).fill(perMonth);
-          bMonths[11] += (total - (perMonth * 12));
+          bMonths[11] += (total - perMonth * 12);
       }
 
       const now = new Date();
-      const currentMonthIndex = now.getMonth(); 
-      
-      const avgResultPerMonth = company.resultYTD / (currentMonthIndex + 1);
-      
+      const currentYear = now.getFullYear();
+      const currentMonthIndex = now.getMonth();
+      const todayDay = now.getDate();
+      const daysInCurrentMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+
       const isScenario = company.budgetType === 'scenario';
       const bMonthsLow: number[] = (isScenario && company.budgetMonthsLow) ? company.budgetMonthsLow.map(x => Number(x) || 0) : Array(12).fill(0);
       const bMonthsHigh: number[] = (isScenario && company.budgetMonthsHigh) ? company.budgetMonthsHigh.map(x => Number(x) || 0) : Array(12).fill(0);
 
-      for (let i = 0; i <= currentMonthIndex; i++) {
-        const variance = 0.8 + Math.random() * 0.4;
-        const result = Math.round(avgResultPerMonth * variance);
-        const budget = Math.round(Number(bMonths[i]) || 0);
+      // Map of actual monthly results from forenklet rapport
+      const monthlyResultMap: Record<number, number> = {};
+      for (const entry of monthlyEntries) {
+        if (entry.year === currentYear) monthlyResultMap[entry.month - 1] = entry.revenue - entry.expenses;
+      }
+      const hasMonthlyEntries = Object.keys(monthlyResultMap).length > 0;
+      const avgResultPerMonth = company.resultYTD / Math.max(1, currentMonthIndex + 1);
 
+      // Complete months (always shown regardless of mode)
+      const lastCompleteMonthIndex = currentMonthIndex - 1;
+      for (let i = 0; i <= lastCompleteMonthIndex; i++) {
+        const result = hasMonthlyEntries ? (monthlyResultMap[i] ?? 0) : Math.round(avgResultPerMonth);
+        const budget = Math.round(Number(bMonths[i]) || 0);
         const prevResult = i > 0 ? data[i-1].cumResult : 0;
         const prevBudget = i > 0 ? data[i-1].cumBudget : 0;
-        const prevBudgetLow = i > 0 ? (data[i-1].cumBudgetLow ?? 0) : 0;
-        const prevBudgetHigh = i > 0 ? (data[i-1].cumBudgetHigh ?? 0) : 0;
-
-        const liquidity = Math.round(company.liquidity * (0.9 + Math.random() * 0.2));
-
+        const prevLow = i > 0 ? (data[i-1].cumBudgetLow ?? 0) : 0;
+        const prevHigh = i > 0 ? (data[i-1].cumBudgetHigh ?? 0) : 0;
         data.push({
-          month: months[i],
-          result: result,
-          budget: budget,
+          month: months[i], result, budget,
           cumResult: prevResult + result,
           cumBudget: prevBudget + budget,
-          cumBudgetLow: isScenario ? prevBudgetLow + Math.round(Number(bMonthsLow[i]) || 0) : undefined,
-          cumBudgetHigh: isScenario ? prevBudgetHigh + Math.round(Number(bMonthsHigh[i]) || 0) : undefined,
-          liquidity: liquidity,
-          type: 'history'
+          cumBudgetLow: isScenario ? prevLow + Math.round(Number(bMonthsLow[i]) || 0) : undefined,
+          cumBudgetHigh: isScenario ? prevHigh + Math.round(Number(bMonthsHigh[i]) || 0) : undefined,
+          liquidity: company.liquidity, type: 'history'
         });
       }
-      
-      if(data.length > 0) {
-          data[data.length - 1].cumResult = company.resultYTD;
-          data[data.length - 1].liquidity = company.liquidity;
+
+      // Add the current reference point
+      const prevResult = data.length > 0 ? data[data.length-1].cumResult : 0;
+      const prevBudget = data.length > 0 ? data[data.length-1].cumBudget : 0;
+      const prevLow = data.length > 0 ? (data[data.length-1].cumBudgetLow ?? 0) : 0;
+      const prevHigh = data.length > 0 ? (data[data.length-1].cumBudgetHigh ?? 0) : 0;
+      const curMonthResult = hasMonthlyEntries ? (monthlyResultMap[currentMonthIndex] ?? 0) : Math.round(avgResultPerMonth);
+
+      if (isTodayMode) {
+        // Prorated budget to today (e.g. 18/31 of March)
+        const frac = todayDay / daysInCurrentMonth;
+        const todayBudget = Math.round((Number(bMonths[currentMonthIndex]) || 0) * frac);
+        const todayLow = Math.round((Number(bMonthsLow[currentMonthIndex]) || 0) * frac);
+        const todayHigh = Math.round((Number(bMonthsHigh[currentMonthIndex]) || 0) * frac);
+        const cumResult = hasMonthlyEntries ? prevResult + curMonthResult : company.resultYTD;
+        data.push({
+          month: 'I dag', result: curMonthResult, budget: todayBudget,
+          cumResult,
+          cumBudget: prevBudget + todayBudget,
+          cumBudgetLow: isScenario ? prevLow + todayLow : undefined,
+          cumBudgetHigh: isScenario ? prevHigh + todayHigh : undefined,
+          liquidity: company.liquidity, type: 'today'
+        });
+      } else {
+        // "Siste mnd": add a point for the last complete month end
+        // (already covered by the loop above — last point is the correct end-of-last-month)
+        // Fix last point's cumResult to reflect actual known YTD if no monthly entries
+        if (data.length > 0 && !hasMonthlyEntries) {
+          data[data.length-1].cumResult = company.resultYTD;
+        }
       }
+
       return data;
-  }, [company]);
+  }, [company, monthlyEntries, isTodayMode]);
+
+  // --- EFFECTIVE RESULT YTD (from monthly entries when available) ---
+  const effectiveResultYTD = useMemo(() => {
+    if (monthlyEntries.length === 0) return company.resultYTD;
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    return monthlyEntries
+      .filter(e => e.year < curYear || (e.year === curYear && e.month <= curMonth))
+      .reduce((sum, e) => sum + (e.revenue - e.expenses), 0);
+  }, [company.resultYTD, monthlyEntries]);
+
+  // --- LOCAL BUDGET YTD (respects isTodayMode) ---
+  const localBudgetYTD = useMemo(() => {
+    const now = new Date();
+    const currentMonthIndex = now.getMonth();
+    const daysInCurrentMonth = new Date(now.getFullYear(), currentMonthIndex + 1, 0).getDate();
+    const isScenario = company.budgetType === 'scenario';
+
+    const calcYTD = (months: number[]) => {
+      let t = 0;
+      for (let i = 0; i < currentMonthIndex; i++) t += Number(months[i] || 0);
+      if (isTodayMode) t += (Number(months[currentMonthIndex] || 0) / daysInCurrentMonth) * now.getDate();
+      return t;
+    };
+
+    const bMonths: number[] = Array.isArray(company.budgetMonths) ? company.budgetMonths.map(Number) : Array(12).fill(0);
+    const budget = calcYTD(bMonths);
+    const low = isScenario && company.budgetMonthsLow ? calcYTD(company.budgetMonthsLow.map(Number)) : undefined;
+    const high = isScenario && company.budgetMonthsHigh ? calcYTD(company.budgetMonthsHigh.map(Number)) : undefined;
+    const deviationPercent = budget !== 0 ? ((effectiveResultYTD - budget) / Math.abs(budget)) * 100 : 0;
+    return { budget, low, high, deviationPercent };
+  }, [company, isTodayMode, effectiveResultYTD]);
 
   // --- FULL YEAR CHART DATA ---
   const fullYearData = useMemo(() => {
@@ -608,30 +662,35 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       setIsReportModalOpen(true);
   };
 
-  const StatCard = ({ icon: Icon, label, value, subText, highlight, valueColor, onEdit }: any) => (
-    <div className="bg-white dark:bg-slate-800 p-3 sm:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full relative group transition-all">
-        {onEdit && (
-            <button 
-                onClick={onEdit}
-                className="absolute top-2 right-2 sm:top-3 sm:right-3 text-slate-300 hover:text-sky-600 sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-all"
-                title="Rediger"
-            >
-                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-        )}
-        <div>
-            <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 dark:text-slate-400 mb-1 sm:mb-2">
-                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider truncate">{label}</span>
+  const StatCard = ({ icon: Icon, label, value, subText, highlight, valueColor, onEdit, onAction, actionIcon: ActionIcon, actionTitle, actionActive }: any) => (
+    <div className="bg-white dark:bg-slate-800 px-2.5 pt-2 pb-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative group transition-all min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-1.5">
+            <div className="flex items-center gap-1 min-w-0">
+                <Icon className="w-3 h-3 shrink-0 text-slate-400 dark:text-slate-500" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 leading-none whitespace-nowrap">{label}</span>
             </div>
-            <p className={`text-lg sm:text-2xl font-bold tabular-nums truncate ${valueColor ? valueColor : 'text-slate-900 dark:text-white'}`}>
-                {formatCurrency(value)}
-            </p>
+            <div className="flex items-center gap-0.5 shrink-0">
+                {onAction && ActionIcon && (
+                    <button onClick={onAction} className={`p-0.5 rounded transition-all ${actionActive ? 'text-sky-500' : 'text-slate-300 hover:text-sky-500 opacity-0 group-hover:opacity-100'}`} title={actionTitle}>
+                        <ActionIcon className="w-3 h-3" />
+                    </button>
+                )}
+                {onEdit && (
+                    <button onClick={onEdit} className="text-slate-300 hover:text-sky-500 opacity-0 group-hover:opacity-100 transition-all" title="Rediger">
+                        <Edit className="w-3 h-3" />
+                    </button>
+                )}
+            </div>
         </div>
-        {subText && (
-            <p className={`text-[10px] sm:text-xs mt-0.5 sm:mt-2 truncate ${highlight ? (highlight > 0 ? 'text-emerald-600' : 'text-rose-600') : 'text-slate-400'}`}>
+        <p className={`text-sm font-bold tabular-nums leading-none ${valueColor ?? 'text-slate-900 dark:text-white'}`}>
+            {formatCurrency(value)}
+        </p>
+        {subText ? (
+            <p className={`text-[10px] mt-1 leading-none ${highlight !== undefined ? (highlight > 0 ? 'text-emerald-600' : 'text-rose-500') : 'text-slate-400 dark:text-slate-500'}`}>
                 {subText}
             </p>
+        ) : (
+            <p className="text-[10px] mt-1 leading-none text-transparent select-none">–</p>
         )}
     </div>
   );
@@ -720,117 +779,166 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        
+
         <div className="space-y-2 sm:space-y-4 mb-4 sm:mb-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="flex items-center bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm w-fit">
+              <button
+                onClick={() => setIsTodayMode(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${!isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+              >
+                Siste mnd <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' })})</span>
+              </button>
+              <div className="w-1" />
+              <button
+                onClick={() => setIsTodayMode(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${isTodayMode ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+              >
+                I dag <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' })})</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-10 gap-1.5">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
-                <StatCard icon={BarChart3} label="Resultat YTD" value={company.resultYTD} subText={`Avvik ${company.calculatedDeviationPercent > 0 ? '+' : ''}${company.calculatedDeviationPercent.toFixed(1)}%`} highlight={company.calculatedDeviationPercent}/>
-                {company.budgetType === 'scenario' && company.calculatedBudgetYTDLow !== undefined && company.calculatedBudgetYTDHigh !== undefined ? (
-                    <div className="bg-white dark:bg-slate-800 p-3 sm:p-5 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col justify-between h-full relative group transition-all">
-                        {userRole === 'controller' && (
-                            <button onClick={() => setIsBudgetModalOpen(true)} className="absolute top-2 right-2 sm:top-3 sm:right-3 text-slate-300 hover:text-sky-600 sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-all" title="Rediger">
-                                <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                            </button>
-                        )}
-                        <div>
-                            <div className="flex items-center gap-1.5 sm:gap-2 text-slate-500 dark:text-slate-400 mb-1 sm:mb-2">
-                                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Budsjett YTD</span>
-                            </div>
-                            <p className="text-base sm:text-xl font-bold tabular-nums truncate text-slate-900 dark:text-white">
-                                <span className="text-rose-500">{formatCurrency(Math.round(company.calculatedBudgetYTDLow))}</span>
-                                <span className="text-slate-400 mx-1">–</span>
-                                <span className="text-emerald-600">{formatCurrency(Math.round(company.calculatedBudgetYTDHigh))}</span>
-                            </p>
+                <StatCard icon={BarChart3} label="Resultat YTD" value={effectiveResultYTD} subText={`Avvik ${localBudgetYTD.deviationPercent > 0 ? '+' : ''}${localBudgetYTD.deviationPercent.toFixed(1)}%`} highlight={localBudgetYTD.deviationPercent}/>
+                {company.budgetType === 'scenario' && localBudgetYTD.low !== undefined && localBudgetYTD.high !== undefined ? (
+                    <div
+                        onClick={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
+                        className={`bg-white dark:bg-slate-800 px-2.5 pt-2 pb-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative transition-all min-w-0 ${userRole === 'controller' ? 'cursor-pointer hover:border-sky-300 dark:hover:border-sky-600 hover:shadow-md' : ''}`}
+                    >
+                        <div className="flex items-center gap-1 mb-1.5">
+                            <Target className="w-3 h-3 shrink-0 text-slate-400 dark:text-slate-500" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 leading-none whitespace-nowrap">Budsjett YTD</span>
                         </div>
-                        <p className="text-[10px] sm:text-xs mt-0.5 sm:mt-2 truncate text-purple-500">Scenariobudsjett</p>
+                        <p className="text-sm font-bold tabular-nums leading-none">
+                            <span className="text-rose-500">{formatCurrency(Math.round(localBudgetYTD.low))}</span>
+                            <span className="text-slate-400 mx-0.5">–</span>
+                            <span className="text-emerald-600">{formatCurrency(Math.round(localBudgetYTD.high))}</span>
+                        </p>
+                        <p className="text-[10px] mt-1 leading-none text-purple-500">Scenariobudsjett</p>
                     </div>
                 ) : (
-                    <StatCard
-                        icon={Target}
-                        label="Budsjett YTD"
-                        value={Math.round(company.calculatedBudgetYTD)}
-                        subText={`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}
-                        onEdit={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
-                    />
+                    <div
+                        onClick={userRole === 'controller' ? () => setIsBudgetModalOpen(true) : undefined}
+                        className={`bg-white dark:bg-slate-800 px-2.5 pt-2 pb-2 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col relative transition-all min-w-0 ${userRole === 'controller' ? 'cursor-pointer hover:border-sky-300 dark:hover:border-sky-600 hover:shadow-md' : ''}`}
+                    >
+                        <div className="flex items-center gap-1 mb-1.5">
+                            <Target className="w-3 h-3 shrink-0 text-slate-400 dark:text-slate-500" />
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 leading-none whitespace-nowrap">Budsjett YTD</span>
+                        </div>
+                        <p className="text-sm font-bold tabular-nums leading-none text-slate-900 dark:text-white">{formatCurrency(Math.round(localBudgetYTD.budget))}</p>
+                        <p className="text-[10px] mt-1 leading-none text-slate-400 dark:text-slate-500">{`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}</p>
+                    </div>
                 )}
+                <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} onAction={() => setShowLiquidityChart(v => !v)} actionIcon={LineChart} actionTitle={showLiquidityChart ? 'Skjul prognose' : 'Vis likviditetsprognose'} actionActive={showLiquidityChart} />
+                <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
+                <StatCard icon={ArrowDownRight} label="Lev.Gjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
+                <StatCard icon={Banknote} label="Lønn" value={company.salaryExpenses} subText={company.salaryExpensesDate} />
+                <StatCard icon={Landmark} label="Off.Avg" value={company.publicFees} subText={company.publicFeesDate} />
+                <StatCard icon={Activity} label="Arb.Kapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Liq + Ford − Gjeld" />
             </div>
+        </div>
 
-            {/* Scenario Budget Banner */}
-            {company.budgetType === 'scenario' && company.calculatedBudgetYTDLow !== undefined && company.calculatedBudgetYTDHigh !== undefined && (() => {
-                const nedre = Math.round(company.calculatedBudgetYTDLow!);
-                const ovre = Math.round(company.calculatedBudgetYTDHigh!);
-                const result = company.resultYTD ?? 0;
+        {/* Likviditetsprognose — rett under nøkkeltall */}
+        {showLiquidityChart && (
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative mb-8">
+                <div className="flex justify-between items-center mb-6">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Likviditetsprognose</h3>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsForecastModalOpen(true)}
+                            className="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                        >
+                            <Edit size={12} /> Rediger Prognose
+                        </button>
+                        <button
+                            onClick={() => setShowLiquidityChart(false)}
+                            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                            title="Skjul"
+                        >
+                            <X size={16} />
+                        </button>
+                    </div>
+                </div>
+                <div className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={forecastChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
+                            <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
+                            <Legend />
+                            <Area type="monotone" dataKey="liquidity" name="Historisk" fill="#10b981" stroke="#10b981" fillOpacity={0.3} />
+                            <Line type="monotone" dataKey="forecast" name="Prognose" stroke="#f59e0b" strokeDasharray="5 5" strokeWidth={2} dot={{r: 4}} />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-8 mb-8">
+            {/* Scenario Banner — rett over Resultatutvikling */}
+            {company.budgetType === 'scenario' && localBudgetYTD.low !== undefined && localBudgetYTD.high !== undefined && (() => {
+                const nedre = Math.round(localBudgetYTD.low!);
+                const ovre = Math.round(localBudgetYTD.high!);
+                const result = effectiveResultYTD ?? 0;
                 const range = ovre - nedre;
                 const onTrack = result !== 0 && result >= nedre && result <= ovre;
                 const barPct = range > 0 ? Math.max(0, Math.min(100, ((result - nedre) / range) * 100)) : (result >= nedre ? 100 : 0);
-                const resultColor = result === 0
-                    ? 'text-slate-400 dark:text-slate-500'
-                    : onTrack
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : result > ovre
-                            ? 'text-sky-600 dark:text-sky-400'
-                            : 'text-rose-600 dark:text-rose-400';
+                const resultColor = result === 0 ? 'text-slate-400 dark:text-slate-500' : onTrack ? 'text-emerald-600 dark:text-emerald-400' : result > ovre ? 'text-sky-600 dark:text-sky-400' : 'text-rose-600 dark:text-rose-400';
                 const barColor = result === 0 ? 'bg-slate-200 dark:bg-slate-600' : onTrack ? 'bg-emerald-500' : result < nedre ? 'bg-rose-500' : 'bg-sky-400';
                 return (
                     <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-sm">
                         <div className="flex items-end justify-between mb-3">
-                            {/* Nedre */}
                             <div>
                                 <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Nedre</div>
-                                <span className="inline-block bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-sm font-bold px-2.5 py-1 rounded-lg">
-                                    {formatCurrency(nedre)}
-                                </span>
+                                <span className="inline-block bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-sm font-bold px-2.5 py-1 rounded-lg">{formatCurrency(nedre)}</span>
                             </div>
-                            {/* Resultat */}
                             <div className="text-center">
                                 <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Resultat</div>
-                                <div className={`text-2xl font-extrabold tabular-nums ${resultColor}`}>
-                                    {result !== 0 ? formatCurrency(result) : '–'}
-                                </div>
+                                <div className={`text-2xl font-extrabold tabular-nums ${resultColor}`}>{result !== 0 ? formatCurrency(result) : '–'}</div>
                             </div>
-                            {/* Øvre */}
                             <div className="text-right">
                                 <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Øvre</div>
-                                <span className="inline-block bg-indigo-600 text-white text-sm font-bold px-2.5 py-1 rounded-lg">
-                                    {formatCurrency(ovre)}
-                                </span>
+                                <span className="inline-block bg-indigo-600 text-white text-sm font-bold px-2.5 py-1 rounded-lg">{formatCurrency(ovre)}</span>
                             </div>
                         </div>
-                        {/* Progress bar */}
                         <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barPct}%` }} />
+                        </div>
+                        <div className="flex justify-between items-center mt-1.5">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">0%</span>
+                            {result !== 0 && (
+                                <span className={`text-[11px] font-bold ${resultColor}`}>
+                                    {barPct.toFixed(0)}% av intervall
+                                </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">100%</span>
                         </div>
                     </div>
                 );
             })()}
 
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
-                <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
-                <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
-                <StatCard icon={ArrowDownRight} label="Lev.Gjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
-                <StatCard icon={Banknote} label="Lønn" value={company.salaryExpenses} subText={company.salaryExpensesDate} /> {/* New StatCard */}
-                <StatCard icon={Landmark} label="Off.Avg" value={company.publicFees} subText={company.publicFeesDate} />
-                
-                {/* Arbeidskapital takes up full width on mobile if needed, or flows nicely */}
-                <div className="col-span-2 lg:col-span-1">
-                    <StatCard icon={Activity} label="Arb.Kapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Likviditet + Fordringer - Gjeld" />
-                </div>
-            </div>
-        </div>
-
-        <div className={`grid grid-cols-1 gap-8 mb-8 ${showFullYear ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Resultatutvikling (Akkumulert)</h3>
+                    <div className="flex items-center gap-2">
+                    {userRole === 'controller' && (
+                        <button
+                            onClick={() => setIsBudgetModalOpen(true)}
+                            className="text-xs px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition-colors bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600"
+                        >
+                            <Target size={12} />
+                            Sett budsjett
+                        </button>
+                    )}
                     <button
                         onClick={() => setShowFullYear(v => !v)}
                         className={`text-xs px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition-colors ${showFullYear ? 'bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'}`}
                     >
                         <Calendar size={12} />
-                        {showFullYear ? 'Skjul' : 'Se hele året'}
+                        {showFullYear ? 'Se kun hittil' : 'Se hele året'}
                     </button>
+                    </div>
                 </div>
                 <div className={showFullYear ? 'h-[420px]' : 'h-[350px]'}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -846,6 +954,16 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                             <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => value !== null ? formatCurrency(value) : ''} />
                             <Legend />
+                            <ReferenceLine
+                              x={isTodayMode ? 'I dag' : (['Jan','Feb','Mar','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Des'][new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1])}
+                              stroke="#64748b"
+                              strokeDasharray="4 3"
+                              strokeWidth={1.5}
+                              label={{ value: isTodayMode ? 'I dag' : 'Siste mnd', position: 'top', fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                            />
+                            {company.budgetType === 'scenario' && (
+                                <Line type="monotone" dataKey="cumBudgetHigh" name="Optimist (Akk)" stroke="#34d399" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                            )}
                             {showFullYear && (
                                 <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} connectNulls={false} />
                             )}
@@ -853,10 +971,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                                 <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
                             )}
                             {company.budgetType === 'scenario' ? (
-                                <>
-                                    <Line type="monotone" dataKey="cumBudgetLow" name="Realist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
-                                    <Line type="monotone" dataKey="cumBudgetHigh" name="Optimist (Akk)" stroke="#34d399" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
-                                </>
+                                <Line type="monotone" dataKey="cumBudgetLow" name="Realist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
                             ) : (
                                 <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
                             )}
@@ -865,34 +980,6 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 </div>
             </div>
 
-             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 relative">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Likviditetsprognose</h3>
-                    <button 
-                        onClick={() => setIsForecastModalOpen(true)}
-                        className="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 px-2 py-1 rounded flex items-center gap-1 transition-colors"
-                    >
-                        <Edit size={12} /> Rediger Prognose
-                    </button>
-                </div>
-                <div className="h-[350px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={forecastChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                            <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
-                            <Tooltip 
-                                cursor={{fill: '#f8fafc'}}
-                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                formatter={(value: number) => formatCurrency(value)}
-                            />
-                            <Legend />
-                            <Area type="monotone" dataKey="liquidity" name="Historisk" fill="#10b981" stroke="#10b981" fillOpacity={0.3} />
-                            <Line type="monotone" dataKey="forecast" name="Prognose" stroke="#f59e0b" strokeDasharray="5 5" strokeWidth={2} dot={{r: 4}} />
-                        </ComposedChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">

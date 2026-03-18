@@ -286,10 +286,51 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
 
   const handleDeleteMonthlyEntry = async (entryId: number) => {
     if (isDemo) return;
+    const entry = monthlyEntries.find(e => e.id === entryId);
     await deleteNEON({ table: 'monthly_entries', data: entryId });
     setMonthlyEntries(prev => prev.filter(e => e.id !== entryId));
-    // Reload companies so YTD reflects deletion
+
+    if (entry) {
+      const now = new Date();
+      const curYear = now.getFullYear();
+      const curMonth = now.getMonth() + 1;
+      const allEntries = await getNEON({ table: 'monthly_entries', where: { company_id: entry.companyId } });
+      const rows: any[] = allEntries.rows || [];
+
+      let ytdRevenue = 0, ytdExpenses = 0, ytdLiquidity = 0, ytdReceivables = 0;
+      let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0;
+      for (const r of rows) {
+        const rYear = Number(r.year);
+        const rMonth = Number(r.month);
+        if (rYear < curYear || (rYear === curYear && rMonth <= curMonth)) {
+          ytdRevenue += Number(r.revenue || 0);
+          ytdExpenses += Number(r.expenses || 0);
+          ytdLiquidity += Number(r.liquidity || 0);
+          ytdReceivables += Number(r.receivables || 0);
+          ytdAccountsPayable += Number(r.accounts_payable || 0);
+          ytdSalary += Number(r.salary_expenses || 0);
+          ytdPublicFees += Number(r.public_fees || 0);
+        }
+      }
+
+      await patchNEON({
+        table: 'companies',
+        data: {
+          id: entry.companyId,
+          revenue: ytdRevenue,
+          expenses: ytdExpenses,
+          result_ytd: ytdRevenue - ytdExpenses,
+          liquidity: ytdLiquidity,
+          receivables: ytdReceivables,
+          accounts_payable: ytdAccountsPayable,
+          salary_expenses: ytdSalary,
+          public_fees: ytdPublicFees,
+        },
+      });
+    }
+
     await reloadCompanies();
+    if (selectedCompany) fetchMonthlyEntries(selectedCompany.id);
   };
 
   const fetchForecasts = async (companyId: number) => {
@@ -738,39 +779,39 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               logActivity(userProfile.id, 'SUBMIT_REPORT', 'reports', res.inserted?.[0]?.id, `Sendte inn ny rapport`);
           }
 
+          // snake_case for companies table columns
           const companyUpdate: any = { id: targetCompanyId };
           if (hasRevenue || hasExpenses) {
              const r = Number(reportData.revenue || 0);
              const e = Number(reportData.expenses || 0);
              companyUpdate.revenue = r;
              companyUpdate.expenses = e;
-             companyUpdate.resultYtd = r - e;
-             if(reportData.pnlDate) companyUpdate.pnlDate = reportData.pnlDate;
+             companyUpdate.result_ytd = r - e;
           }
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              companyUpdate.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) companyUpdate.liquidityDate = reportData.liquidityDate;
+             if(reportData.liquidityDate) companyUpdate.liquidity_date = reportData.liquidityDate;
           }
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               companyUpdate.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) companyUpdate.receivablesDate = reportData.receivablesDate;
+              if(reportData.receivablesDate) companyUpdate.receivables_date = reportData.receivablesDate;
           }
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              companyUpdate.accountsPayable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) companyUpdate.accountsPayableDate = reportData.accountsPayableDate;
+              companyUpdate.accounts_payable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) companyUpdate.accounts_payable_date = reportData.accountsPayableDate;
           }
           if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
-              companyUpdate.publicFees = Number(reportData.publicFees);
-              if(reportData.publicFeesDate) companyUpdate.publicFeesDate = reportData.publicFeesDate;
+              companyUpdate.public_fees = Number(reportData.publicFees);
+              if(reportData.publicFeesDate) companyUpdate.public_fees_date = reportData.publicFeesDate;
           }
           if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
-              companyUpdate.salaryExpenses = Number(reportData.salaryExpenses);
-              if(reportData.salaryExpensesDate) companyUpdate.salaryExpensesDate = reportData.salaryExpensesDate;
+              companyUpdate.salary_expenses = Number(reportData.salaryExpenses);
+              if(reportData.salaryExpensesDate) companyUpdate.salary_expenses_date = reportData.salaryExpensesDate;
           }
 
-          companyUpdate.lastReportDate = new Date().toLocaleDateString('no-NO');
-          companyUpdate.lastReportBy = userProfile.fullName;
-          companyUpdate.currentComment = reportData.comment;
+          companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
+          companyUpdate.last_report_by = userProfile.fullName;
+          companyUpdate.current_comment = reportData.comment;
 
           await patchNEON({ table: 'companies', data: companyUpdate });
           await reloadCompanies();
@@ -801,7 +842,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           return;
       }
       try {
-          await patchNEON({ table: 'reports', data: { id: reportId, status: 'approved', approvedByUserId: userProfile.id } });
+          await patchNEON({ table: 'reports', data: { id: reportId, status: 'approved', approved_by_user_id: userProfile.id } });
           logActivity(userProfile.id, 'APPROVE_REPORT', 'reports', reportId, 'Godkjente rapport');
           const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'approved' as const, approvedBy: 'Kontroller' } : r;
           setReports(prev => prev.map(updater));
@@ -811,7 +852,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
 
   const handleUnlockReport = async (reportId: number) => {
        try {
-          await patchNEON({ table: 'reports', data: { id: reportId, status: 'submitted', approvedAt: null, approvedByUserId: null } });
+          await patchNEON({ table: 'reports', data: { id: reportId, status: 'submitted', approved_at: null, approved_by_user_id: null } });
           logActivity(userProfile.id, 'UNLOCK_REPORT', 'reports', reportId, 'Låste opp rapport');
           const updater = (r: ReportLogItem) => r.id === reportId ? { ...r, status: 'submitted' as const, approvedBy: undefined } : r;
           setReports(prev => prev.map(updater));
