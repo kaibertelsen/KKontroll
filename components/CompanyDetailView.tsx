@@ -1139,131 +1139,203 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         )}
 
-        {isBudgetModalOpen && (
+        {isBudgetModalOpen && (() => {
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+            const isScenario = budgetFormData.budgetType === 'scenario';
+            const isMonthly = budgetFormData.entryMode === 'monthly';
+            const isQuarterly = budgetFormData.entryMode === 'quarterly';
+            // Wide modal for monthly, medium for quarterly, narrow for annual
+            const modalWidth = isMonthly ? 'max-w-6xl' : isQuarterly ? 'max-w-xl' : 'max-w-lg';
+            const inputCls = (color?: 'rose' | 'emerald') =>
+                `w-full bg-slate-50 dark:bg-slate-900 border rounded px-2 py-1.5 text-slate-900 dark:text-white text-xs text-right ${
+                    color === 'rose' ? 'border-rose-300 dark:border-rose-700' :
+                    color === 'emerald' ? 'border-emerald-300 dark:border-emerald-700' :
+                    'border-slate-300 dark:border-slate-600'}`;
+            return (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-t-2xl z-10">
+                <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full ${modalWidth} border border-slate-200 dark:border-slate-700 animate-in zoom-in-95 duration-200`}>
+
+                    {/* Header */}
+                    <div className="flex justify-between items-center px-6 py-4 border-b border-slate-200 dark:border-slate-700">
                         <h3 className="text-xl font-bold text-slate-900 dark:text-white">Rediger Budsjett</h3>
                         <button onClick={() => setIsBudgetModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
-                    
-                    <form onSubmit={handleBudgetSubmit} className="p-6 space-y-6">
-                        <div className="bg-slate-50 dark:bg-slate-700/30 p-1 rounded-lg flex justify-center border border-slate-200 dark:border-slate-600">
-                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'annual'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'annual' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
-                                Årlig
+
+                    <form onSubmit={handleBudgetSubmit} className="p-6 space-y-5">
+
+                        {/* LEVEL 1 — Budget type */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <button type="button"
+                                onClick={() => setBudgetFormData({...budgetFormData, budgetType: 'standard'})}
+                                className={`py-2.5 text-sm font-bold rounded-xl border-2 transition-colors ${!isScenario ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20 text-sky-700 dark:text-sky-300' : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300'}`}>
+                                Standard
                             </button>
-                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'quarterly'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'quarterly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
-                                Kvartalsvis
-                            </button>
-                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'monthly'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'monthly' ? 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
-                                Månedlig
-                            </button>
-                            <button type="button" onClick={() => setBudgetFormData({...budgetFormData, mode: 'scenario'})}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.mode === 'scenario' ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'text-slate-500 dark:text-slate-400'}`}>
-                                Scenario
+                            <button type="button"
+                                onClick={() => setBudgetFormData({...budgetFormData, budgetType: 'scenario'})}
+                                className={`py-2.5 text-sm font-bold rounded-xl border-2 transition-colors ${isScenario ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300' : 'border-slate-200 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-300'}`}>
+                                Scenariobudsjett
                             </button>
                         </div>
 
-                        <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
-                            {budgetFormData.mode === 'annual' && (
+                        {/* LEVEL 2 — Entry mode */}
+                        <div className="bg-slate-50 dark:bg-slate-700/30 p-1 rounded-lg flex border border-slate-200 dark:border-slate-600">
+                            {(['annual','quarterly','monthly'] as const).map(mode => (
+                                <button key={mode} type="button"
+                                    onClick={() => setBudgetFormData({...budgetFormData, entryMode: mode})}
+                                    className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-colors ${budgetFormData.entryMode === mode
+                                        ? (isScenario ? 'bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-300 shadow-sm' : 'bg-white dark:bg-slate-600 text-sky-600 dark:text-sky-300 shadow-sm')
+                                        : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {mode === 'annual' ? 'Årlig' : mode === 'quarterly' ? 'Kvartalsvis' : 'Månedlig'}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* INPUTS */}
+                        <div className="max-h-[55vh] overflow-y-auto">
+
+                            {/* ── ANNUAL ── */}
+                            {budgetFormData.entryMode === 'annual' && !isScenario && (
                                 <div>
                                     <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Årsbudsjett</label>
-                                    <input type="number"
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
+                                    <input type="number" className={inputCls()}
                                         value={budgetFormData.annual || ''}
                                         onChange={(e) => setBudgetFormData({...budgetFormData, annual: parseFloat(e.target.value) || 0})}
                                     />
-                                    <p className="text-[10px] text-slate-400 mt-1">Beløpet fordeles automatisk med 1/12 per måned. Du kan justere avvik i siste måned om nødvendig.</p>
+                                    <p className="text-[10px] text-slate-400 mt-1">Fordeles automatisk med 1/12 per måned.</p>
                                 </div>
                             )}
-
-                            {budgetFormData.mode === 'quarterly' && (
+                            {budgetFormData.entryMode === 'annual' && isScenario && (
                                 <div className="grid grid-cols-2 gap-4">
-                                    {[0, 1, 2, 3].map(q => (
-                                        <div key={q}>
-                                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kvartal {q+1}</label>
-                                            <input type="number"
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white text-sm"
-                                                value={budgetFormData.quarterly[q] || ''}
-                                                onChange={(e) => {
-                                                    const newQ = [...budgetFormData.quarterly];
-                                                    newQ[q] = parseFloat(e.target.value) || 0;
-                                                    setBudgetFormData({...budgetFormData, quarterly: newQ});
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {budgetFormData.mode === 'monthly' && (
-                                <div className="grid grid-cols-3 gap-3">
-                                    {['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'].map((m, i) => (
-                                        <div key={i}>
-                                            <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">{m}</label>
-                                            <input type="number"
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded px-2 py-1.5 text-slate-900 dark:text-white text-xs"
-                                                value={budgetFormData.monthly[i] || ''}
-                                                onChange={(e) => {
-                                                    const newM = [...budgetFormData.monthly];
-                                                    newM[i] = parseFloat(e.target.value) || 0;
-                                                    setBudgetFormData({...budgetFormData, monthly: newM});
-                                                }}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {budgetFormData.mode === 'scenario' && (
-                                <div className="space-y-5">
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-lg px-3 py-2">
-                                        <strong>Scenariobudsjett</strong> — sett et pessimistisk (nedre) og optimistisk (øvre) budsjett. Avvik beregnes fra midtpunktet.
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="text-xs font-bold uppercase text-rose-500 mb-1 block">Pessimist (nedre)</label>
-                                            <input type="number"
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-rose-300 dark:border-rose-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
-                                                value={budgetFormData.scenarioLowAnnual || ''}
-                                                onChange={(e) => setBudgetFormData({...budgetFormData, scenarioLowAnnual: parseFloat(e.target.value) || 0})}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs font-bold uppercase text-emerald-600 mb-1 block">Optimist (øvre)</label>
-                                            <input type="number"
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg px-3 py-2 text-slate-900 dark:text-white"
-                                                value={budgetFormData.scenarioHighAnnual || ''}
-                                                onChange={(e) => setBudgetFormData({...budgetFormData, scenarioHighAnnual: parseFloat(e.target.value) || 0})}
-                                            />
-                                        </div>
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-rose-500 mb-1 block">Pessimist — Årsbudsjett</label>
+                                        <input type="number" className={inputCls('rose')}
+                                            value={budgetFormData.scenarioLowAnnual || ''}
+                                            onChange={(e) => setBudgetFormData({...budgetFormData, scenarioLowAnnual: parseFloat(e.target.value) || 0})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold uppercase text-emerald-600 mb-1 block">Optimist — Årsbudsjett</label>
+                                        <input type="number" className={inputCls('emerald')}
+                                            value={budgetFormData.scenarioHighAnnual || ''}
+                                            onChange={(e) => setBudgetFormData({...budgetFormData, scenarioHighAnnual: parseFloat(e.target.value) || 0})}
+                                        />
                                     </div>
                                     {budgetFormData.scenarioLowAnnual > 0 && budgetFormData.scenarioHighAnnual > 0 && (
-                                        <div className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
-                                            Midtpunkt (brukes til avvik): <strong className="text-slate-700 dark:text-slate-200">{formatCurrency((budgetFormData.scenarioLowAnnual + budgetFormData.scenarioHighAnnual) / 2)}</strong>
+                                        <div className="col-span-2 text-[11px] text-slate-500 text-center">
+                                            Midtpunkt: <strong className="text-slate-700 dark:text-slate-200">{formatCurrency((budgetFormData.scenarioLowAnnual + budgetFormData.scenarioHighAnnual) / 2)}</strong>
                                         </div>
                                     )}
                                 </div>
                             )}
+
+                            {/* ── QUARTERLY ── */}
+                            {budgetFormData.entryMode === 'quarterly' && !isScenario && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[0,1,2,3].map(q => (
+                                        <div key={q}>
+                                            <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Kvartal {q+1}</label>
+                                            <input type="number" className={inputCls()}
+                                                value={budgetFormData.quarterly[q] || ''}
+                                                onChange={(e) => { const nq=[...budgetFormData.quarterly]; nq[q]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, quarterly: nq}); }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {budgetFormData.entryMode === 'quarterly' && isScenario && (
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div className="col-span-4 grid grid-cols-4 gap-3">
+                                        {[0,1,2,3].map(q => (
+                                            <div key={q}>
+                                                <label className="text-[10px] font-bold uppercase text-rose-500 mb-1 block">Pessimist K{q+1}</label>
+                                                <input type="number" className={inputCls('rose')}
+                                                    value={budgetFormData.scenarioLowQuarterly[q] || ''}
+                                                    onChange={(e) => { const nq=[...budgetFormData.scenarioLowQuarterly]; nq[q]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, scenarioLowQuarterly: nq}); }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="col-span-4 grid grid-cols-4 gap-3">
+                                        {[0,1,2,3].map(q => (
+                                            <div key={q}>
+                                                <label className="text-[10px] font-bold uppercase text-emerald-600 mb-1 block">Optimist K{q+1}</label>
+                                                <input type="number" className={inputCls('emerald')}
+                                                    value={budgetFormData.scenarioHighQuarterly[q] || ''}
+                                                    onChange={(e) => { const nq=[...budgetFormData.scenarioHighQuarterly]; nq[q]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, scenarioHighQuarterly: nq}); }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── MONTHLY ── */}
+                            {budgetFormData.entryMode === 'monthly' && !isScenario && (
+                                <div className="grid grid-cols-6 gap-2">
+                                    {MONTHS.map((m, i) => (
+                                        <div key={i}>
+                                            <label className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block text-center">{m}</label>
+                                            <input type="number" className={inputCls()}
+                                                value={budgetFormData.monthly[i] || ''}
+                                                onChange={(e) => { const nm=[...budgetFormData.monthly]; nm[i]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, monthly: nm}); }}
+                                            />
+                                        </div>
+                                    ))}
+                                    <div className="col-span-6 text-[10px] text-slate-400 text-right">
+                                        Totalt: <strong className="text-slate-600 dark:text-slate-300">{formatCurrency(budgetFormData.monthly.reduce((a,b)=>a+b,0))}</strong>
+                                    </div>
+                                </div>
+                            )}
+                            {budgetFormData.entryMode === 'monthly' && isScenario && (
+                                <div className="space-y-3">
+                                    {/* Header row */}
+                                    <div className="grid gap-2" style={{gridTemplateColumns: '80px repeat(12, 1fr)'}}>
+                                        <div/>
+                                        {MONTHS.map(m => <div key={m} className="text-[10px] font-bold uppercase text-slate-400 text-center">{m}</div>)}
+                                    </div>
+                                    {/* Pessimist row */}
+                                    <div className="grid gap-2 items-center" style={{gridTemplateColumns: '80px repeat(12, 1fr)'}}>
+                                        <span className="text-[10px] font-bold uppercase text-rose-500">Pessimist</span>
+                                        {MONTHS.map((_, i) => (
+                                            <input key={i} type="number" className={inputCls('rose')}
+                                                value={budgetFormData.scenarioLowMonthly[i] || ''}
+                                                onChange={(e) => { const nm=[...budgetFormData.scenarioLowMonthly]; nm[i]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, scenarioLowMonthly: nm}); }}
+                                            />
+                                        ))}
+                                    </div>
+                                    {/* Optimist row */}
+                                    <div className="grid gap-2 items-center" style={{gridTemplateColumns: '80px repeat(12, 1fr)'}}>
+                                        <span className="text-[10px] font-bold uppercase text-emerald-600">Optimist</span>
+                                        {MONTHS.map((_, i) => (
+                                            <input key={i} type="number" className={inputCls('emerald')}
+                                                value={budgetFormData.scenarioHighMonthly[i] || ''}
+                                                onChange={(e) => { const nm=[...budgetFormData.scenarioHighMonthly]; nm[i]=parseFloat(e.target.value)||0; setBudgetFormData({...budgetFormData, scenarioHighMonthly: nm}); }}
+                                            />
+                                        ))}
+                                    </div>
+                                    {/* Totals row */}
+                                    <div className="grid gap-2 items-center text-[10px] text-slate-500" style={{gridTemplateColumns: '80px repeat(12, 1fr)'}}>
+                                        <span className="font-bold uppercase">Total</span>
+                                        {MONTHS.map((_, i) => (
+                                            <div key={i} className="text-center tabular-nums text-slate-400">
+                                                {formatCurrency(Math.round((budgetFormData.scenarioLowMonthly[i] + budgetFormData.scenarioHighMonthly[i]) / 2))}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
+                        {/* Footer */}
                         <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-700 gap-3">
-                            <button 
-                                type="button"
-                                onClick={() => setIsBudgetModalOpen(false)}
-                                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors"
-                            >
+                            <button type="button" onClick={() => setIsBudgetModalOpen(false)}
+                                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium transition-colors">
                                 Avbryt
                             </button>
-                            <button 
-                                type="submit"
-                                className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2"
-                            >
+                            <button type="submit"
+                                className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2">
                                 <Save className="w-4 h-4" />
                                 Lagre Budsjett
                             </button>
@@ -1271,7 +1343,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     </form>
                 </div>
             </div>
-        )}
+            );
+        })()}
 
       </div>
     </div>
