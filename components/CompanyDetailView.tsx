@@ -54,19 +54,29 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   // Budget Modal State
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
   const [budgetFormData, setBudgetFormData] = useState<{
-      mode: 'annual' | 'quarterly' | 'monthly' | 'scenario';
+      budgetType: 'standard' | 'scenario';
+      entryMode: 'annual' | 'quarterly' | 'monthly';
       annual: number;
       quarterly: number[];
       monthly: number[];
       scenarioLowAnnual: number;
       scenarioHighAnnual: number;
+      scenarioLowQuarterly: number[];
+      scenarioHighQuarterly: number[];
+      scenarioLowMonthly: number[];
+      scenarioHighMonthly: number[];
   }>({
-      mode: 'annual',
+      budgetType: 'standard',
+      entryMode: 'annual',
       annual: 0,
       quarterly: [0,0,0,0],
       monthly: Array(12).fill(0),
       scenarioLowAnnual: 0,
       scenarioHighAnnual: 0,
+      scenarioLowQuarterly: [0,0,0,0],
+      scenarioHighQuarterly: [0,0,0,0],
+      scenarioLowMonthly: Array(12).fill(0),
+      scenarioHighMonthly: Array(12).fill(0),
   });
 
   // Initialize Budget Form Data
@@ -77,18 +87,27 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
           const q = [0,0,0,0];
           for(let i=0; i<12; i++) q[Math.floor(i/3)] += Number(bMonths[i]) || 0;
 
-          const lowMonths = company.budgetMonthsLow || Array(12).fill(0);
-          const highMonths = company.budgetMonthsHigh || Array(12).fill(0);
+          const lowMonths = (company.budgetMonthsLow || Array(12).fill(0)).map(Number);
+          const highMonths = (company.budgetMonthsHigh || Array(12).fill(0)).map(Number);
           const lowTotal = lowMonths.reduce((a: number, b: number) => a + b, 0);
           const highTotal = highMonths.reduce((a: number, b: number) => a + b, 0);
+          const lowQ = [0,0,0,0];
+          const highQ = [0,0,0,0];
+          for(let i=0; i<12; i++) { lowQ[Math.floor(i/3)] += lowMonths[i]; highQ[Math.floor(i/3)] += highMonths[i]; }
 
+          const isScenario = company.budgetType === 'scenario';
           setBudgetFormData({
-              mode: company.budgetType === 'scenario' ? 'scenario' : (company.budgetMode || 'annual'),
+              budgetType: isScenario ? 'scenario' : 'standard',
+              entryMode: isScenario ? 'annual' : (company.budgetMode || 'annual'),
               annual: total,
               monthly: [...bMonths],
               quarterly: q,
               scenarioLowAnnual: lowTotal,
               scenarioHighAnnual: highTotal,
+              scenarioLowQuarterly: lowQ,
+              scenarioHighQuarterly: highQ,
+              scenarioLowMonthly: [...lowMonths],
+              scenarioHighMonthly: [...highMonths],
           });
       }
   }, [isBudgetModalOpen, company]);
@@ -100,59 +119,72 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       return months;
   };
 
+  const distributeQuarterly = (quarters: number[]): number[] => {
+      const months = Array(12).fill(0);
+      for (let q = 0; q < 4; q++) {
+          const perMonth = Math.round(quarters[q] / 3);
+          months[q*3] = perMonth;
+          months[q*3+1] = perMonth;
+          months[q*3+2] = quarters[q] - perMonth * 2;
+      }
+      return months;
+  };
+
   const handleBudgetSubmit = (e: React.FormEvent) => {
       e.preventDefault();
+      const { budgetType, entryMode } = budgetFormData;
 
-      if (budgetFormData.mode === 'scenario') {
-          const lowMonths = distributeAnnual(budgetFormData.scenarioLowAnnual);
-          const highMonths = distributeAnnual(budgetFormData.scenarioHighAnnual);
-          const midTotal = (budgetFormData.scenarioLowAnnual + budgetFormData.scenarioHighAnnual) / 2;
-          const midMonths = distributeAnnual(midTotal);
-          const updatedCompany: CompanyData = {
+      if (budgetType === 'scenario') {
+          let lowMonths: number[], highMonths: number[];
+          if (entryMode === 'annual') {
+              lowMonths = distributeAnnual(budgetFormData.scenarioLowAnnual);
+              highMonths = distributeAnnual(budgetFormData.scenarioHighAnnual);
+          } else if (entryMode === 'quarterly') {
+              lowMonths = distributeQuarterly(budgetFormData.scenarioLowQuarterly);
+              highMonths = distributeQuarterly(budgetFormData.scenarioHighQuarterly);
+          } else {
+              lowMonths = [...budgetFormData.scenarioLowMonthly];
+              highMonths = [...budgetFormData.scenarioHighMonthly];
+          }
+          const lowTotal = lowMonths.reduce((a,b) => a+b, 0);
+          const highTotal = highMonths.reduce((a,b) => a+b, 0);
+          const midTotal = (lowTotal + highTotal) / 2;
+          const midMonths = lowMonths.map((v, i) => Math.round((v + highMonths[i]) / 2));
+          onUpdateCompany({
               ...company,
               budgetType: 'scenario',
-              budgetMode: 'annual',
+              budgetMode: entryMode,
               budgetTotal: midTotal,
               budgetMonths: midMonths,
               budgetMonthsLow: lowMonths,
               budgetMonthsHigh: highMonths,
-          };
-          onUpdateCompany(updatedCompany);
+          });
           setIsBudgetModalOpen(false);
           return;
       }
 
       let finalMonths = Array(12).fill(0);
       let finalTotal = 0;
-
-      if (budgetFormData.mode === 'annual') {
+      if (entryMode === 'annual') {
           finalTotal = budgetFormData.annual;
           finalMonths = distributeAnnual(finalTotal);
-      } else if (budgetFormData.mode === 'quarterly') {
-          finalTotal = budgetFormData.quarterly.reduce((a,b) => a+b, 0);
-          for(let q=0; q<4; q++) {
-              const qTotal = budgetFormData.quarterly[q];
-              const perMonth = Math.round(qTotal / 3);
-              finalMonths[q*3] = perMonth;
-              finalMonths[q*3+1] = perMonth;
-              finalMonths[q*3+2] = qTotal - (perMonth * 2);
-          }
+      } else if (entryMode === 'quarterly') {
+          finalMonths = distributeQuarterly(budgetFormData.quarterly);
+          finalTotal = finalMonths.reduce((a,b) => a+b, 0);
       } else {
           finalMonths = [...budgetFormData.monthly];
           finalTotal = finalMonths.reduce((a,b) => a+b, 0);
       }
 
-      const updatedCompany: CompanyData = {
+      onUpdateCompany({
           ...company,
           budgetType: 'standard',
           budgetTotal: finalTotal,
-          budgetMode: budgetFormData.mode as 'annual' | 'quarterly' | 'monthly',
+          budgetMode: entryMode,
           budgetMonths: finalMonths,
           budgetMonthsLow: Array(12).fill(0),
           budgetMonthsHigh: Array(12).fill(0),
-      };
-
-      onUpdateCompany(updatedCompany);
+      });
       setIsBudgetModalOpen(false);
   };
 
