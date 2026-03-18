@@ -418,7 +418,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
         root.render(
           <React.StrictMode>
             <ErrorBoundary>
-              <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} />
+              <App userProfile={userProfile} initialCompanies={mappedCompanies} isDemo={false} hasMultipleKonsern={isSuperAdmin || groupAccessRows.length > 1} />
             </ErrorBoundary>
           </React.StrictMode>
         );

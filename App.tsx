@@ -36,6 +36,7 @@ interface AppProps {
     userProfile: UserProfile;
     initialCompanies: CompanyData[];
     isDemo: boolean;
+    hasMultipleKonsern?: boolean;
 }
 
 // Helper to convert DD.MM.YYYY to YYYY-MM-DD for DB
@@ -49,7 +50,7 @@ const toISODate = (dateStr: string) => {
     return null;
 };
 
-function App({ userProfile, initialCompanies, isDemo }: AppProps) {
+function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false }: AppProps) {
   const [sortField, setSortField] = useState<SortField>(SortField.DEFAULT);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
   const [cardSize, setCardSize] = useState<'normal' | 'compact'>('normal');
@@ -877,8 +878,14 @@ function App({ userProfile, initialCompanies, isDemo }: AppProps) {
 
   const handleLogout = () => {
       logActivity(userProfile.id, 'LOGOUT', 'users', userProfile.id, 'Logget ut');
-      localStorage.removeItem('konsern_user_id');
-      localStorage.removeItem('konsern_mode');
+      if (hasMultipleKonsern) {
+          // Keep user logged in but go back to konsern selection
+          localStorage.removeItem('konsern_mode');
+      } else {
+          // Single konsern — full logout to login screen
+          localStorage.removeItem('konsern_user_id');
+          localStorage.removeItem('konsern_mode');
+      }
       window.initKonsernKontroll();
   };
 
