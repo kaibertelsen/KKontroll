@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile } from './types';
+import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile, MonthlyEntryData } from './types';
 import AnalyticsView from './components/AnalyticsView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
@@ -1038,6 +1038,75 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
     );
   }
 
+  const handleSaveMonthlyEntry = async (entry: MonthlyEntryData) => {
+    if (isDemo) return;
+    // Upsert: check if entry exists first
+    const existingRes = await getNEON({ table: 'monthly_entries', where: { company_id: entry.companyId, year: entry.year, month: entry.month } });
+    const existingRow = existingRes.rows?.[0];
+    const entryData = {
+      company_id: entry.companyId,
+      year: entry.year,
+      month: entry.month,
+      revenue: entry.revenue,
+      expenses: entry.expenses,
+      liquidity: entry.liquidity,
+      receivables: entry.receivables,
+      accounts_payable: entry.accountsPayable,
+      salary_expenses: entry.salaryExpenses,
+      public_fees: entry.publicFees,
+    };
+    if (existingRow) {
+      await patchNEON({ table: 'monthly_entries', data: { id: existingRow.id, ...entryData } });
+    } else {
+      await postNEON({ table: 'monthly_entries', data: entryData });
+    }
+
+    // Fetch all entries for this company up to current month
+    const now = new Date();
+    const curYear = now.getFullYear();
+    const curMonth = now.getMonth() + 1;
+    const allEntries = await getNEON({ table: 'monthly_entries', where: { company_id: entry.companyId } });
+    const rows: any[] = allEntries.rows || [];
+
+    // Sum YTD: all entries where (year < curYear) or (year === curYear and month <= curMonth)
+    let ytdRevenue = 0, ytdExpenses = 0, ytdLiquidity = 0, ytdReceivables = 0;
+    let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0;
+    for (const r of rows) {
+      const rYear = Number(r.year);
+      const rMonth = Number(r.month);
+      if (rYear < curYear || (rYear === curYear && rMonth <= curMonth)) {
+        ytdRevenue += Number(r.revenue || 0);
+        ytdExpenses += Number(r.expenses || 0);
+        ytdLiquidity += Number(r.liquidity || 0);
+        ytdReceivables += Number(r.receivables || 0);
+        ytdAccountsPayable += Number(r.accounts_payable || 0);
+        ytdSalary += Number(r.salary_expenses || 0);
+        ytdPublicFees += Number(r.public_fees || 0);
+      }
+    }
+
+    // Update the company with YTD sums
+    await patchNEON({
+      table: 'companies',
+      data: {
+        id: entry.companyId,
+        revenue: ytdRevenue,
+        expenses: ytdExpenses,
+        result_ytd: ytdRevenue - ytdExpenses,
+        liquidity: ytdLiquidity,
+        receivables: ytdReceivables,
+        accounts_payable: ytdAccountsPayable,
+        salary_expenses: ytdSalary,
+        public_fees: ytdPublicFees,
+        last_report_date: new Date().toLocaleDateString('no-NO'),
+        last_report_by: userProfile.fullName,
+      },
+    });
+
+    await reloadCompanies();
+    if (selectedCompany) fetchCompanyReports(selectedCompany.id);
+  };
+
   if (selectedCompany) {
     return (
       <CompanyDetailView
@@ -1055,6 +1124,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         onRefresh={async () => await handleCompanyRefresh(selectedCompany.id)}
         hasProjectsModule={groupFeatures.includes('projects')}
         onOpenProjects={() => { setSelectedProject(null); setViewMode(ViewMode.PROJECTS); }}
+        onSaveMonthlyEntry={handleSaveMonthlyEntry}
       />
     );
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData } from '../types';
+import { ComputedCompanyData, ReportLogItem, ForecastItem, CompanyData, MonthlyEntryData } from '../types';
 import { formatCurrency } from '../constants';
 import { ArrowLeft, Building2, User, History, TrendingUp, TrendingDown, Target, Wallet, AlertCircle, Plus, Save, X, CheckCircle, Clock, Edit, Unlock, BarChart3, ArrowUpRight, ArrowDownRight, Activity, LineChart, Calendar, Trash2, Eye, Landmark, RefreshCw, Banknote, FolderOpen } from 'lucide-react';
 import { 
@@ -21,6 +21,7 @@ interface CompanyDetailViewProps {
   onRefresh?: () => Promise<void>;
   hasProjectsModule?: boolean;
   onOpenProjects?: () => void;
+  onSaveMonthlyEntry?: (entry: MonthlyEntryData) => Promise<void>;
 }
 
 const toInputDate = (dateStr: string) => {
@@ -38,7 +39,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects }) => {
+const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects, onSaveMonthlyEntry }) => {
   
   console.log("CompanyDetailView rendering for:", company.name);
 
@@ -50,6 +51,45 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   // Refresh State
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Forenklet Rapport Modal State
+  const [isForenkletOpen, setIsForenkletOpen] = useState(false);
+  const [forenkletSaving, setForenkletSaving] = useState(false);
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [forenkletForm, setForenkletForm] = useState({
+    year: currentYear,
+    month: currentMonth,
+    revenue: 0,
+    expenses: 0,
+    liquidity: 0,
+    receivables: 0,
+    accountsPayable: 0,
+    salaryExpenses: 0,
+    publicFees: 0,
+  });
+
+  const handleForenkletSubmit = async () => {
+    if (!onSaveMonthlyEntry) return;
+    setForenkletSaving(true);
+    try {
+      await onSaveMonthlyEntry({
+        companyId: company.id,
+        year: forenkletForm.year,
+        month: forenkletForm.month,
+        revenue: forenkletForm.revenue,
+        expenses: forenkletForm.expenses,
+        liquidity: forenkletForm.liquidity,
+        receivables: forenkletForm.receivables,
+        accountsPayable: forenkletForm.accountsPayable,
+        salaryExpenses: forenkletForm.salaryExpenses,
+        publicFees: forenkletForm.publicFees,
+      });
+      setIsForenkletOpen(false);
+    } finally {
+      setForenkletSaving(false);
+    }
+  };
 
   // Budget Modal State
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
@@ -742,13 +782,27 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     <History className="w-5 h-5 text-slate-500" />
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white">Rapporteringslogg</h3>
                 </div>
-                <button 
-                    onClick={handleOpenNewReport}
-                    className="bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
-                >
-                    <Plus className="w-4 h-4" />
-                    Ny Rapport
-                </button>
+                <div className="flex items-center gap-2">
+                    {onSaveMonthlyEntry && (
+                        <button
+                            onClick={() => {
+                                setForenkletForm({ year: currentYear, month: currentMonth, revenue: 0, expenses: 0, liquidity: 0, receivables: 0, accountsPayable: 0, salaryExpenses: 0, publicFees: 0 });
+                                setIsForenkletOpen(true);
+                            }}
+                            className="bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
+                        >
+                            <Activity className="w-4 h-4" />
+                            Forenklet rapport
+                        </button>
+                    )}
+                    <button
+                        onClick={handleOpenNewReport}
+                        className="bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                        Ny Rapport
+                    </button>
+                </div>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-700">
                 {reports.length === 0 && (
@@ -1357,6 +1411,84 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                     </form>
                 </div>
             </div>
+            );
+        })()}
+
+        {/* Forenklet Rapport Modal */}
+        {isForenkletOpen && (() => {
+            const MONTHS_NO = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+            const fields: { key: keyof typeof forenkletForm; label: string }[] = [
+                { key: 'revenue', label: 'Omsetning' },
+                { key: 'expenses', label: 'Kostnader' },
+                { key: 'liquidity', label: 'Likviditet' },
+                { key: 'receivables', label: 'Fordringer' },
+                { key: 'accountsPayable', label: 'Leverandørgjeld' },
+                { key: 'salaryExpenses', label: 'Lønnskostnad' },
+                { key: 'publicFees', label: 'Off. avgifter' },
+            ];
+            return (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                            <h2 className="text-lg font-bold text-slate-900 dark:text-white">Forenklet rapport</h2>
+                            <button onClick={() => setIsForenkletOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                                <X className="w-5 h-5 text-slate-500" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {/* Month / Year selector */}
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Måned</label>
+                                    <select
+                                        value={forenkletForm.month}
+                                        onChange={e => setForenkletForm(f => ({ ...f, month: Number(e.target.value) }))}
+                                        className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                                    >
+                                        {MONTHS_NO.map((m, i) => (
+                                            <option key={i} value={i + 1}>{m}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="w-28">
+                                    <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">År</label>
+                                    <input
+                                        type="number"
+                                        value={forenkletForm.year}
+                                        onChange={e => setForenkletForm(f => ({ ...f, year: Number(e.target.value) }))}
+                                        className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+                            {/* Fields */}
+                            <div className="grid grid-cols-2 gap-3">
+                                {fields.map(({ key, label }) => (
+                                    <div key={key}>
+                                        <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">{label}</label>
+                                        <input
+                                            type="number"
+                                            value={forenkletForm[key] as number}
+                                            onChange={e => setForenkletForm(f => ({ ...f, [key]: Number(e.target.value) }))}
+                                            className="w-full border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 text-slate-800 dark:text-white"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-xs text-slate-400 dark:text-slate-500">Tall er per måned. Systemet summerer alle måneder til YTD automatisk.</p>
+                        </div>
+                        <div className="flex justify-end gap-3 px-6 pb-6">
+                            <button onClick={() => setIsForenkletOpen(false)} className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Avbryt</button>
+                            <button
+                                onClick={handleForenkletSubmit}
+                                disabled={forenkletSaving}
+                                className="px-6 py-2 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded-lg font-bold shadow-md transition-colors flex items-center gap-2"
+                            >
+                                <Save className="w-4 h-4" />
+                                {forenkletSaving ? 'Lagrer...' : 'Lagre'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             );
         })()}
 

@@ -147,6 +147,19 @@ export enum ViewMode {
 
 export type StatusType = 'success' | 'warning' | 'danger';
 
+export interface MonthlyEntryData {
+  companyId: number;
+  year: number;
+  month: number; // 1-12
+  revenue: number;
+  expenses: number;
+  liquidity: number;
+  receivables: number;
+  accountsPayable: number;
+  salaryExpenses: number;
+  publicFees: number;
+}
+
 export interface UserProfile {
     id: number;
     fullName: string;
