@@ -22,6 +22,8 @@ interface CompanyDetailViewProps {
   hasProjectsModule?: boolean;
   onOpenProjects?: () => void;
   onSaveMonthlyEntry?: (entry: MonthlyEntryData) => Promise<void>;
+  monthlyEntries?: MonthlyEntryData[];
+  onDeleteMonthlyEntry?: (entryId: number) => Promise<void>;
 }
 
 const toInputDate = (dateStr: string) => {
@@ -39,7 +41,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects, onSaveMonthlyEntry }) => {
+const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects, onSaveMonthlyEntry, monthlyEntries = [], onDeleteMonthlyEntry }) => {
   
   console.log("CompanyDetailView rendering for:", company.name);
 
@@ -922,9 +924,71 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 </div>
             </div>
             <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                {reports.length === 0 && (
+                {reports.length === 0 && monthlyEntries.length === 0 && (
                     <div className="p-8 text-center text-slate-400 dark:text-slate-500 text-sm italic">Ingen rapporter funnet.</div>
                 )}
+
+                {/* Monthly entries (Forenklet rapport) */}
+                {(() => {
+                    const MONTHS_NO = ['Januar','Februar','Mars','April','Mai','Juni','Juli','August','September','Oktober','November','Desember'];
+                    const sorted = [...monthlyEntries].sort((a, b) => b.year !== a.year ? b.year - a.year : b.month - a.month);
+                    return sorted.map(entry => (
+                        <div key={`me-${entry.id}`} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-900/20">
+                                        <Activity className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold text-slate-900 dark:text-white">
+                                                {MONTHS_NO[entry.month - 1]} {entry.year}
+                                            </span>
+                                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                                Forenklet
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                            Omsetning {formatCurrency(entry.revenue)} · Kostnader {formatCurrency(entry.expenses)} · Resultat {formatCurrency(entry.revenue - entry.expenses)}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={() => {
+                                            setForenkletForm({
+                                                year: entry.year,
+                                                month: entry.month,
+                                                revenue: entry.revenue,
+                                                expenses: entry.expenses,
+                                                liquidity: entry.liquidity,
+                                                receivables: entry.receivables,
+                                                accountsPayable: entry.accountsPayable,
+                                                salaryExpenses: entry.salaryExpenses,
+                                                publicFees: entry.publicFees,
+                                            });
+                                            setIsForenkletOpen(true);
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-sky-600 transition-colors"
+                                        title="Rediger"
+                                    >
+                                        <Edit size={14} />
+                                    </button>
+                                    {onDeleteMonthlyEntry && entry.id && (
+                                        <button
+                                            onClick={() => onDeleteMonthlyEntry(entry.id!)}
+                                            className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors"
+                                            title="Slett"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ));
+                })()}
+
                 {reports.map((report) => {
                     const isApproved = report.status === 'approved';
                     const isTripletex = report.source === 'Tripletex';

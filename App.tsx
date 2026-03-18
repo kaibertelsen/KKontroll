@@ -74,6 +74,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const [allReports, setAllReports] = useState<ReportLogItem[]>([]);
   
   const [forecasts, setForecasts] = useState<ForecastItem[]>([]);
+  const [monthlyEntries, setMonthlyEntries] = useState<MonthlyEntryData[]>([]);
 
   // SORTING STATE
   const [isSortMode, setIsSortMode] = useState(false);
@@ -261,6 +262,36 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
       } catch (e) { console.error("Fetch company reports error", e); }
   };
   
+  const fetchMonthlyEntries = async (companyId: number) => {
+    try {
+      const res = await getNEON({ table: 'monthly_entries', where: { company_id: companyId } });
+      if (res.rows) {
+        const mapped: MonthlyEntryData[] = res.rows.map((r: any) => ({
+          id: r.id,
+          companyId: r.company_id,
+          year: Number(r.year),
+          month: Number(r.month),
+          revenue: Number(r.revenue || 0),
+          expenses: Number(r.expenses || 0),
+          liquidity: Number(r.liquidity || 0),
+          receivables: Number(r.receivables || 0),
+          accountsPayable: Number(r.accounts_payable || 0),
+          salaryExpenses: Number(r.salary_expenses || 0),
+          publicFees: Number(r.public_fees || 0),
+        }));
+        setMonthlyEntries(mapped);
+      }
+    } catch (e) { console.error('Fetch monthly entries error', e); }
+  };
+
+  const handleDeleteMonthlyEntry = async (entryId: number) => {
+    if (isDemo) return;
+    await deleteNEON({ table: 'monthly_entries', data: entryId });
+    setMonthlyEntries(prev => prev.filter(e => e.id !== entryId));
+    // Reload companies so YTD reflects deletion
+    await reloadCompanies();
+  };
+
   const fetchForecasts = async (companyId: number) => {
        try {
             const res = await getNEON({ table: 'forecasts', where: { company_id: companyId } });
@@ -318,6 +349,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
       if (!isDemo) {
           fetchCompanyReports(selectedCompany.id);
           fetchForecasts(selectedCompany.id);
+          fetchMonthlyEntries(selectedCompany.id);
       } else {
           setReports([
               { id: 1, date: '15.10.2023', author: 'Anna Hansen', comment: 'Sterk vekst i Q3.', status: 'approved', result: 1240000, liquidity: 540000, source: 'Manuell', approvedBy: 'Demo Controller', pnlDate: '30.09.2023', companyId: 1 },
@@ -655,15 +687,16 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           if (!targetCompanyId) return;
           if (isDemo) return;
 
+          // Use snake_case — API maps column names directly to DB
           const reportPayload: any = {
-              companyId: targetCompanyId,
-              submittedByUserId: userProfile.id, 
-              authorName: userProfile.fullName,
+              company_id: targetCompanyId,
+              submitted_by_user_id: userProfile.id,
+              author_name: userProfile.fullName,
               comment: reportData.comment,
               source: reportData.source,
               status: 'submitted'
           };
-          
+
           const hasRevenue = reportData.revenue !== '' && reportData.revenue !== undefined;
           const hasExpenses = reportData.expenses !== '' && reportData.expenses !== undefined;
 
@@ -672,29 +705,29 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
              const e = Number(reportData.expenses || 0);
              reportPayload.revenue = r;
              reportPayload.expenses = e;
-             reportPayload.resultYtd = r - e; 
-             if(reportData.pnlDate) reportPayload.pnlDate = toISODate(reportData.pnlDate) || reportData.pnlDate;
+             reportPayload.result_ytd = r - e;
+             if(reportData.pnlDate) reportPayload.pnl_date = toISODate(reportData.pnlDate) || reportData.pnlDate;
           }
 
           if(reportData.liquidity !== undefined && reportData.liquidity !== '') {
              reportPayload.liquidity = Number(reportData.liquidity);
-             if(reportData.liquidityDate) reportPayload.liquidityDate = reportData.liquidityDate;
+             if(reportData.liquidityDate) reportPayload.liquidity_date = reportData.liquidityDate;
           }
           if(reportData.receivables !== undefined && reportData.receivables !== '') {
               reportPayload.receivables = Number(reportData.receivables);
-              if(reportData.receivablesDate) reportPayload.receivablesDate = reportData.receivablesDate;
+              if(reportData.receivablesDate) reportPayload.receivables_date = reportData.receivablesDate;
           }
           if(reportData.accountsPayable !== undefined && reportData.accountsPayable !== '') {
-              reportPayload.accountsPayable = Number(reportData.accountsPayable);
-              if(reportData.accountsPayableDate) reportPayload.accountsPayableDate = reportData.accountsPayableDate;
+              reportPayload.accounts_payable = Number(reportData.accountsPayable);
+              if(reportData.accountsPayableDate) reportPayload.accounts_payable_date = reportData.accountsPayableDate;
           }
           if(reportData.publicFees !== undefined && reportData.publicFees !== '') {
-              reportPayload.publicFees = Number(reportData.publicFees);
-              if(reportData.publicFeesDate) reportPayload.publicFeesDate = reportData.publicFeesDate;
+              reportPayload.public_fees = Number(reportData.publicFees);
+              if(reportData.publicFeesDate) reportPayload.public_fees_date = reportData.publicFeesDate;
           }
           if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
-              reportPayload.salaryExpenses = Number(reportData.salaryExpenses);
-              if(reportData.salaryExpensesDate) reportPayload.salaryExpensesDate = reportData.salaryExpensesDate;
+              reportPayload.salary_expenses = Number(reportData.salaryExpenses);
+              if(reportData.salaryExpensesDate) reportPayload.salary_expenses_date = reportData.salaryExpensesDate;
           }
 
           if (reportData.id) {
@@ -1106,7 +1139,10 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
     });
 
     await reloadCompanies();
-    if (selectedCompany) fetchCompanyReports(selectedCompany.id);
+    if (selectedCompany) {
+      fetchCompanyReports(selectedCompany.id);
+      fetchMonthlyEntries(selectedCompany.id);
+    }
   };
 
   if (selectedCompany) {
@@ -1127,6 +1163,8 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         hasProjectsModule={groupFeatures.includes('projects')}
         onOpenProjects={() => { setSelectedProject(null); setViewMode(ViewMode.PROJECTS); }}
         onSaveMonthlyEntry={handleSaveMonthlyEntry}
+        monthlyEntries={monthlyEntries}
+        onDeleteMonthlyEntry={handleDeleteMonthlyEntry}
       />
     );
   }
