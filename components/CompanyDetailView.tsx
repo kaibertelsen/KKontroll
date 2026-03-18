@@ -52,6 +52,9 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
   // Refresh State
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Full-year chart toggle
+  const [showFullYear, setShowFullYear] = useState(false);
+
   // Forenklet Rapport Modal State
   const [isForenkletOpen, setIsForenkletOpen] = useState(false);
   const [forenkletSaving, setForenkletSaving] = useState(false);
@@ -323,6 +326,57 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
       }
       return data;
   }, [company]);
+
+  // --- FULL YEAR CHART DATA ---
+  const fullYearData = useMemo(() => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
+    const now = new Date();
+    const currentMonthIndex = now.getMonth();
+
+    let bMonths: number[] = [];
+    // @ts-ignore
+    const raw = company.budgetMonths || company.budget_months;
+    if (Array.isArray(raw)) bMonths = raw.map(x => Number(x) || 0);
+    else if (typeof raw === 'string') {
+      let s = raw.trim().replace('{', '[').replace('}', ']');
+      try { const p = JSON.parse(s); if (Array.isArray(p)) bMonths = p.map(Number); } catch { bMonths = s.replace(/[\[\]\{\}]/g,'').split(',').map(Number); }
+    }
+    if (bMonths.length !== 12) bMonths = Array(12).fill(0);
+    const total = Number(company.budgetTotal || 0);
+    const sum = bMonths.reduce((a, b) => a + b, 0);
+    if ((sum === 0 || isNaN(sum)) && total > 0) {
+      const per = Math.round(total / 12);
+      bMonths = Array(12).fill(per);
+      bMonths[11] += total - per * 12;
+    }
+
+    const isScenario = company.budgetType === 'scenario';
+    const bMonthsLow: number[] = (isScenario && company.budgetMonthsLow) ? company.budgetMonthsLow.map(x => Number(x) || 0) : Array(12).fill(0);
+    const bMonthsHigh: number[] = (isScenario && company.budgetMonthsHigh) ? company.budgetMonthsHigh.map(x => Number(x) || 0) : Array(12).fill(0);
+
+    // Build from historyData for past months, extend with budget-only for future
+    const data: any[] = historyData.map(d => ({ ...d }));
+
+    let prevCumBudget = data.length > 0 ? data[data.length - 1].cumBudget : 0;
+    let prevCumLow = data.length > 0 ? (data[data.length - 1].cumBudgetLow ?? 0) : 0;
+    let prevCumHigh = data.length > 0 ? (data[data.length - 1].cumBudgetHigh ?? 0) : 0;
+
+    for (let i = currentMonthIndex + 1; i < 12; i++) {
+      prevCumBudget += Math.round(Number(bMonths[i]) || 0);
+      prevCumLow += isScenario ? Math.round(Number(bMonthsLow[i]) || 0) : 0;
+      prevCumHigh += isScenario ? Math.round(Number(bMonthsHigh[i]) || 0) : 0;
+      data.push({
+        month: months[i],
+        result: null,
+        cumResult: null,
+        cumBudget: prevCumBudget,
+        cumBudgetLow: isScenario ? prevCumLow : undefined,
+        cumBudgetHigh: isScenario ? prevCumHigh : undefined,
+        type: 'forecast',
+      });
+    }
+    return data;
+  }, [historyData, company]);
 
   // --- FORECAST CHART DATA PREPARATION ---
   const forecastChartData = useMemo(() => {
@@ -701,6 +755,55 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 )}
             </div>
 
+            {/* Scenario Budget Banner */}
+            {company.budgetType === 'scenario' && company.calculatedBudgetYTDLow !== undefined && company.calculatedBudgetYTDHigh !== undefined && (() => {
+                const nedre = Math.round(company.calculatedBudgetYTDLow!);
+                const ovre = Math.round(company.calculatedBudgetYTDHigh!);
+                const result = company.resultYTD ?? 0;
+                const range = ovre - nedre;
+                const onTrack = result !== 0 && result >= nedre && result <= ovre;
+                const barPct = range > 0 ? Math.max(0, Math.min(100, ((result - nedre) / range) * 100)) : (result >= nedre ? 100 : 0);
+                const resultColor = result === 0
+                    ? 'text-slate-400 dark:text-slate-500'
+                    : onTrack
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : result > ovre
+                            ? 'text-sky-600 dark:text-sky-400'
+                            : 'text-rose-600 dark:text-rose-400';
+                const barColor = result === 0 ? 'bg-slate-200 dark:bg-slate-600' : onTrack ? 'bg-emerald-500' : result < nedre ? 'bg-rose-500' : 'bg-sky-400';
+                return (
+                    <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-6 py-4 shadow-sm">
+                        <div className="flex items-end justify-between mb-3">
+                            {/* Nedre */}
+                            <div>
+                                <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Nedre</div>
+                                <span className="inline-block bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-sm font-bold px-2.5 py-1 rounded-lg">
+                                    {formatCurrency(nedre)}
+                                </span>
+                            </div>
+                            {/* Resultat */}
+                            <div className="text-center">
+                                <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Resultat</div>
+                                <div className={`text-2xl font-extrabold tabular-nums ${resultColor}`}>
+                                    {result !== 0 ? formatCurrency(result) : '–'}
+                                </div>
+                            </div>
+                            {/* Øvre */}
+                            <div className="text-right">
+                                <div className="text-[9px] uppercase tracking-widest text-slate-400 dark:text-slate-500 font-bold mb-1">Øvre</div>
+                                <span className="inline-block bg-indigo-600 text-white text-sm font-bold px-2.5 py-1 rounded-lg">
+                                    {formatCurrency(ovre)}
+                                </span>
+                            </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${barPct}%` }} />
+                        </div>
+                    </div>
+                );
+            })()}
+
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-4">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
@@ -715,12 +818,21 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
             </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div className={`grid grid-cols-1 gap-8 mb-8 ${showFullYear ? 'lg:grid-cols-1' : 'lg:grid-cols-2'}`}>
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">Resultatutvikling (Akkumulert)</h3>
-                <div className="h-[350px]">
+                <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-white">Resultatutvikling (Akkumulert)</h3>
+                    <button
+                        onClick={() => setShowFullYear(v => !v)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium flex items-center gap-1.5 transition-colors ${showFullYear ? 'bg-sky-50 dark:bg-sky-900/30 border-sky-200 dark:border-sky-700 text-sky-700 dark:text-sky-300' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600'}`}
+                    >
+                        <Calendar size={12} />
+                        {showFullYear ? 'Skjul' : 'Se hele året'}
+                    </button>
+                </div>
+                <div className={showFullYear ? 'h-[420px]' : 'h-[350px]'}>
                     <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={historyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <ComposedChart data={showFullYear ? fullYearData : historyData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="colorResult" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
@@ -730,9 +842,14 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                             <XAxis dataKey="month" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                             <YAxis stroke="#94a3b8" fontSize={12} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => formatCurrency(value)} />
+                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value: number) => value !== null ? formatCurrency(value) : ''} />
                             <Legend />
-                            <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
+                            {showFullYear && (
+                                <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} connectNulls={false} />
+                            )}
+                            {!showFullYear && (
+                                <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill="url(#colorResult)" strokeWidth={2} />
+                            )}
                             {company.budgetType === 'scenario' ? (
                                 <>
                                     <Line type="monotone" dataKey="cumBudgetLow" name="Realist (Akk)" stroke="#f87171" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
