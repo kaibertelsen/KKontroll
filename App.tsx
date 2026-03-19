@@ -31,7 +31,10 @@ import {
   BarChart3,
   Building2,
   Users,
-  Activity
+  Activity,
+  Settings,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 interface AppProps {
@@ -58,6 +61,20 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const [cardSize, setCardSize] = useState<'normal' | 'compact'>('normal');
   const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
   const [showShortTermDebt, setShowShortTermDebt] = useState<boolean>(true);
+  const [isCardSettingsOpen, setIsCardSettingsOpen] = useState(false);
+  const [visibleFields, setVisibleFields] = useState({
+    omsetning: true,
+    kostnader: true,
+    resultat: true,
+    budsjett: true,
+    likviditet: true,
+    fordringer: true,
+    leverandorgjeld: true,
+    kortsiktigGjeld: true,
+    offAvgifter: true,
+    lonnskostnad: true,
+    nettoArbeidskapital: true,
+  });
   const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -1403,6 +1420,14 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                         >
                             {showShortTermDebt ? 'Slå av Kortsiktig gjeld' : 'Slå på Kortsiktig gjeld'}
                         </button>
+
+                        <button
+                            onClick={() => setIsCardSettingsOpen(true)}
+                            className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
+                            title="Kortinnstillinger"
+                        >
+                            <Settings size={16} />
+                        </button>
                     </div>
 
                     <div className="flex bg-slate-200/60 dark:bg-slate-800 p-1 rounded-lg self-end md:self-auto transition-colors duration-300">
@@ -1433,6 +1458,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                             cardSize={cardSize}
                             zoomLevel={zoomLevel}
                             showShortTermDebt={showShortTermDebt}
+                            visibleFields={visibleFields}
                             onSelectCompany={setSelectedCompany}
                             onDragStart={onDragStart}
                             onDragEnter={onDragEnter}
@@ -1444,6 +1470,105 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         )}
       </main>
       
+      {/* Card Settings Modal */}
+      {isCardSettingsOpen && (() => {
+        const FIELD_GROUPS: { label: string; fields: { key: keyof typeof visibleFields; label: string; footer?: boolean }[] }[] = [
+          {
+            label: 'Resultat',
+            fields: [
+              { key: 'omsetning', label: 'Omsetning YTD', footer: true },
+              { key: 'kostnader', label: 'Kostnader YTD', footer: true },
+              { key: 'resultat', label: 'Resultat YTD', footer: true },
+              { key: 'budsjett', label: 'Budsjett YTD', footer: true },
+            ]
+          },
+          {
+            label: 'Balanse',
+            fields: [
+              { key: 'likviditet', label: 'Likviditet', footer: true },
+              { key: 'fordringer', label: 'Fordringer', footer: true },
+              { key: 'leverandorgjeld', label: 'Leverandørgjeld', footer: true },
+              { key: 'kortsiktigGjeld', label: 'Kortsiktig gjeld', footer: true },
+              { key: 'offAvgifter', label: 'Off. Avgifter', footer: true },
+              { key: 'lonnskostnad', label: 'Lønnskostnad', footer: true },
+            ]
+          },
+          {
+            label: 'Nøkkeltall',
+            fields: [
+              { key: 'nettoArbeidskapital', label: 'Netto Arbeidskapital', footer: true },
+            ]
+          },
+        ];
+        const allOn = Object.values(visibleFields).every(Boolean);
+        return (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-2">
+                  <Settings size={18} className="text-slate-500" />
+                  <h2 className="text-base font-bold text-slate-900 dark:text-white">Kortinnstillinger</h2>
+                </div>
+                <button onClick={() => setIsCardSettingsOpen(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                  <X className="w-5 h-5 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+                <p className="text-xs text-slate-400 dark:text-slate-500">Velg hvilke felter som vises på firmakortene og i footeren. Påvirker ikke utregninger.</p>
+
+                {/* Toggle all */}
+                <button
+                  onClick={() => setVisibleFields(prev => Object.fromEntries(Object.keys(prev).map(k => [k, !allOn])) as typeof visibleFields)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-600 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                >
+                  {allOn ? <EyeOff size={14} /> : <Eye size={14} />}
+                  {allOn ? 'Skjul alle' : 'Vis alle'}
+                </button>
+
+                {FIELD_GROUPS.map(group => (
+                  <div key={group.label}>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500 mb-2">{group.label}</p>
+                    <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      {group.fields.map((field, idx) => (
+                        <label
+                          key={field.key}
+                          className={`flex items-center justify-between px-4 py-2.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors ${idx > 0 ? 'border-t border-slate-200 dark:border-slate-700/60' : ''}`}
+                        >
+                          <span className={`text-sm font-medium ${visibleFields[field.key] ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500 line-through'}`}>
+                            {field.label}
+                          </span>
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={visibleFields[field.key]}
+                              onChange={() => setVisibleFields(prev => ({ ...prev, [field.key]: !prev[field.key] }))}
+                              className="sr-only"
+                            />
+                            <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${visibleFields[field.key] ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                              <div className={`w-3.5 h-3.5 bg-white rounded-full shadow-sm absolute top-0.75 transition-transform duration-200 ${visibleFields[field.key] ? 'translate-x-4.5' : 'translate-x-0.75'}`} style={{ top: '3px', left: visibleFields[field.key] ? '18px' : '3px' }} />
+                            </div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex justify-end px-6 pb-5 pt-2">
+                <button
+                  onClick={() => setIsCardSettingsOpen(false)}
+                  className="px-5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg font-bold text-sm transition-colors"
+                >
+                  Ferdig
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Password Change Modal */}
       {isPasswordModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
@@ -1508,6 +1633,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         totalSalaryExpenses={totalSalaryExpenses}
         totalWorkingCapital={totalWorkingCapital}
         showShortTermDebt={showShortTermDebt}
+        visibleFields={visibleFields}
         isAdminMode={isAdminMode}
       />
     </div>

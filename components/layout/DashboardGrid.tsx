@@ -3,12 +3,27 @@ import MetricCard from '../MetricCard';
 import AnimatedGrid from '../AnimatedGrid';
 import { ComputedCompanyData } from '../../types';
 
+export interface VisibleFields {
+  omsetning: boolean;
+  kostnader: boolean;
+  resultat: boolean;
+  budsjett: boolean;
+  likviditet: boolean;
+  fordringer: boolean;
+  leverandorgjeld: boolean;
+  kortsiktigGjeld: boolean;
+  offAvgifter: boolean;
+  lonnskostnad: boolean;
+  nettoArbeidskapital: boolean;
+}
+
 interface DashboardGridProps {
   sortedData: ComputedCompanyData[];
   isSortMode: boolean;
   cardSize: 'normal' | 'compact';
   zoomLevel: number;
   showShortTermDebt: boolean;
+  visibleFields: VisibleFields;
   onSelectCompany: (company: ComputedCompanyData) => void;
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragEnter: (e: React.DragEvent, index: number) => void;
@@ -21,18 +36,18 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
   cardSize,
   zoomLevel,
   showShortTermDebt,
+  visibleFields,
   onSelectCompany,
   onDragStart,
   onDragEnter,
   onDragEnd
 }) => {
 
-  // Determine grid columns based on zoom level (Applies primarily to XL screens)
   const getGridColumnClass = () => {
       if (zoomLevel >= 110) return 'xl:grid-cols-2 gap-8';
-      if (zoomLevel === 100) return 'xl:grid-cols-3 gap-6'; // Standard
+      if (zoomLevel === 100) return 'xl:grid-cols-3 gap-6';
       if (zoomLevel >= 80) return 'xl:grid-cols-4 gap-4';
-      return 'xl:grid-cols-5 gap-3'; // 60-70%
+      return 'xl:grid-cols-5 gap-3';
   };
 
   return (
@@ -50,6 +65,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
                 cardSize={cardSize}
                 zoomLevel={zoomLevel}
                 showShortTermDebt={showShortTermDebt}
+                visibleFields={visibleFields}
             />
         ))}
     </AnimatedGrid>

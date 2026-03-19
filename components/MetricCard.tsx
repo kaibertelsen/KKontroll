@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ComputedCompanyData } from '../types';
 import { formatCurrency } from '../constants';
 import DeviationSlider from './DeviationSlider';
+import { VisibleFields } from './layout/DashboardGrid';
 import { 
   TrendingUp,
   TrendingDown,
@@ -35,7 +36,14 @@ interface MetricCardProps {
   cardSize?: 'normal' | 'compact';
   zoomLevel?: number;
   showShortTermDebt?: boolean;
+  visibleFields?: VisibleFields;
 }
+
+const DEFAULT_VISIBLE: VisibleFields = {
+  omsetning: true, kostnader: true, resultat: true, budsjett: true,
+  likviditet: true, fordringer: true, leverandorgjeld: true, kortsiktigGjeld: true,
+  offAvgifter: true, lonnskostnad: true, nettoArbeidskapital: true,
+};
 
 const MetricCard: React.FC<MetricCardProps> = ({
   data,
@@ -47,7 +55,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   index,
   cardSize = 'normal',
   zoomLevel = 100,
-  showShortTermDebt = true
+  showShortTermDebt = true,
+  visibleFields = DEFAULT_VISIBLE
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -152,12 +161,19 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   const cardHeight = useMemo(() => {
       if (cardSize === 'compact') return undefined;
-      const offset = showShortTermDebt ? 0 : 28;
+      const hiddenRows = [
+        !visibleFields.omsetning, !visibleFields.kostnader, !visibleFields.resultat,
+        !visibleFields.budsjett, !visibleFields.likviditet, !visibleFields.fordringer,
+        !visibleFields.leverandorgjeld, !(visibleFields.kortsiktigGjeld && showShortTermDebt),
+        !visibleFields.offAvgifter, !visibleFields.lonnskostnad, !visibleFields.nettoArbeidskapital,
+      ].filter(Boolean).length;
+      const rowHeight = 28;
+      const offset = hiddenRows * rowHeight;
       if (zoomLevel >= 110) return 500 - offset;
       if (zoomLevel >= 100) return 460 - offset;
       if (zoomLevel >= 80) return 420 - offset;
       return 370 - offset;
-  }, [zoomLevel, cardSize, showShortTermDebt]);
+  }, [zoomLevel, cardSize, showShortTermDebt, visibleFields]);
 
   // Adjust padding and text size for smaller zoom levels
   const contentPadding = zoomLevel < 80 ? 'p-3' : 'p-3 md:p-5';
@@ -296,22 +312,24 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
               {/* Reduced gap from 0.5 to 0 for tighter packing */}
               <div className="flex flex-col gap-0 flex-grow">
-                  <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />
-                  <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-                  <RowItem 
-                    icon={BarChart3} 
-                    label="Resultat YTD" 
-                    value={data.resultYTD} 
-                    highlight
-                    extra={
-                        <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${trendBg}`} title="Endring mot i fjor">
-                            <TrendIcon className={`w-3 h-3 ${trendColor}`} />
-                            <span className={`text-[10px] font-bold ${trendColor}`}>{Math.abs(data.trendHistory)}%</span>
-                        </div>
-                    }
-                  />
-                  {data.budgetType === 'scenario' && data.calculatedBudgetYTDLow !== undefined && data.calculatedBudgetYTDHigh !== undefined ? (
+                  {visibleFields.omsetning && <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />}
+                  {visibleFields.kostnader && <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />}
+                  {(visibleFields.omsetning || visibleFields.kostnader) && (visibleFields.resultat || visibleFields.budsjett) && <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>}
+                  {visibleFields.resultat && (
+                    <RowItem
+                      icon={BarChart3}
+                      label="Resultat YTD"
+                      value={data.resultYTD}
+                      highlight
+                      extra={
+                          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${trendBg}`} title="Endring mot i fjor">
+                              <TrendIcon className={`w-3 h-3 ${trendColor}`} />
+                              <span className={`text-[10px] font-bold ${trendColor}`}>{Math.abs(data.trendHistory)}%</span>
+                          </div>
+                      }
+                    />
+                  )}
+                  {visibleFields.budsjett && (data.budgetType === 'scenario' && data.calculatedBudgetYTDLow !== undefined && data.calculatedBudgetYTDHigh !== undefined ? (
                     <div className={`flex justify-between items-center ${zoomLevel < 80 ? 'h-5' : 'h-6'}`}>
                       <div className="flex items-center gap-2 overflow-hidden">
                         <Target size={zoomLevel < 80 ? 12 : 14} className="text-slate-400 dark:text-slate-500 shrink-0" />
@@ -325,17 +343,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
                     </div>
                   ) : (
                     <RowItem icon={Target} label="Budsjett YTD" value={data.calculatedBudgetYTD} valueColor="text-slate-500 dark:text-slate-400" />
-                  )}
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-                  <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
-                  <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
-                  <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
-                  {showShortTermDebt && <RowItem icon={ArrowDownRight} label="Kortsiktig gjeld" subLabel={data.shortTermDebtDate ? `(${data.shortTermDebtDate})` : ''} value={data.shortTermDebt} />}
-                  <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />
-                  <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />
-                  
-                  <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>
-                  <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />
+                  ))}
+                  {(visibleFields.resultat || visibleFields.budsjett) && (visibleFields.likviditet || visibleFields.fordringer || visibleFields.leverandorgjeld || visibleFields.kortsiktigGjeld || visibleFields.offAvgifter || visibleFields.lonnskostnad) && <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>}
+                  {visibleFields.likviditet && <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />}
+                  {visibleFields.fordringer && <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />}
+                  {visibleFields.leverandorgjeld && <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />}
+                  {visibleFields.kortsiktigGjeld && showShortTermDebt && <RowItem icon={ArrowDownRight} label="Kortsiktig gjeld" subLabel={data.shortTermDebtDate ? `(${data.shortTermDebtDate})` : ''} value={data.shortTermDebt} />}
+                  {visibleFields.offAvgifter && <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />}
+                  {visibleFields.lonnskostnad && <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />}
+
+                  {visibleFields.nettoArbeidskapital && <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>}
+                  {visibleFields.nettoArbeidskapital && <RowItem icon={Activity} label="Netto Arbeidskapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" highlight />}
               </div>
 
               <div className="mt-2 shrink-0">

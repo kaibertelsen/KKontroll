@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatCurrency } from '../../constants';
+import { VisibleFields } from './DashboardGrid';
 
 interface FooterProps {
   totalRevenue: number;
@@ -14,6 +15,7 @@ interface FooterProps {
   totalSalaryExpenses: number;
   totalWorkingCapital: number;
   showShortTermDebt: boolean;
+  visibleFields: VisibleFields;
   isAdminMode: boolean;
 }
 
@@ -42,6 +44,7 @@ const Footer: React.FC<FooterProps> = ({
   totalSalaryExpenses,
   totalWorkingCapital,
   showShortTermDebt,
+  visibleFields,
   isAdminMode
 }) => {
   if (isAdminMode) return null;
@@ -52,75 +55,19 @@ const Footer: React.FC<FooterProps> = ({
             {/* Aggregates - Centered */}
             <div className="overflow-x-auto whitespace-nowrap scrollbar-hide w-full flex justify-start md:justify-center items-center pb-1 sm:pb-0">
                     <div className="flex gap-3 px-2">
-                    <MetricChip 
-                        label="Omsetning" 
-                        value={totalRevenue} 
-                        bgClass="bg-blue-50/50 border-blue-100/50 dark:bg-blue-900/10 dark:border-blue-800/50" 
-                        textClass="text-blue-600 dark:text-blue-400"
-                    />
-                    <MetricChip 
-                        label="Kostnader" 
-                        value={totalExpenses} 
-                        bgClass="bg-slate-50/50 border-slate-100/50 dark:bg-slate-800/30 dark:border-slate-700/50" 
-                    />
-                    <MetricChip 
-                        label="Resultat" 
-                        value={totalResult} 
-                        bgClass="bg-indigo-50/50 border-indigo-100/50 dark:bg-indigo-900/10 dark:border-indigo-800/50" 
-                        textClass="text-indigo-600 dark:text-indigo-400"
-                    />
-                    <MetricChip 
-                        label="Budsjett" 
-                        value={totalBudgetYTD} 
-                        bgClass="bg-violet-50/50 border-violet-100/50 dark:bg-violet-900/10 dark:border-violet-800/50" 
-                        textClass="text-violet-600 dark:text-violet-400"
-                    />
-                    <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                    <MetricChip 
-                        label="Likviditet" 
-                        value={totalLiquidity} 
-                        bgClass="bg-emerald-50/50 border-emerald-100/50 dark:bg-emerald-900/10 dark:border-emerald-800/50" 
-                        textClass="text-emerald-600 dark:text-emerald-400"
-                    />
-                    <MetricChip 
-                        label="Fordringer" 
-                        value={totalReceivables} 
-                        bgClass="bg-sky-50/50 border-sky-100/50 dark:bg-sky-900/10 dark:border-sky-800/50" 
-                        textClass="text-sky-600 dark:text-sky-400"
-                    />
-                    <MetricChip
-                        label="Lev.Gjeld"
-                        value={totalPayables}
-                        bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50"
-                        textClass="text-amber-600 dark:text-amber-400"
-                    />
-                    {showShortTermDebt && (
-                    <MetricChip
-                        label="Kort.Gjeld"
-                        value={totalShortTermDebt}
-                        bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50"
-                        textClass="text-orange-600 dark:text-orange-400"
-                    />
-                    )}
-                    <MetricChip 
-                        label="Lønn" 
-                        value={totalSalaryExpenses} 
-                        bgClass="bg-pink-50/50 border-pink-100/50 dark:bg-pink-900/10 dark:border-pink-800/50" 
-                        textClass="text-pink-600 dark:text-pink-400"
-                    />
-                    <MetricChip 
-                        label="Off.Avg" 
-                        value={totalPublicFees} 
-                        bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50" 
-                        textClass="text-orange-600 dark:text-orange-400"
-                    />
-                    <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                    <MetricChip 
-                        label="Arb.Kapital" 
-                        value={totalWorkingCapital} 
-                        bgClass="bg-teal-50/50 border-teal-100/50 dark:bg-teal-900/10 dark:border-teal-800/50" 
-                        textClass="text-teal-600 dark:text-teal-400"
-                    />
+                    {visibleFields.omsetning && <MetricChip label="Omsetning" value={totalRevenue} bgClass="bg-blue-50/50 border-blue-100/50 dark:bg-blue-900/10 dark:border-blue-800/50" textClass="text-blue-600 dark:text-blue-400" />}
+                    {visibleFields.kostnader && <MetricChip label="Kostnader" value={totalExpenses} bgClass="bg-slate-50/50 border-slate-100/50 dark:bg-slate-800/30 dark:border-slate-700/50" />}
+                    {visibleFields.resultat && <MetricChip label="Resultat" value={totalResult} bgClass="bg-indigo-50/50 border-indigo-100/50 dark:bg-indigo-900/10 dark:border-indigo-800/50" textClass="text-indigo-600 dark:text-indigo-400" />}
+                    {visibleFields.budsjett && <MetricChip label="Budsjett" value={totalBudgetYTD} bgClass="bg-violet-50/50 border-violet-100/50 dark:bg-violet-900/10 dark:border-violet-800/50" textClass="text-violet-600 dark:text-violet-400" />}
+                    {(visibleFields.omsetning || visibleFields.kostnader || visibleFields.resultat || visibleFields.budsjett) && (visibleFields.likviditet || visibleFields.fordringer || visibleFields.leverandorgjeld || visibleFields.kortsiktigGjeld || visibleFields.offAvgifter || visibleFields.lonnskostnad) && <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>}
+                    {visibleFields.likviditet && <MetricChip label="Likviditet" value={totalLiquidity} bgClass="bg-emerald-50/50 border-emerald-100/50 dark:bg-emerald-900/10 dark:border-emerald-800/50" textClass="text-emerald-600 dark:text-emerald-400" />}
+                    {visibleFields.fordringer && <MetricChip label="Fordringer" value={totalReceivables} bgClass="bg-sky-50/50 border-sky-100/50 dark:bg-sky-900/10 dark:border-sky-800/50" textClass="text-sky-600 dark:text-sky-400" />}
+                    {visibleFields.leverandorgjeld && <MetricChip label="Lev.Gjeld" value={totalPayables} bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50" textClass="text-amber-600 dark:text-amber-400" />}
+                    {visibleFields.kortsiktigGjeld && showShortTermDebt && <MetricChip label="Kort.Gjeld" value={totalShortTermDebt} bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50" textClass="text-orange-600 dark:text-orange-400" />}
+                    {visibleFields.lonnskostnad && <MetricChip label="Lønn" value={totalSalaryExpenses} bgClass="bg-pink-50/50 border-pink-100/50 dark:bg-pink-900/10 dark:border-pink-800/50" textClass="text-pink-600 dark:text-pink-400" />}
+                    {visibleFields.offAvgifter && <MetricChip label="Off.Avg" value={totalPublicFees} bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50" textClass="text-orange-600 dark:text-orange-400" />}
+                    {visibleFields.nettoArbeidskapital && <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>}
+                    {visibleFields.nettoArbeidskapital && <MetricChip label="Arb.Kapital" value={totalWorkingCapital} bgClass="bg-teal-50/50 border-teal-100/50 dark:bg-teal-900/10 dark:border-teal-800/50" textClass="text-teal-600 dark:text-teal-400" />}
                     </div>
             </div>
             
