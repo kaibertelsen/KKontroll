@@ -32,21 +32,22 @@ interface MetricCardProps {
   onDragEnd?: () => void;
   index: number;
   
-  // New Prop
   cardSize?: 'normal' | 'compact';
-  zoomLevel?: number; // Added zoomLevel prop
+  zoomLevel?: number;
+  showShortTermDebt?: boolean;
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ 
-  data, 
-  onSelect, 
-  isSortMode, 
+const MetricCard: React.FC<MetricCardProps> = ({
+  data,
+  onSelect,
+  isSortMode,
   onDragStart,
   onDragEnter,
   onDragEnd,
   index,
   cardSize = 'normal',
-  zoomLevel = 100
+  zoomLevel = 100,
+  showShortTermDebt = true
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -128,8 +129,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
   // Status Calculation
-  // Formula: (Liquidity + Receivables) - (Payables + PublicFees + SalaryExpenses)
-  const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0) + (data.salaryExpenses || 0));
+  // Formula: (Liquidity + Receivables) - (Payables + PublicFees + ShortTermDebt)
+  const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0) + (showShortTermDebt ? (data.shortTermDebt || 0) : 0));
 
   const handleClick = (e: React.MouseEvent) => {
     if (isSortMode) {
@@ -146,11 +147,17 @@ const MetricCard: React.FC<MetricCardProps> = ({
   // --- DYNAMIC SCALING LOGIC ---
   const heightClass = useMemo(() => {
       if (cardSize === 'compact') return 'h-48';
-      if (zoomLevel >= 110) return 'h-[460px]'; // Zoomed In (Was 500)
-      if (zoomLevel >= 100) return 'h-[420px]'; // Standard (Was 460)
-      if (zoomLevel >= 80) return 'h-[380px]';  // Slightly zoomed out (Was 410)
-      return 'h-[330px]';                       // Fully zoomed out (Was 350)
-  }, [zoomLevel, cardSize]);
+      return '';
+  }, [cardSize]);
+
+  const cardHeight = useMemo(() => {
+      if (cardSize === 'compact') return undefined;
+      const offset = showShortTermDebt ? 0 : 28;
+      if (zoomLevel >= 110) return 500 - offset;
+      if (zoomLevel >= 100) return 460 - offset;
+      if (zoomLevel >= 80) return 420 - offset;
+      return 370 - offset;
+  }, [zoomLevel, cardSize, showShortTermDebt]);
 
   // Adjust padding and text size for smaller zoom levels
   const contentPadding = zoomLevel < 80 ? 'p-3' : 'p-3 md:p-5';
@@ -235,8 +242,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
 
   // --- NORMAL VIEW (Scaled) ---
   return (
-    <div 
-      className={`${heightClass} perspective-[1000px] metric-card select-none ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+    <div
+      className={`${heightClass} perspective-[1000px] metric-card select-none transition-all duration-300 ${isSortMode ? 'animate-wiggle cursor-grab active:cursor-grabbing z-10' : 'cursor-pointer'}`}
+      style={cardHeight ? { height: `${cardHeight}px` } : undefined}
       onClick={handleClick}
       draggable={isSortMode}
       onDragStart={(e) => onDragStart && onDragStart(e, index)}
@@ -322,7 +330,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   <RowItem icon={Wallet} label="Likviditet" subLabel={data.liquidityDate ? `(${data.liquidityDate})` : ''} value={data.liquidity} />
                   <RowItem icon={ArrowUpRight} label="Fordringer" subLabel={data.receivablesDate ? `(${data.receivablesDate})` : ''} value={data.receivables} />
                   <RowItem icon={ArrowDownRight} label="Leverandørgjeld" subLabel={data.accountsPayableDate ? `(${data.accountsPayableDate})` : ''} value={data.accountsPayable} />
-                  {/* Reordered: Public Fees, then Salary */}
+                  {showShortTermDebt && <RowItem icon={ArrowDownRight} label="Kortsiktig gjeld" subLabel={data.shortTermDebtDate ? `(${data.shortTermDebtDate})` : ''} value={data.shortTermDebt} />}
                   <RowItem icon={Landmark} label="Off. Avgifter" subLabel={data.publicFeesDate ? `(${data.publicFeesDate})` : ''} value={data.publicFees} />
                   <RowItem icon={Banknote} label="Lønnskostnad" subLabel={data.salaryExpensesDate ? `(${data.salaryExpensesDate})` : ''} value={data.salaryExpenses} />
                   

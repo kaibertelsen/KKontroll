@@ -57,6 +57,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.GRID);
   const [cardSize, setCardSize] = useState<'normal' | 'compact'>('normal');
   const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
+  const [showShortTermDebt, setShowShortTermDebt] = useState<boolean>(true);
   const [selectedCompany, setSelectedCompany] = useState<ComputedCompanyData | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
   
@@ -1102,8 +1103,9 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const totalReceivables = computedData.reduce((acc, curr) => acc + curr.receivables, 0);
   const totalPayables = computedData.reduce((acc, curr) => acc + curr.accountsPayable, 0);
   const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
-  const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0); 
-  const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees + totalSalaryExpenses);
+  const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0);
+  const totalShortTermDebt = computedData.reduce((acc, curr) => acc + (curr.shortTermDebt || 0), 0);
+  const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees + (showShortTermDebt ? totalShortTermDebt : 0));
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
   const lastMonthDisplay = new Date(new Date().getFullYear(), new Date().getMonth(), 0).toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
@@ -1391,6 +1393,16 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                         >
                             <Activity size={16} />
                         </button>
+
+                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
+
+                        <button
+                            onClick={() => setShowShortTermDebt(v => !v)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${showShortTermDebt ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
+                            title="Slå av/på Kortsiktig gjeld i regnestykker"
+                        >
+                            {showShortTermDebt ? 'Slå av Kortsiktig gjeld' : 'Slå på Kortsiktig gjeld'}
+                        </button>
                     </div>
 
                     <div className="flex bg-slate-200/60 dark:bg-slate-800 p-1 rounded-lg self-end md:self-auto transition-colors duration-300">
@@ -1415,11 +1427,12 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                             <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700"><div className="bg-emerald-100 dark:bg-emerald-900/30 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4"><ShieldAlert className="text-emerald-600 dark:text-emerald-400" size={24} /></div><h3 className="text-lg font-bold text-slate-900 dark:text-white">Ingen selskaper krever kontroll</h3></div>
                         )}
                         
-                        <DashboardGrid 
+                        <DashboardGrid
                             sortedData={sortedData}
                             isSortMode={isSortMode}
                             cardSize={cardSize}
                             zoomLevel={zoomLevel}
+                            showShortTermDebt={showShortTermDebt}
                             onSelectCompany={setSelectedCompany}
                             onDragStart={onDragStart}
                             onDragEnter={onDragEnter}
@@ -1490,9 +1503,11 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         totalLiquidity={totalLiquidity}
         totalReceivables={totalReceivables}
         totalPayables={totalPayables}
+        totalShortTermDebt={totalShortTermDebt}
         totalPublicFees={totalPublicFees}
         totalSalaryExpenses={totalSalaryExpenses}
         totalWorkingCapital={totalWorkingCapital}
+        showShortTermDebt={showShortTermDebt}
         isAdminMode={isAdminMode}
       />
     </div>

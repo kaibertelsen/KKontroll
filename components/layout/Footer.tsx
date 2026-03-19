@@ -9,9 +9,11 @@ interface FooterProps {
   totalLiquidity: number;
   totalReceivables: number;
   totalPayables: number;
+  totalShortTermDebt: number;
   totalPublicFees: number;
   totalSalaryExpenses: number;
   totalWorkingCapital: number;
+  showShortTermDebt: boolean;
   isAdminMode: boolean;
 }
 
@@ -35,9 +37,11 @@ const Footer: React.FC<FooterProps> = ({
   totalLiquidity,
   totalReceivables,
   totalPayables,
+  totalShortTermDebt,
   totalPublicFees,
   totalSalaryExpenses,
   totalWorkingCapital,
+  showShortTermDebt,
   isAdminMode
 }) => {
   if (isAdminMode) return null;
@@ -84,13 +88,20 @@ const Footer: React.FC<FooterProps> = ({
                         bgClass="bg-sky-50/50 border-sky-100/50 dark:bg-sky-900/10 dark:border-sky-800/50" 
                         textClass="text-sky-600 dark:text-sky-400"
                     />
-                    <MetricChip 
-                        label="Lev.Gjeld" 
-                        value={totalPayables} 
-                        bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50" 
+                    <MetricChip
+                        label="Lev.Gjeld"
+                        value={totalPayables}
+                        bgClass="bg-amber-50/50 border-amber-100/50 dark:bg-amber-900/10 dark:border-amber-800/50"
                         textClass="text-amber-600 dark:text-amber-400"
                     />
-                    {/* Salary Chip */}
+                    {showShortTermDebt && (
+                    <MetricChip
+                        label="Kort.Gjeld"
+                        value={totalShortTermDebt}
+                        bgClass="bg-orange-50/50 border-orange-100/50 dark:bg-orange-900/10 dark:border-orange-800/50"
+                        textClass="text-orange-600 dark:text-orange-400"
+                    />
+                    )}
                     <MetricChip 
                         label="Lønn" 
                         value={totalSalaryExpenses} 

@@ -8,6 +8,7 @@ interface DashboardGridProps {
   isSortMode: boolean;
   cardSize: 'normal' | 'compact';
   zoomLevel: number;
+  showShortTermDebt: boolean;
   onSelectCompany: (company: ComputedCompanyData) => void;
   onDragStart: (e: React.DragEvent, index: number) => void;
   onDragEnter: (e: React.DragEvent, index: number) => void;
@@ -19,6 +20,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
   isSortMode,
   cardSize,
   zoomLevel,
+  showShortTermDebt,
   onSelectCompany,
   onDragStart,
   onDragEnter,
@@ -36,9 +38,9 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
   return (
     <AnimatedGrid className={`grid grid-cols-1 sm:grid-cols-2 ${getGridColumnClass()} pb-24 transition-all duration-500 ease-in-out`}>
         {sortedData.map((company, index) => (
-            <MetricCard 
-                key={company.id} 
-                data={company} 
+            <MetricCard
+                key={company.id}
+                data={company}
                 onSelect={onSelectCompany}
                 isSortMode={isSortMode}
                 onDragStart={onDragStart}
@@ -46,7 +48,8 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
                 onDragEnd={onDragEnd}
                 index={index}
                 cardSize={cardSize}
-                zoomLevel={zoomLevel} // Pass zoom level
+                zoomLevel={zoomLevel}
+                showShortTermDebt={showShortTermDebt}
             />
         ))}
     </AnimatedGrid>
