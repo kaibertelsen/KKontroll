@@ -61,6 +61,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const [cardSize, setCardSize] = useState<'normal' | 'compact'>('normal');
   const [isTodayMode, setIsTodayMode] = useState<boolean>(false);
   const [showShortTermDebt, setShowShortTermDebt] = useState<boolean>(true);
+  const [showLoyaltyBonus, setShowLoyaltyBonus] = useState<boolean>(true);
   const [isCardSettingsOpen, setIsCardSettingsOpen] = useState(false);
   const [visibleFields, setVisibleFields] = useState({
     omsetning: true,
@@ -492,6 +493,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     publicFees: Number(c.publicFees || c.public_fees || 0),
                     salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0),
                     shortTermDebt: Number(c.shortTermDebt || c.short_term_debt || 0),
+                    loyaltyBonus: Number(c.loyaltyBonus || c.loyalty_bonus || 0),
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
@@ -631,6 +633,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               public_fees: newCompany.publicFees,
               salary_expenses: newCompany.salaryExpenses,
               short_term_debt: newCompany.shortTermDebt || 0,
+              loyalty_bonus: newCompany.loyaltyBonus || 0,
               liquidity_date: newCompany.liquidityDate,
               receivables_date: newCompany.receivablesDate,
               accounts_payable_date: newCompany.accountsPayableDate,
@@ -676,6 +679,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               public_fees: updatedCompany.publicFees,
               salary_expenses: updatedCompany.salaryExpenses,
               short_term_debt: updatedCompany.shortTermDebt || 0,
+              loyalty_bonus: updatedCompany.loyaltyBonus || 0,
               liquidity_date: updatedCompany.liquidityDate,
               receivables_date: updatedCompany.receivablesDate,
               accounts_payable_date: updatedCompany.accountsPayableDate,
@@ -1122,6 +1126,8 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const totalPublicFees = computedData.reduce((acc, curr) => acc + curr.publicFees, 0);
   const totalSalaryExpenses = computedData.reduce((acc, curr) => acc + (curr.salaryExpenses || 0), 0);
   const totalShortTermDebt = computedData.reduce((acc, curr) => acc + (curr.shortTermDebt || 0), 0);
+  const curMonth = new Date().getMonth() + 1;
+  const totalLoyaltyBonusYTD = computedData.reduce((acc, curr) => acc + Math.round((curr.loyaltyBonus || 0) / 12 * curMonth), 0);
   const totalWorkingCapital = (totalLiquidity + totalReceivables) - (totalPayables + totalPublicFees + (showShortTermDebt ? totalShortTermDebt : 0));
   
   const currentDateDisplay = new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' });
@@ -1245,6 +1251,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         onSaveMonthlyEntry={handleSaveMonthlyEntry}
         monthlyEntries={monthlyEntries}
         onDeleteMonthlyEntry={handleDeleteMonthlyEntry}
+        showLoyaltyBonus={showLoyaltyBonus}
       />
     );
   }
@@ -1411,16 +1418,6 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                             <Activity size={16} />
                         </button>
 
-                        <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-2"></div>
-
-                        <button
-                            onClick={() => setShowShortTermDebt(v => !v)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${showShortTermDebt ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700/50'}`}
-                            title="Slå av/på Kortsiktig gjeld i regnestykker"
-                        >
-                            {showShortTermDebt ? 'Slå av Kortsiktig gjeld' : 'Slå på Kortsiktig gjeld'}
-                        </button>
-
                         <button
                             onClick={() => setIsCardSettingsOpen(true)}
                             className="p-2 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:bg-slate-100 dark:hover:bg-slate-700/50"
@@ -1458,6 +1455,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                             cardSize={cardSize}
                             zoomLevel={zoomLevel}
                             showShortTermDebt={showShortTermDebt}
+                            showLoyaltyBonus={showLoyaltyBonus}
                             visibleFields={visibleFields}
                             onSelectCompany={setSelectedCompany}
                             onDragStart={onDragStart}
@@ -1516,6 +1514,45 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
 
               <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
                 <p className="text-xs text-slate-400 dark:text-slate-500">Velg hvilke felter som vises på firmakortene og i footeren. Påvirker ikke utregninger.</p>
+
+                {/* Kortsiktig gjeld – calculation toggle */}
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500 mb-2">Utregning</p>
+                  <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <label className="flex items-start justify-between px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors gap-3 border-b border-slate-200 dark:border-slate-700/60">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${showShortTermDebt ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                          Kortsiktig gjeld i utregning
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-snug">
+                          Når på: trekkes fra Netto Arbeidskapital. Når av: vises som rad, men påvirker ikke summen.
+                        </p>
+                      </div>
+                      <div className="relative shrink-0 mt-0.5">
+                        <input type="checkbox" checked={showShortTermDebt} onChange={() => setShowShortTermDebt(v => !v)} className="sr-only" />
+                        <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${showShortTermDebt ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                          <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm absolute transition-all duration-200" style={{ top: '3px', left: showShortTermDebt ? '18px' : '3px' }} />
+                        </div>
+                      </div>
+                    </label>
+                    <label className="flex items-start justify-between px-4 py-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium ${showLoyaltyBonus ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-500'}`}>
+                          Lojalitetsbonus i utregning
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5 leading-snug">
+                          Når på: årssum fordelt på 12 mnd trekkes fra Resultat YTD på kortene og i footeren. Settes per selskap i admin.
+                        </p>
+                      </div>
+                      <div className="relative shrink-0 mt-0.5">
+                        <input type="checkbox" checked={showLoyaltyBonus} onChange={() => setShowLoyaltyBonus(v => !v)} className="sr-only" />
+                        <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${showLoyaltyBonus ? 'bg-sky-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                          <div className="w-3.5 h-3.5 bg-white rounded-full shadow-sm absolute transition-all duration-200" style={{ top: '3px', left: showLoyaltyBonus ? '18px' : '3px' }} />
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
 
                 {/* Toggle all */}
                 <button
@@ -1632,7 +1669,9 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         totalPublicFees={totalPublicFees}
         totalSalaryExpenses={totalSalaryExpenses}
         totalWorkingCapital={totalWorkingCapital}
+        totalLoyaltyBonusYTD={totalLoyaltyBonusYTD}
         showShortTermDebt={showShortTermDebt}
+        showLoyaltyBonus={showLoyaltyBonus}
         visibleFields={visibleFields}
         isAdminMode={isAdminMode}
       />

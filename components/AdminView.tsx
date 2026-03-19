@@ -89,6 +89,7 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
         accountsPayable: 0,
         publicFees: 0,
         salaryExpenses: 0,
+        loyaltyBonus: 0,
         liquidityDate: new Date().toLocaleDateString('no-NO'),
         receivablesDate: new Date().toLocaleDateString('no-NO'),
         accountsPayableDate: new Date().toLocaleDateString('no-NO'),
@@ -869,6 +870,18 @@ const AdminView: React.FC<AdminViewProps> = ({ currentView, companies, users, al
                   value={formData.manager || ''}
                   onChange={e => setFormData(prev => ({ ...prev, manager: e.target.value }))}
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1 block">Lojalitetsbonus (årssum)</label>
+                <input
+                  type="number"
+                  placeholder="0"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none"
+                  value={formData.loyaltyBonus || ''}
+                  onChange={e => setFormData(prev => ({ ...prev, loyaltyBonus: Number(e.target.value) }))}
+                />
+                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">Fordeles på 12 måneder og trekkes fra resultat YTD</p>
               </div>
 
               <div>

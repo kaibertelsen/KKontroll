@@ -36,6 +36,7 @@ interface MetricCardProps {
   cardSize?: 'normal' | 'compact';
   zoomLevel?: number;
   showShortTermDebt?: boolean;
+  showLoyaltyBonus?: boolean;
   visibleFields?: VisibleFields;
 }
 
@@ -56,78 +57,71 @@ const MetricCard: React.FC<MetricCardProps> = ({
   cardSize = 'normal',
   zoomLevel = 100,
   showShortTermDebt = true,
+  showLoyaltyBonus = true,
   visibleFields = DEFAULT_VISIBLE
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
 
   // --- CHART DATA GENERATION ---
   const chartData = useMemo(() => {
-      const items = [];
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Des'];
-      
-      // SAFE PARSING OF BUDGET DATA
-      let bMonths: number[] = [];
+
+      const parseMonths = (raw: any): number[] => {
+          let result: number[] = [];
+          if (Array.isArray(raw)) {
+              result = raw.map(x => Number(x) || 0);
+          } else if (typeof raw === 'object' && raw !== null) {
+              result = Object.values(raw).map(Number);
+          } else if (typeof raw === 'string') {
+              let s = raw.trim();
+              if (s.startsWith('{') && s.endsWith('}')) s = s.replace('{', '[').replace('}', ']');
+              try {
+                  const p = JSON.parse(s);
+                  if (Array.isArray(p)) result = p.map(Number);
+              } catch {
+                  result = s.replace(/[\[\]\{\}]/g, '').split(',').map(Number);
+              }
+          }
+          return result.length === 12 ? result : Array(12).fill(0);
+      };
+
       // @ts-ignore
-      const raw = data.budgetMonths || data.budget_months;
-
-      if (Array.isArray(raw)) {
-          bMonths = raw.map(x => Number(x) || 0);
-      } else if (typeof raw === 'object' && raw !== null) {
-          // Handle object case {0: 100, 1: 200}
-          bMonths = Object.values(raw).map(Number);
-      } else if (typeof raw === 'string') {
-          // Handle Postgres Array string "{100,200}" or JSON "[100,200]"
-          let cleanStr = raw.trim();
-          if (cleanStr.startsWith('{') && cleanStr.endsWith('}')) {
-              cleanStr = cleanStr.replace('{', '[').replace('}', ']');
-          }
-          try {
-              const parsed = JSON.parse(cleanStr);
-              if (Array.isArray(parsed)) bMonths = parsed.map(Number);
-          } catch(e) {
-              // Fallback split
-              const parts = cleanStr.replace(/[\[\]\{\}]/g, '').split(',');
-              if (parts.length > 0) bMonths = parts.map(Number);
-          }
-      }
-
-      if (bMonths.length !== 12) bMonths = Array(12).fill(0);
-
-      // Force distribute total if months are empty or invalid
+      let bMonths = parseMonths(data.budgetMonths || data.budget_months);
       const total = Number(data.budgetTotal || 0);
-      const sum = bMonths.reduce((a, b) => a + b, 0);
-
+      const sum = bMonths.reduce((a: number, b: number) => a + b, 0);
       if ((sum === 0 || isNaN(sum)) && total > 0) {
           const perMonth = Math.round(total / 12);
           bMonths = Array(12).fill(perMonth);
-          bMonths[11] += (total - (perMonth * 12));
+          bMonths[11] += total - perMonth * 12;
       }
+
+      const isScenario = data.budgetType === 'scenario';
+      const bLow = isScenario ? parseMonths(data.budgetMonthsLow) : null;
+      const bHigh = isScenario ? parseMonths(data.budgetMonthsHigh) : null;
 
       const now = new Date();
-      const currentMonthIndex = now.getMonth(); 
-      
+      const currentMonthIndex = now.getMonth();
       const avgResultPerMonth = data.resultYTD / (currentMonthIndex + 1);
-      
+
+      const items: any[] = [];
       for (let i = 0; i <= currentMonthIndex; i++) {
-        const variance = 0.8 + Math.random() * 0.4; 
-        const result = Math.round(avgResultPerMonth * variance);
-        
-        const budget = Number(bMonths[i]) || 0;
-        
-        const prevResult = i > 0 ? items[i-1].cumResult : 0;
-        const prevBudget = i > 0 ? items[i-1].cumBudget : 0;
+          const variance = 0.8 + Math.random() * 0.4;
+          const result = Math.round(avgResultPerMonth * variance);
+          const prevResult = i > 0 ? items[i - 1].cumResult : 0;
+          const prevBudget = i > 0 ? items[i - 1].cumBudget : 0;
+          const prevLow = i > 0 ? items[i - 1].cumLow : 0;
+          const prevHigh = i > 0 ? items[i - 1].cumHigh : 0;
 
-        items.push({
-          month: months[i],
-          cumResult: prevResult + result,
-          cumBudget: prevBudget + budget,
-        });
+          items.push({
+              month: months[i],
+              cumResult: prevResult + result,
+              cumBudget: prevBudget + (Number(bMonths[i]) || 0),
+              cumLow: bLow ? prevLow + (Number(bLow[i]) || 0) : undefined,
+              cumHigh: bHigh ? prevHigh + (Number(bHigh[i]) || 0) : undefined,
+          });
       }
 
-      // Force last point to match actual YTD totals exactly
-      if(items.length > 0) {
-          items[items.length - 1].cumResult = data.resultYTD;
-      }
+      if (items.length > 0) items[items.length - 1].cumResult = data.resultYTD;
       return items;
   }, [data]);
 
@@ -138,8 +132,12 @@ const MetricCard: React.FC<MetricCardProps> = ({
   const TrendIcon = isPositiveTrend ? ArrowUpRight : ArrowDownRight;
 
   // Status Calculation
-  // Formula: (Liquidity + Receivables) - (Payables + PublicFees + ShortTermDebt)
   const statusValue = (data.liquidity + data.receivables) - (data.accountsPayable + (data.publicFees || 0) + (showShortTermDebt ? (data.shortTermDebt || 0) : 0));
+
+  // Loyalty Bonus YTD
+  const curMonthLB = new Date().getMonth() + 1;
+  const loyaltyBonusYTD = Math.round((data.loyaltyBonus || 0) / 12 * curMonthLB);
+  const adjustedResultYTD = data.resultYTD - (showLoyaltyBonus ? loyaltyBonusYTD : 0);
 
   const handleClick = (e: React.MouseEvent) => {
     if (isSortMode) {
@@ -166,6 +164,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
         !visibleFields.budsjett, !visibleFields.likviditet, !visibleFields.fordringer,
         !visibleFields.leverandorgjeld, !(visibleFields.kortsiktigGjeld && showShortTermDebt),
         !visibleFields.offAvgifter, !visibleFields.lonnskostnad, !visibleFields.nettoArbeidskapital,
+        !showLoyaltyBonus,
       ].filter(Boolean).length;
       const rowHeight = 28;
       const offset = hiddenRows * rowHeight;
@@ -314,12 +313,15 @@ const MetricCard: React.FC<MetricCardProps> = ({
               <div className="flex flex-col gap-0 flex-grow">
                   {visibleFields.omsetning && <RowItem icon={TrendingUp} label="Omsetning YTD" value={data.revenue} />}
                   {visibleFields.kostnader && <RowItem icon={TrendingDown} label="Kostnader YTD" value={data.expenses} />}
+                  {showLoyaltyBonus && (
+                    <RowItem icon={TrendingDown} label="Lojalitetsbonus" value={loyaltyBonusYTD} valueColor="text-amber-600 dark:text-amber-400" />
+                  )}
                   {(visibleFields.omsetning || visibleFields.kostnader) && (visibleFields.resultat || visibleFields.budsjett) && <div className="h-px bg-slate-100 dark:bg-slate-700 my-1"></div>}
                   {visibleFields.resultat && (
                     <RowItem
                       icon={BarChart3}
                       label="Resultat YTD"
-                      value={data.resultYTD}
+                      value={adjustedResultYTD}
                       highlight
                       extra={
                           <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded ${trendBg}`} title="Endring mot i fjor">
@@ -405,8 +407,10 @@ const MetricCard: React.FC<MetricCardProps> = ({
                         <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                         <YAxis stroke="#94a3b8" fontSize={10} tickFormatter={(val) => `${(val/1000).toFixed(0)}k`} tickLine={false} axisLine={false} />
                         <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: '#1e293b', color: '#fff' }} formatter={(value: number) => formatCurrency(value)} labelStyle={{ color: '#cbd5e1' }} />
-                        <Area type="monotone" dataKey="cumResult" name="Resultat" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} />
-                        <Line type="monotone" dataKey="cumBudget" name="Budsjett" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={2} dot={false} connectNulls={true} isAnimationActive={false} />
+                        <Area type="monotone" dataKey="cumResult" name="Resultat (Akk)" stroke="#0ea5e9" fillOpacity={1} fill={`url(#colorResult-${data.id})`} strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="cumBudget" name="Budsjett (Akk)" stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} hide={data.budgetType === 'scenario'} />
+                        <Line type="monotone" dataKey="cumHigh" name="Optimist (Akk)" stroke="#22c55e" strokeDasharray="4 4" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} hide={data.budgetType !== 'scenario'} />
+                        <Line type="monotone" dataKey="cumLow" name="Realist (Akk)" stroke="#ef4444" strokeDasharray="4 4" strokeWidth={1.5} dot={false} connectNulls isAnimationActive={false} hide={data.budgetType !== 'scenario'} />
                     </ComposedChart>
                 </ResponsiveContainer>
               </div>

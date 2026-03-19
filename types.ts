@@ -28,6 +28,7 @@ export interface CompanyData {
   publicFeesDate?: string;
   salaryExpensesDate?: string; // New field for Lønnskostnad date
   shortTermDebtDate?: string;
+  loyaltyBonus?: number; // Lojalitetsbonus (årssum, fordeles på 12 mnd)
   lastReportDate: string;
   lastReportBy: string;
   comment: string;

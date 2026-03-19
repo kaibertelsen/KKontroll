@@ -403,6 +403,7 @@ window.initKonsernKontroll = async (userId?: string | number, demoMode?: boolean
           publicFees: Number(c.publicFees || c.public_fees || 0),
           salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0),
           shortTermDebt: Number(c.shortTermDebt || c.short_term_debt || 0),
+          loyaltyBonus: Number(c.loyaltyBonus || c.loyalty_bonus || 0),
           trendHistory: Number(c.trendHistory || c.trend_history || 0),
           prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
           prevDeviation: Number(c.prev_trend || c.prev_trend || 0),

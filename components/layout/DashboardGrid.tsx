@@ -23,6 +23,7 @@ interface DashboardGridProps {
   cardSize: 'normal' | 'compact';
   zoomLevel: number;
   showShortTermDebt: boolean;
+  showLoyaltyBonus: boolean;
   visibleFields: VisibleFields;
   onSelectCompany: (company: ComputedCompanyData) => void;
   onDragStart: (e: React.DragEvent, index: number) => void;
@@ -36,6 +37,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
   cardSize,
   zoomLevel,
   showShortTermDebt,
+  showLoyaltyBonus,
   visibleFields,
   onSelectCompany,
   onDragStart,
@@ -65,6 +67,7 @@ const DashboardGrid: React.FC<DashboardGridProps> = ({
                 cardSize={cardSize}
                 zoomLevel={zoomLevel}
                 showShortTermDebt={showShortTermDebt}
+                showLoyaltyBonus={showLoyaltyBonus}
                 visibleFields={visibleFields}
             />
         ))}

@@ -24,6 +24,7 @@ interface CompanyDetailViewProps {
   onSaveMonthlyEntry?: (entry: MonthlyEntryData) => Promise<void>;
   monthlyEntries?: MonthlyEntryData[];
   onDeleteMonthlyEntry?: (entryId: number) => Promise<void>;
+  showLoyaltyBonus?: boolean;
 }
 
 const toInputDate = (dateStr: string) => {
@@ -41,7 +42,7 @@ const fromInputDate = (dateStr: string) => {
     return d.toLocaleDateString('no-NO', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
-const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects, onSaveMonthlyEntry, monthlyEntries = [], onDeleteMonthlyEntry }) => {
+const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports, forecasts, userRole, onBack, onReportSubmit, onApproveReport, onUnlockReport, onDeleteReport, onForecastSubmit, onUpdateCompany, onRefresh, hasProjectsModule, onOpenProjects, onSaveMonthlyEntry, monthlyEntries = [], onDeleteMonthlyEntry, showLoyaltyBonus = true }) => {
   
   console.log("CompanyDetailView rendering for:", company.name);
 
@@ -106,6 +107,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   // Budget Modal State
   const [isBudgetModalOpen, setIsBudgetModalOpen] = useState(false);
+  const [isLoyaltyBonusModalOpen, setIsLoyaltyBonusModalOpen] = useState(false);
+  const [loyaltyBonusInput, setLoyaltyBonusInput] = useState<number>(0);
   const [budgetFormData, setBudgetFormData] = useState<{
       budgetType: 'standard' | 'scenario';
       entryMode: 'annual' | 'quarterly' | 'monthly';
@@ -354,14 +357,22 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
 
   // --- EFFECTIVE RESULT YTD (from monthly entries when available) ---
   const effectiveResultYTD = useMemo(() => {
-    if (monthlyEntries.length === 0) return company.resultYTD;
     const now = new Date();
     const curYear = now.getFullYear();
     const curMonth = now.getMonth() + 1;
-    return monthlyEntries
-      .filter(e => e.year < curYear || (e.year === curYear && e.month <= curMonth))
-      .reduce((sum, e) => sum + (e.revenue - e.expenses), 0);
-  }, [company.resultYTD, monthlyEntries]);
+    const baseResult = monthlyEntries.length === 0
+      ? company.resultYTD
+      : monthlyEntries
+          .filter(e => e.year < curYear || (e.year === curYear && e.month <= curMonth))
+          .reduce((sum, e) => sum + (e.revenue - e.expenses), 0);
+    const loyaltyBonusYTD = Math.round((company.loyaltyBonus || 0) / 12 * curMonth);
+    return baseResult - (showLoyaltyBonus ? loyaltyBonusYTD : 0);
+  }, [company.resultYTD, company.loyaltyBonus, monthlyEntries, showLoyaltyBonus]);
+
+  const loyaltyBonusYTD = useMemo(() => {
+    const curMonth = new Date().getMonth() + 1;
+    return Math.round((company.loyaltyBonus || 0) / 12 * curMonth);
+  }, [company.loyaltyBonus]);
 
   // --- LOCAL BUDGET YTD (respects isTodayMode) ---
   const localBudgetYTD = useMemo(() => {
@@ -808,9 +819,11 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 I dag <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500 ml-1">({new Date().toLocaleDateString('no-NO', { day: 'numeric', month: 'long' })})</span>
               </button>
             </div>
-            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-11 gap-1.5">
+            <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
                 <StatCard icon={TrendingUp} label="Omsetning YTD" value={company.revenue} />
                 <StatCard icon={TrendingDown} label="Kostnader YTD" value={company.expenses} />
+                {showLoyaltyBonus && <StatCard icon={Banknote} label="Lojalitetsbonus" value={loyaltyBonusYTD} valueColor="text-amber-600 dark:text-amber-400" subText="Trekkes fra resultat" onEdit={userRole === 'controller' ? () => { setLoyaltyBonusInput(company.loyaltyBonus || 0); setIsLoyaltyBonusModalOpen(true); } : undefined} />}
                 <StatCard icon={BarChart3} label="Resultat YTD" value={effectiveResultYTD} subText={`Avvik ${localBudgetYTD.deviationPercent > 0 ? '+' : ''}${localBudgetYTD.deviationPercent.toFixed(1)}%`} highlight={localBudgetYTD.deviationPercent}/>
                 {company.budgetType === 'scenario' && localBudgetYTD.low !== undefined && localBudgetYTD.high !== undefined ? (
                     <div
@@ -841,6 +854,8 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                         <p className="text-[10px] mt-1 leading-none text-slate-400 dark:text-slate-500">{`Årsbudsjett: ${formatCurrency(company.budgetTotal)}`}</p>
                     </div>
                 )}
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-1.5">
                 <StatCard icon={Wallet} label="Likviditet" value={company.liquidity} subText={company.liquidityDate} onAction={() => setShowLiquidityChart(v => !v)} actionIcon={LineChart} actionTitle={showLiquidityChart ? 'Skjul prognose' : 'Vis likviditetsprognose'} actionActive={showLiquidityChart} />
                 <StatCard icon={ArrowUpRight} label="Fordringer" value={company.receivables} subText={company.receivablesDate} />
                 <StatCard icon={ArrowDownRight} label="Lev.Gjeld" value={company.accountsPayable} subText={company.accountsPayableDate} />
@@ -848,6 +863,7 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 <StatCard icon={Banknote} label="Lønn" value={company.salaryExpenses} subText={company.salaryExpensesDate} />
                 <StatCard icon={Landmark} label="Off.Avg" value={company.publicFees} subText={company.publicFeesDate} />
                 <StatCard icon={Activity} label="Arb.Kapital" value={statusValue} valueColor="text-sky-600 dark:text-sky-400" subText="Liq + Ford − Gjeld" />
+            </div>
             </div>
         </div>
 
@@ -1793,6 +1809,57 @@ const CompanyDetailView: React.FC<CompanyDetailViewProps> = ({ company, reports,
                 </div>
             );
         })()}
+
+      {isLoyaltyBonusModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-200 dark:border-slate-700">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">Lojalitetsbonus</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{company.name}</p>
+              </div>
+              <button onClick={() => setIsLoyaltyBonusModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold uppercase text-slate-500 dark:text-slate-400 mb-1.5 block">Årssum (kr)</label>
+                <input
+                  type="number"
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2.5 text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 outline-none text-sm font-mono"
+                  value={loyaltyBonusInput || ''}
+                  onChange={e => setLoyaltyBonusInput(Number(e.target.value))}
+                  placeholder="0"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1.5">Fordeles på 12 måneder og trekkes fra Resultat YTD</p>
+              </div>
+              {loyaltyBonusInput > 0 && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-lg px-3 py-2.5">
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">Per måned: <span className="font-bold">{formatCurrency(Math.round(loyaltyBonusInput / 12))}</span></p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium mt-0.5">YTD ({new Date().getMonth() + 1} mnd): <span className="font-bold">{formatCurrency(Math.round(loyaltyBonusInput / 12 * (new Date().getMonth() + 1)))}</span></p>
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-5 flex justify-end gap-3">
+              <button onClick={() => setIsLoyaltyBonusModalOpen(false)}
+                className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg font-medium text-sm transition-colors">
+                Avbryt
+              </button>
+              <button
+                onClick={() => {
+                  onUpdateCompany({ ...company, loyaltyBonus: loyaltyBonusInput });
+                  setIsLoyaltyBonusModalOpen(false);
+                }}
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-white rounded-lg font-bold text-sm shadow-md transition-colors flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Lagre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
     </div>
