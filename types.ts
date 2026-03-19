@@ -21,11 +21,13 @@ export interface CompanyData {
   accountsPayable: number;
   publicFees: number; 
   salaryExpenses: number; // New field for Lønnskostnad
-  liquidityDate: string; 
-  receivablesDate?: string; 
+  shortTermDebt: number; // Kortsiktig gjeld
+  liquidityDate: string;
+  receivablesDate?: string;
   accountsPayableDate?: string;
-  publicFeesDate?: string; 
+  publicFeesDate?: string;
   salaryExpensesDate?: string; // New field for Lønnskostnad date
+  shortTermDebtDate?: string;
   lastReportDate: string;
   lastReportBy: string;
   comment: string;
@@ -73,12 +75,14 @@ export interface ReportLogItem {
   accountsPayable?: number | null;
   publicFees?: number | null; 
   salaryExpenses?: number | null; // New field
-  
+  shortTermDebt?: number | null;
+
   liquidityDate?: string;
   receivablesDate?: string;
   accountsPayableDate?: string;
-  publicFeesDate?: string; 
+  publicFeesDate?: string;
   salaryExpensesDate?: string; // New field
+  shortTermDebtDate?: string;
   
   source: string;
   approvedBy?: string;
@@ -160,6 +164,7 @@ export interface MonthlyEntryData {
   accountsPayable: number;
   salaryExpenses: number;
   publicFees: number;
+  shortTermDebt: number;
 }
 
 export interface UserProfile {

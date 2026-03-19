@@ -278,6 +278,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           accountsPayable: Number(r.accounts_payable || 0),
           salaryExpenses: Number(r.salary_expenses || 0),
           publicFees: Number(r.public_fees || 0),
+          shortTermDebt: Number(r.short_term_debt || 0),
         }));
         setMonthlyEntries(mapped);
       }
@@ -298,7 +299,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
       const rows: any[] = allEntries.rows || [];
 
       let ytdRevenue = 0, ytdExpenses = 0, ytdLiquidity = 0, ytdReceivables = 0;
-      let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0;
+      let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0, ytdShortTermDebt = 0;
       for (const r of rows) {
         const rYear = Number(r.year);
         const rMonth = Number(r.month);
@@ -310,6 +311,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           ytdAccountsPayable += Number(r.accounts_payable || 0);
           ytdSalary += Number(r.salary_expenses || 0);
           ytdPublicFees += Number(r.public_fees || 0);
+          ytdShortTermDebt += Number(r.short_term_debt || 0);
         }
       }
 
@@ -325,6 +327,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           accounts_payable: ytdAccountsPayable,
           salary_expenses: ytdSalary,
           public_fees: ytdPublicFees,
+          short_term_debt: ytdShortTermDebt,
         },
       });
     }
@@ -370,12 +373,14 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
          receivables: r.receivables,
          accountsPayable: r.accountsPayable || r.accounts_payable,
          publicFees: r.publicFees || r.public_fees,
-         salaryExpenses: r.salaryExpenses || r.salary_expenses, 
+         salaryExpenses: r.salaryExpenses || r.salary_expenses,
+         shortTermDebt: r.shortTermDebt || r.short_term_debt || null,
          liquidityDate: r.liquidityDate || r.liquidity_date || '',
          receivablesDate: r.receivablesDate || r.receivables_date || '',
          accountsPayableDate: r.accountsPayableDate || r.accounts_payable_date || '',
          publicFeesDate: r.publicFeesDate || r.public_fees_date || '',
-         salaryExpensesDate: r.salaryExpensesDate || r.salary_expenses_date || '', 
+         salaryExpensesDate: r.salaryExpensesDate || r.salary_expenses_date || '',
+         shortTermDebtDate: r.shortTermDebtDate || r.short_term_debt_date || '',
          source: r.source || 'Manuell',
          approvedBy: r.approvedByUserId || r.approved_by_user_id ? 'Kontroller' : undefined,
          approvedAt: r.approvedAt || r.approved_at ? new Date(r.approvedAt || r.approved_at).toLocaleDateString('no-NO') : undefined,
@@ -468,6 +473,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     accountsPayable: Number(c.accountsPayable || c.accounts_payable || 0),
                     publicFees: Number(c.publicFees || c.public_fees || 0),
                     salaryExpenses: Number(c.salaryExpenses || c.salary_expenses || 0),
+                    shortTermDebt: Number(c.shortTermDebt || c.short_term_debt || 0),
                     trendHistory: Number(c.trendHistory || c.trend_history || 0),
                     prevLiquidity: Number(c.prevLiquidity || c.prev_liquidity || 0),
                     prevDeviation: Number(c.prevTrend || c.prev_trend || 0),
@@ -482,6 +488,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     accountsPayableDate: c.accountsPayableDate || c.accounts_payable_date || '',
                     publicFeesDate: c.publicFeesDate || c.public_fees_date || '',
                     salaryExpensesDate: c.salaryExpensesDate || c.salary_expenses_date || '',
+                    shortTermDebtDate: c.shortTermDebtDate || c.short_term_debt_date || '',
                     lastReportDate: c.lastReportDate || c.last_report_date || '',
                     lastReportBy: c.lastReportBy || c.last_report_by || '',
                     comment: c.currentComment || c.current_comment || '',
@@ -605,6 +612,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               accounts_payable: newCompany.accountsPayable,
               public_fees: newCompany.publicFees,
               salary_expenses: newCompany.salaryExpenses,
+              short_term_debt: newCompany.shortTermDebt || 0,
               liquidity_date: newCompany.liquidityDate,
               receivables_date: newCompany.receivablesDate,
               accounts_payable_date: newCompany.accountsPayableDate,
@@ -649,6 +657,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               accounts_payable: updatedCompany.accountsPayable,
               public_fees: updatedCompany.publicFees,
               salary_expenses: updatedCompany.salaryExpenses,
+              short_term_debt: updatedCompany.shortTermDebt || 0,
               liquidity_date: updatedCompany.liquidityDate,
               receivables_date: updatedCompany.receivablesDate,
               accounts_payable_date: updatedCompany.accountsPayableDate,
@@ -770,6 +779,10 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
               reportPayload.salary_expenses = Number(reportData.salaryExpenses);
               if(reportData.salaryExpensesDate) reportPayload.salary_expenses_date = reportData.salaryExpensesDate;
           }
+          if(reportData.shortTermDebt !== undefined && reportData.shortTermDebt !== '') {
+              reportPayload.short_term_debt = Number(reportData.shortTermDebt);
+              if(reportData.shortTermDebtDate) reportPayload.short_term_debt_date = reportData.shortTermDebtDate;
+          }
 
           if (reportData.id) {
               await patchNEON({ table: 'reports', data: { id: reportData.id, ...reportPayload } });
@@ -807,6 +820,10 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           if(reportData.salaryExpenses !== undefined && reportData.salaryExpenses !== '') {
               companyUpdate.salary_expenses = Number(reportData.salaryExpenses);
               if(reportData.salaryExpensesDate) companyUpdate.salary_expenses_date = reportData.salaryExpensesDate;
+          }
+          if(reportData.shortTermDebt !== undefined && reportData.shortTermDebt !== '') {
+              companyUpdate.short_term_debt = Number(reportData.shortTermDebt);
+              if(reportData.shortTermDebtDate) companyUpdate.short_term_debt_date = reportData.shortTermDebtDate;
           }
 
           companyUpdate.last_report_date = new Date().toLocaleDateString('no-NO');
@@ -1130,6 +1147,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
       accounts_payable: entry.accountsPayable,
       salary_expenses: entry.salaryExpenses,
       public_fees: entry.publicFees,
+      short_term_debt: entry.shortTermDebt,
     };
     if (existingRow) {
       await patchNEON({ table: 'monthly_entries', data: { id: existingRow.id, ...entryData } });
@@ -1146,7 +1164,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
 
     // Sum YTD: all entries where (year < curYear) or (year === curYear and month <= curMonth)
     let ytdRevenue = 0, ytdExpenses = 0, ytdLiquidity = 0, ytdReceivables = 0;
-    let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0;
+    let ytdAccountsPayable = 0, ytdSalary = 0, ytdPublicFees = 0, ytdShortTermDebt = 0;
     for (const r of rows) {
       const rYear = Number(r.year);
       const rMonth = Number(r.month);
@@ -1158,6 +1176,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         ytdAccountsPayable += Number(r.accounts_payable || 0);
         ytdSalary += Number(r.salary_expenses || 0);
         ytdPublicFees += Number(r.public_fees || 0);
+        ytdShortTermDebt += Number(r.short_term_debt || 0);
       }
     }
 
@@ -1174,6 +1193,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         accounts_payable: ytdAccountsPayable,
         salary_expenses: ytdSalary,
         public_fees: ytdPublicFees,
+        short_term_debt: ytdShortTermDebt,
         last_report_date: new Date().toLocaleDateString('no-NO'),
         last_report_by: userProfile.fullName,
       },
