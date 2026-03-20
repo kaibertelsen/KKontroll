@@ -107,10 +107,18 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   const reloadPools = async () => {
     try {
       const res = await getNEON({ table: 'liquidity_pools', where: { group_id: userProfile.groupId } });
+      const parseCompanyIds = (raw: any): number[] => {
+        if (Array.isArray(raw)) return raw;
+        if (!raw) return [];
+        if (typeof raw === 'string') {
+          try { const p = JSON.parse(raw); return Array.isArray(p) ? p : []; } catch { return []; }
+        }
+        return []; // handles {} (empty object from Neon)
+      };
       const pools: LiquidityPool[] = (res.rows || []).map((r: any) => ({
         id: r.id,
         name: r.name,
-        companyIds: Array.isArray(r.company_ids) ? r.company_ids : (r.company_ids ? JSON.parse(r.company_ids) : []),
+        companyIds: parseCompanyIds(r.company_ids),
       }));
       setLiquidityPools(pools);
     } catch (e) {
@@ -118,11 +126,15 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
     }
   };
 
-  useEffect(() => { reloadPools(); }, []);
+  useEffect(() => {
+    if (!isDemo && effectiveRole === 'controller') {
+      reloadPools();
+    }
+  }, [viewMode, isDemo, effectiveRole]);
 
   const handleCreatePool = async (name: string) => {
     try {
-      await postNEON({ table: 'liquidity_pools', data: { group_id: userProfile.groupId, name, company_ids: [] } });
+      await postNEON({ table: 'liquidity_pools', data: { group_id: userProfile.groupId, name, company_ids: JSON.stringify([]) } });
       await reloadPools();
     } catch (e) { console.error('Failed to create pool', e); }
   };
@@ -143,7 +155,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
     // Optimistic update
     setLiquidityPools(prev => prev.map(p => p.id === poolId ? { ...p, companyIds: newIds } : p));
     try {
-      await patchNEON({ table: 'liquidity_pools', data: { id: poolId, company_ids: newIds } });
+      await patchNEON({ table: 'liquidity_pools', data: { id: poolId, company_ids: JSON.stringify(newIds) } });
     } catch (e) {
       console.error('Failed to update pool', e);
       await reloadPools();
