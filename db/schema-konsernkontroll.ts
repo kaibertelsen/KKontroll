@@ -207,7 +207,18 @@ export const projects = pgTable("projects", {
 });
 
 /* -------------------------------------------------
-   8. GROUP FEATURES
+   8. LIQUIDITY POOLS
+---------------------------------------------------*/
+export const liquidityPools = pgTable("liquidity_pools", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").references(() => groups.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  companyIds: json("company_ids").$type<number[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/* -------------------------------------------------
+   9. GROUP FEATURES
 ---------------------------------------------------*/
 export const groupFeatures = pgTable("group_features", {
   id: serial("id").primaryKey(),

@@ -4,7 +4,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 const ALLOWED_TABLES = new Set([
   'groups', 'companies', 'users', 'usercompanyaccess', 'usergroupaccess',
   'reports', 'forecasts', 'logs', 'projects', 'group_features', 'project_logs',
-  'monthly_entries'
+  'monthly_entries', 'liquidity_pools'
 ]);
 
 const SYSTEM_PARAMS = new Set([

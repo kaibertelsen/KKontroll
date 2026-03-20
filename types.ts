@@ -149,6 +149,13 @@ export enum ViewMode {
   USER_ADMIN = 'USER_ADMIN',
   SUPER_ADMIN = 'SUPER_ADMIN',
   PROJECTS = 'PROJECTS',
+  LIQUIDITY_POOL = 'LIQUIDITY_POOL',
+}
+
+export interface LiquidityPool {
+  id: number;
+  name: string;
+  companyIds: number[];
 }
 
 export type StatusType = 'success' | 'warning' | 'danger';

@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile, MonthlyEntryData } from './types';
+import { ComputedCompanyData, SortField, ViewMode, CompanyData, UserData, ReportLogItem, ForecastItem, UserProfile, MonthlyEntryData, LiquidityPool } from './types';
 import AnalyticsView from './components/AnalyticsView';
 import PulseView from './components/PulseView';
 import CompanyDetailView from './components/CompanyDetailView';
 import AdminView from './components/AdminView';
 import UserAdminView from './components/UserAdminView';
 import SuperAdminView from './components/SuperAdminView';
+import LiquidityPoolView from './components/LiquidityPoolView';
 import ProjectDashboard from './components/ProjectDashboard';
 import ProjectDetailView from './components/ProjectDetailView';
 import Header from './components/layout/Header';
@@ -15,7 +16,7 @@ import { postNEON, patchNEON, deleteNEON, getNEON } from './utils/neon';
 import { hashPassword } from './utils/crypto';
 import { logActivity } from './utils/logging';
 import { 
-  ArrowUpDown, 
+  ArrowUpDown,
   ShieldAlert,
   Shield,
   Check,
@@ -34,7 +35,8 @@ import {
   Activity,
   Settings,
   Eye,
-  EyeOff
+  EyeOff,
+  Banknote
 } from 'lucide-react';
 
 interface AppProps {
@@ -98,6 +100,55 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
   // SORTING STATE
   const [isSortMode, setIsSortMode] = useState(false);
   const [originalOrder, setOriginalOrder] = useState<CompanyData[]>([]);
+
+  // LIQUIDITY POOLS (stored in Neon DB)
+  const [liquidityPools, setLiquidityPools] = useState<LiquidityPool[]>([]);
+
+  const reloadPools = async () => {
+    try {
+      const res = await getNEON({ table: 'liquidity_pools', where: { group_id: userProfile.groupId } });
+      const pools: LiquidityPool[] = (res.rows || []).map((r: any) => ({
+        id: r.id,
+        name: r.name,
+        companyIds: Array.isArray(r.company_ids) ? r.company_ids : (r.company_ids ? JSON.parse(r.company_ids) : []),
+      }));
+      setLiquidityPools(pools);
+    } catch (e) {
+      console.error('Failed to load pools', e);
+    }
+  };
+
+  useEffect(() => { reloadPools(); }, []);
+
+  const handleCreatePool = async (name: string) => {
+    try {
+      await postNEON({ table: 'liquidity_pools', data: { group_id: userProfile.groupId, name, company_ids: [] } });
+      await reloadPools();
+    } catch (e) { console.error('Failed to create pool', e); }
+  };
+
+  const handleDeletePool = async (id: number) => {
+    if (!window.confirm('Slett denne poolen?')) return;
+    try {
+      await deleteNEON({ table: 'liquidity_pools', data: id });
+      await reloadPools();
+    } catch (e) { console.error('Failed to delete pool', e); }
+  };
+
+  const handleToggleCompanyInPool = async (poolId: number, companyId: number) => {
+    const pool = liquidityPools.find(p => p.id === poolId);
+    if (!pool) return;
+    const isIn = pool.companyIds.includes(companyId);
+    const newIds = isIn ? pool.companyIds.filter(id => id !== companyId) : [...pool.companyIds, companyId];
+    // Optimistic update
+    setLiquidityPools(prev => prev.map(p => p.id === poolId ? { ...p, companyIds: newIds } : p));
+    try {
+      await patchNEON({ table: 'liquidity_pools', data: { id: poolId, company_ids: newIds } });
+    } catch (e) {
+      console.error('Failed to update pool', e);
+      await reloadPools();
+    }
+  };
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   
@@ -1256,7 +1307,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
     );
   }
 
-  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN || viewMode === ViewMode.SUPER_ADMIN;
+  const isAdminMode = viewMode === ViewMode.ADMIN || viewMode === ViewMode.ADMIN_REPORTS || viewMode === ViewMode.USER_ADMIN || viewMode === ViewMode.SUPER_ADMIN || viewMode === ViewMode.LIQUIDITY_POOL;
 
   return (
     <div className={`min-h-screen bg-slate-50 dark:bg-slate-900 pb-32 font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300 ${isSortMode ? 'sort-mode-active touch-none' : ''}`}>
@@ -1312,6 +1363,12 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
                     >
                         <Users size={16} /> Brukere
                     </button>
+                    <button
+                        onClick={() => setViewMode(ViewMode.LIQUIDITY_POOL)}
+                        className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-6 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${viewMode === ViewMode.LIQUIDITY_POOL ? 'bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                        <Banknote size={16} /> Likviditetspool
+                    </button>
                     {userProfile.isSuperAdmin && (
                         <button
                             onClick={() => setViewMode(ViewMode.SUPER_ADMIN)}
@@ -1344,6 +1401,15 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         
         {viewMode === ViewMode.USER_ADMIN && effectiveRole === 'controller' && (
             <UserAdminView users={users} companies={companies} onAdd={handleAddUser} onUpdate={handleUpdateUser} onDelete={handleDeleteUser} />
+        )}
+        {viewMode === ViewMode.LIQUIDITY_POOL && effectiveRole === 'controller' && (
+            <LiquidityPoolView
+                pools={liquidityPools}
+                companies={companies}
+                onCreatePool={handleCreatePool}
+                onDeletePool={handleDeletePool}
+                onToggleCompany={handleToggleCompanyInPool}
+            />
         )}
         {viewMode === ViewMode.SUPER_ADMIN && userProfile.isSuperAdmin && (
             <SuperAdminView onBack={() => setViewMode(ViewMode.ADMIN)} />
@@ -1657,7 +1723,7 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
           </div>
       )}
 
-      <Footer 
+      <Footer
         totalRevenue={totalRevenue}
         totalExpenses={totalExpenses}
         totalResult={totalResult}
@@ -1674,6 +1740,8 @@ function App({ userProfile, initialCompanies, isDemo, hasMultipleKonsern = false
         showLoyaltyBonus={showLoyaltyBonus}
         visibleFields={visibleFields}
         isAdminMode={isAdminMode}
+        liquidityPools={liquidityPools}
+        companies={companies}
       />
     </div>
   );
